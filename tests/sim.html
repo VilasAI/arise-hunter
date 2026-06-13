@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<title>VIGÍLIA — Simulador de Equilíbrio</title>
+<style>
+  body{font-family:Georgia,serif;background:#161210;color:#e8dcc3;padding:20px;max-width:900px;margin:0 auto}
+  h1{color:#c9a55a} h2{color:#a3937a;font-size:15px;margin-top:24px}
+  table{border-collapse:collapse;width:100%;font-size:13px;font-family:Verdana,sans-serif}
+  th,td{border:1px solid #4a3b29;padding:6px 9px;text-align:right}
+  th{background:#241d16;color:#c9a55a} td:first-child,th:first-child{text-align:left}
+  .ok{color:#94bd52} .aviso{color:#e8c84a} .mau{color:#d05c4e}
+  p{font-size:13px;color:#a3937a}
+</style>
+</head>
+<body>
+<h1>⚖️ Simulador de Equilíbrio</h1>
+<p>Simula um jogador "razoável" no nível de entrada de cada rank (60% dos pontos em Força,
+40% em Vitalidade; equipamento do rank, forjado a metade do potencial) contra a curva de
+inimigos de <b>js/balance.js</b>. Edita o balance.js e recarrega esta página.</p>
+<div id="saida"></div>
+
+<script src="../js/balance.js"></script>
+<script src="../js/data.js"></script>
+<script>
+'use strict';
+
+function simularRank(m){
+  const L = m.nivelReq;
+  const pontos = (L-1) * BAL.jogador.pontosPorNivel;
+  const forca = Math.round(pontos*0.6), vit = pontos - forca;
+
+  // equipamento estimado do rank: raridade sobe com o pesoLoot, forja a meio
+  const ri = Math.min(4, Math.round(m.pesoLoot));
+  const multR = [1.0,1.6,2.4,3.6,5.2][ri];
+  const forjaNv = Math.min(5, 1 + Math.floor(L/7));
+  const base = Math.round(6 + m.nivelMon*2.4);
+  const valor = Math.round(base * multR * (1 + forjaNv*0.18));
+
+  const atq = BAL.jogador.danoBase + forca*BAL.basicas.forca.danoPorPonto + valor + Math.round(valor*0.5*0.5); // arma + meio anel
+  const hp  = BAL.jogador.hpBase + vit*BAL.basicas.vitalidade.hpPorPonto;
+  const def = Math.round(vit*BAL.jogador.defPorVit + valor*BAL.jogador.defPorArmadura);
+  const velAtq = BAL.jogador.velAtqBase;            // sem pontos em AGI neste perfil
+  const ataquesPorSeg = velAtq / 0.55;
+
+  const E = BAL.inimigosRank[m.rank];
+  const dmgNormal = Math.max(1, atq - E.def);
+  const hpNormal = E.hp;                            // mHp médio ≈ 1
+  const golpesNormal = Math.ceil(hpNormal / dmgNormal);
+  const segNormal = golpesNormal / ataquesPorSeg;
+
+  const boss = BAL.inimigoClasse.boss;
+  const hpBoss = E.hp * boss.hp * (1 + (m.salas-1)*BAL.escalaPorSala);
+  const golpesBoss = Math.ceil(hpBoss / dmgNormal);
+  const segBoss = golpesBoss / ataquesPorSeg;
+
+  const danoRecebido = Math.max(1, Math.round(E.dano - def*0.6));
+  const golpesParaMorrer = Math.ceil(hp / danoRecebido);
+  const danoBoss = Math.max(1, Math.round(E.dano*boss.dano*1.6 - def*0.6)); // AoE do boss
+  const aoesParaMorrer = Math.ceil(hp / danoBoss);
+
+  return { rank:m.rank, L, atq, hp, def, segNormal, segBoss, golpesParaMorrer, aoesParaMorrer };
+}
+
+function cls(v, bom, mau, invertido=false){
+  const c = invertido ? (v<=bom?'ok':v<=mau?'aviso':'mau') : (v>=bom?'ok':v>=mau?'aviso':'mau');
+  return `<span class="${c}">${typeof v==='number'?v.toFixed(1).replace('.0',''):v}</span>`;
+}
+
+let html = `<h2>Tempo para abater (ataque básico, sem poderes nem críticos)</h2>
+<table><tr><th>Rank</th><th>Nível</th><th>Dano</th><th>HP</th><th>Def</th>
+<th>Monstro (s)</th><th>Boss (s)</th><th>Golpes p/ morrer</th><th>AoEs boss p/ morrer</th></tr>`;
+
+for(const m of MASMORRAS){
+  const s = simularRank(m);
+  html += `<tr><td><b>${s.rank}</b></td><td>${s.L}</td><td>${s.atq}</td><td>${s.hp}</td><td>${s.def}</td>
+    <td>${cls(s.segNormal, 4, 8, true)}</td>
+    <td>${cls(s.segBoss, 25, 45, true)}</td>
+    <td>${cls(s.golpesParaMorrer, 8, 4)}</td>
+    <td>${cls(s.aoesParaMorrer, 4, 2)}</td></tr>`;
+}
+html += `</table>
+<p><b>Alvos saudáveis:</b> monstro normal morre em ≤4 s (verde), boss em ≤25 s;
+o jogador aguenta ≥8 golpes normais e ≥4 AoEs de boss. Os poderes, críticos, sombras
+e roubo de vida (não simulados) dão folga adicional ao jogador — amarelo é aceitável,
+vermelho merece ajuste no balance.js.</p>
+<h2>Curva de XP</h2>
+<table><tr><th>Nível</th><th>XP p/ subir</th><th>XP por clear do rank adequado</th><th>Clears p/ subir</th></tr>`;
+
+const xpNivel = n => Math.round(BAL.xp.base + Math.pow(n, BAL.xp.expoente)*BAL.xp.mult);
+for(const m of MASMORRAS){
+  const L = Math.max(m.nivelReq, 1);
+  const xpClear = Math.round((20 + m.nivelMon*9) * m.salas * 0.9);
+  html += `<tr><td>${L} (rank ${m.rank})</td><td>${xpNivel(L)}</td><td>${xpClear}</td>
+    <td>${cls(Math.ceil(xpNivel(L)/xpClear), 4, 7, true)}</td></tr>`;
+}
+html += `</table>
+<p><b>Alvo:</b> 1–4 clears por nível no rank adequado (sessões de 2–4 min).</p>`;
+
+document.getElementById('saida').innerHTML = html;
+</script>
+</body>
+</html>

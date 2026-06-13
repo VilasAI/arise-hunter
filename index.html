@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#161210">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>VIGÍLIA — Crónicas dos Portais</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- canvas 3D partilhado (vila + combate), por trás dos overlays 2D -->
+<canvas id="canvas3d"></canvas>
+
+<!-- ============ ECRÃ: TÍTULO ============ -->
+<section id="ecra-titulo" class="ecra ativo">
+  <div class="titulo-fundo"></div>
+  <canvas id="titulo-canvas"></canvas>
+  <div class="titulo-conteudo">
+    <h1 class="logo">VIGÍLIA</h1>
+    <p class="subtitulo">Crónicas dos Portais</p>
+    <p class="tagline">«Há doze anos a Fenda abriu. Desde então, vigiamos.»</p>
+    <button id="btn-comecar" class="btn btn-primario btn-grande">⚔ COMEÇAR A VIGÍLIA</button>
+    <button id="btn-apagar-save" class="btn btn-fantasma">Apagar progresso</button>
+    <p class="versao">v3.0 · 3D · guardado automático</p>
+  </div>
+</section>
+
+<!-- ============ ECRÃ: VILA (hub navegável) ============ -->
+<section id="ecra-hub" class="ecra">
+  <canvas id="hub-canvas"></canvas>
+
+  <header class="hub-topo">
+    <div class="perfil-mini" id="abrir-stats">
+      <div class="avatar"><span data-ic="heroi" data-px="26"></span></div>
+      <div>
+        <div class="perfil-nome" id="hub-nome">Vigia</div>
+        <div class="perfil-nivel">Nv. <span id="hub-nivel">1</span> · Rank <span id="hub-rank">E</span><span id="hub-despertar"></span></div>
+        <div class="barra mini"><div id="hub-xp" class="barra-fill xp"></div></div>
+      </div>
+    </div>
+    <div class="recursos">
+      <span class="recurso"><span data-ic="ouro" data-px="15"></span> <b id="hub-ouro">0</b></span>
+      <span class="recurso"><span data-ic="cristal" data-px="15"></span> <b id="hub-cristais">0</b></span>
+      <span class="recurso"><span data-ic="stamina" data-px="15"></span> <b id="hub-stamina">10/10</b></span>
+      <span class="recurso pontos-alerta" id="hub-pontos-wrap" hidden><span data-ic="ponto" data-px="14"></span> <b id="hub-pontos">0</b> pts</span>
+    </div>
+  </header>
+
+  <button id="btn-interagir" class="btn-interagir" hidden></button>
+
+  <!-- separador BATALHA: overlay sobre a vila -->
+  <div id="batalha-overlay" class="batalha-overlay">
+    <div id="cartoes-batalha" class="cartoes-batalha"></div>
+    <button id="btn-batalha" class="btn-batalha"><span data-ic="portal" data-px="28"></span> PORTAIS</button>
+  </div>
+
+  <!-- conteúdo dos restantes separadores -->
+  <div id="tab-conteudo" class="tab-conteudo" hidden></div>
+
+  <!-- barra de separadores (estilo Clash Royale) -->
+  <nav class="tab-bar">
+    <button class="tab-btn" data-tab="loja"><span data-ic="loja" data-px="26"></span><span class="tab-rotulo">Loja</span><b class="badge" hidden></b></button>
+    <button class="tab-btn" data-tab="ferreiro"><span data-ic="forja" data-px="26"></span><span class="tab-rotulo">Ferreiro</span><b class="badge" hidden></b></button>
+    <button class="tab-btn tab-central ativo" data-tab="batalha"><span data-ic="arma" data-px="34"></span><span class="tab-rotulo">Batalha</span><b class="badge" hidden></b></button>
+    <button class="tab-btn" data-tab="vigia"><span data-ic="heroi" data-px="26"></span><span class="tab-rotulo">Vigia</span><b class="badge" hidden></b></button>
+    <button class="tab-btn" data-tab="missoes"><span data-ic="missao" data-px="26"></span><span class="tab-rotulo">Missões</span><b class="badge" hidden></b></button>
+  </nav>
+
+  <!-- painel deslizante dos edifícios -->
+  <div id="painel" class="painel" hidden>
+    <div class="painel-caixa">
+      <div class="painel-cabeca">
+        <div class="painel-titulo" id="painel-titulo"></div>
+        <button id="painel-fechar" class="hud-btn">✕</button>
+      </div>
+      <div class="painel-corpo" id="painel-corpo"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ECRÃ: COMBATE ============ -->
+<section id="ecra-combate" class="ecra">
+  <canvas id="canvas"></canvas>
+
+  <div class="hud-topo">
+    <button id="btn-fugir" class="hud-btn">✕</button>
+    <div class="hud-centro">
+      <div id="hud-sala" class="hud-sala">Sala 1/4</div>
+      <div class="barra hud-hp"><div id="hud-hp" class="barra-fill hp"></div><span id="hud-hp-txt"></span></div>
+      <div class="barra hud-mp"><div id="hud-mp" class="barra-fill mp"></div></div>
+      <div id="hud-escudo" class="barra hud-escudo" hidden><div class="barra-fill escudo"></div></div>
+    </div>
+    <button id="btn-auto" class="hud-btn" title="Auto-combate">A</button>
+  </div>
+
+  <div id="hud-boss" class="hud-boss" hidden>
+    <div class="boss-nome" id="boss-nome">Boss</div>
+    <div class="barra boss"><div id="boss-hp" class="barra-fill boss"></div></div>
+  </div>
+
+  <div id="slots-poder" class="slots-poder"></div>
+  <button id="btn-atacar" class="btn-atacar"><span data-ic="arma" data-px="34"></span></button>
+  <button id="btn-esquiva" class="btn-esquiva"><span data-ic="agi" data-px="24"></span><div class="cd-sweep" style="--cd:0"></div></button>
+
+  <div id="dica-controlo" class="dica-controlo">
+    Joystick à esquerda para andar · botão grande para atacar · desliza à direita para esquivar
+  </div>
+</section>
+
+<!-- ============ MODAL GENÉRICO ============ -->
+<div id="modal" class="modal" hidden>
+  <div class="modal-caixa" id="modal-caixa"></div>
+</div>
+
+<!-- ============ TOASTS ============ -->
+<div id="toasts"></div>
+
+<script src="js/balance.js"></script>
+<script src="js/data.js"></script>
+<script src="js/art.js"></script>
+<script src="js/powers.js"></script>
+<script src="js/game.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/ui.js"></script>
+
+<!-- motor 3D (three.js + assets KayKit) -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "./lib/three.module.js",
+    "three/addons/": "./lib/jsm/"
+  }
+}
+</script>
+<script type="module" src="js/render3d.js"></script>
+
+<script>
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

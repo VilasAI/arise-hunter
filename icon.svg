@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e0b25a"/>
+      <stop offset="1" stop-color="#8a6a2e"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="#161210"/>
+  <!-- escudo -->
+  <path d="M64 18 L100 30 V62 C100 88 84 104 64 112 C44 104 28 88 28 62 V30 Z"
+        fill="#241d16" stroke="url(#g)" stroke-width="5"/>
+  <!-- espada -->
+  <rect x="61" y="34" width="6" height="46" rx="2" fill="#e8dcc3"/>
+  <rect x="50" y="76" width="28" height="6" rx="2" fill="url(#g)"/>
+  <rect x="60" y="82" width="8" height="12" rx="2" fill="url(#g)"/>
+  <!-- olhos do portal -->
+  <circle cx="52" cy="50" r="4" fill="#8a6fc8"/>
+  <circle cx="76" cy="50" r="4" fill="#8a6fc8"/>
+</svg>
