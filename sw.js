@@ -1,15 +1,11 @@
 ﻿/* Service worker â€” VigÃ­lia
    CÃ³digo (HTML/CSS/JS): network-first â†’ atualizaÃ§Ãµes aplicam-se logo.
    Assets 3D (glb/gltf/bin/png) e lib: cache-first â†’ offline rÃ¡pido. */
-const CACHE = 'vigilia-v11';
+const CACHE = 'vigilia-v14';
 const NUCLEO = [
   './', './index.html', './css/style.css',
-  './js/balance.js', './js/data.js', './js/art.js', './js/powers.js',
-  './js/game.js', './js/combat.js', './js/hub.js', './js/ui.js', './js/render3d.js',
-  './lib/three.module.js',
-  './lib/jsm/loaders/GLTFLoader.js',
-  './lib/jsm/utils/SkeletonUtils.js',
-  './lib/jsm/utils/BufferGeometryUtils.js',
+  './js/balance.js', './js/data.js', './js/art.js', './js/sprites.js', './js/powers.js',
+  './js/classes.js', './js/game.js', './js/combat.js', './js/hub.js', './js/ui.js',
   './manifest.json', './icon.svg',
 ];
 

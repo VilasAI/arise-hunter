@@ -7,7 +7,7 @@ let G = null; // estado global do jogador
 
 function novoJogo(){
   return {
-    nome:'Caçador', nivel:1, xp:0, pontos:0,
+    nome:'Caçador', classe:null, nivel:1, xp:0, pontos:0,
     // básicas: 1 ponto = +1 · avançadas: pontos INVESTIDOS (2 = 1 unidade)
     basicas:{ for:0, vit:0, agi:0 },
     avancadas:{ crit:0, critDano:0, sorte:0, roubo:0, pen:0, cdr:0 },
@@ -48,6 +48,7 @@ function migrarSave(obj){
     obj._migrado = true;
   }
   if(obj.despertar === undefined) obj.despertar = 0;
+  if(obj.classe === undefined) obj.classe = null;
   for(const it of obj.inventario || []){
     if(it.encante && it.encante.stat === 'int') it.encante.stat = 'sorte';
   }
@@ -108,22 +109,24 @@ function statsTotais(){
   const vit   = G.basicas.vit + b.vit;
   const agi   = G.basicas.agi + b.agi;
   const atq   = J.danoBase + forca * BAL.basicas.forca.danoPorPonto + b.atq;
+  const pas = (typeof passivaClasse==='function') ? passivaClasse()
+            : { def:1, pen:0, mp:1, hp:1, crit:0, critDano:0, velMov:0 };
   return {
     forca, vit, agi, atq,
-    hpMax:  J.hpBase + vit * BAL.basicas.vitalidade.hpPorPonto,
-    mpMax:  J.mpBase + (G.nivel-1) * J.mpPorNivel,
-    def:    Math.round(vit * J.defPorVit + b.def),
+    hpMax:  Math.round((J.hpBase + vit * BAL.basicas.vitalidade.hpPorPonto) * pas.hp),
+    mpMax:  Math.round((J.mpBase + (G.nivel-1) * J.mpPorNivel) * pas.mp),
+    def:    Math.round((vit * J.defPorVit + b.def) * pas.def),
     velAtq: J.velAtqBase * (1 + agi * BAL.basicas.agilidade.velAtqPorPonto),
-    velMov: J.velMovBase * (1 + agi * BAL.basicas.agilidade.velMovPorPonto),
-    // avançadas (valor final, caps aplicados; equipamento soma unidades)
-    crit:     valorAvancada('crit',     G.avancadas.crit,     b.crit),
-    critDano: valorAvancada('critDano', G.avancadas.critDano),
+    velMov: J.velMovBase * (1 + agi * BAL.basicas.agilidade.velMovPorPonto) * (1 + pas.velMov),
+    // avançadas (valor final, caps aplicados; equipamento + passiva de classe)
+    crit:     Math.min(60, valorAvancada('crit', G.avancadas.crit, b.crit) + pas.crit),
+    critDano: Math.min(350, valorAvancada('critDano', G.avancadas.critDano) + pas.critDano),
     sorte:    valorAvancada('sorte',    G.avancadas.sorte,    b.sorte)
               + (runaEquipada('fortuna') ? BAL.runas.fortunaSorte : 0),
     roubo:    valorAvancada('roubo',    G.avancadas.roubo)
               + (poderTier('sede') ? PODERES.sede.base.roubo * efeitoPoder('sede') : 0)
               + (runaEquipada('sangue') ? BAL.runas.sangueRoubo : 0),
-    pen:      valorAvancada('pen',      G.avancadas.pen),
+    pen:      Math.min(50, valorAvancada('pen', G.avancadas.pen) + pas.pen),
     cdr:      valorAvancada('cdr',      G.avancadas.cdr),
     danoSkill: atq * BAL.skill.multDano,
     maxSombras: clamp(BAL.sombras.maxBase + Math.floor(G.nivel / BAL.sombras.nivelPorSombra) + G.despertar

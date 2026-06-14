@@ -56,6 +56,35 @@ function irParaHub(){
   mudarTab('batalha');
 }
 
+/* ---------- escolha de classe (jogo novo) ---------- */
+function modalEscolherClasse(aoConcluir){
+  const cards = ORDEM_CLASSES.map(id=>{
+    const cl = CLASSES[id];
+    const pod = cl.poderes.map(pid=>PODERES[pid].nome).join(' · ');
+    return `<button class="classe-cartao" data-classe="${id}" style="border-color:${cl.cor}">
+      <div class="classe-icone" style="border-color:${cl.cor}">${ic(cl.icone,32)}</div>
+      <div class="classe-info">
+        <div class="classe-nome" style="color:${cl.cor}">${cl.nome}</div>
+        <div class="classe-estilo">${cl.estilo}</div>
+        <div class="classe-lema">«${cl.lema}»</div>
+        <div class="classe-passiva"><b>${cl.passiva.nome}:</b> ${cl.passiva.desc}</div>
+        <div class="classe-poderes">${ic('arma',11)} ${pod}</div>
+      </div>
+    </button>`;
+  }).join('');
+  abrirModal(`<div class="modal-titulo">Escolhe a tua classe</div>
+    <div class="modal-sub">Define o teu estilo e as tuas habilidades.</div>
+    <div class="classe-lista">${cards}</div>`);
+  document.querySelectorAll('[data-classe]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const id = b.dataset.classe;
+      escolherClasse(id); fecharModal();
+      toast(`Classe escolhida: ${CLASSES[id].nome}!`);
+      if(aoConcluir) aoConcluir();
+    });
+  });
+}
+
 /* ---------- painéis dos edifícios ---------- */
 const PAINEIS = {
   portais:{ icone:'portal', titulo:'Círculo de Portais' },
@@ -497,7 +526,7 @@ function htmlHeroi(){
     1 ponto a cada ${BAL.poderes.nivelPorPonto} níveis. Ativos equipam-se em ${BAL.poderes.slotsAtivos} slots;
     passivos funcionam sempre. Talento à escolha no tier ${BAL.poderes.tierTalento}.
   </div>`;
-  for(const id of ORDEM_PODERES) h += cartaoPoder(id);
+  for(const id of (typeof poderesDaClasse==='function' ? poderesDaClasse() : ORDEM_PODERES)) h += cartaoPoder(id);
   return h;
 }
 
@@ -914,7 +943,7 @@ document.querySelectorAll('[data-ic]').forEach(el=>{
   el.outerHTML = ic(el.dataset.ic, +(el.dataset.px||16));
 });
 
-$('#btn-comecar').addEventListener('click', ()=>{
+function entrarNoJogo(){
   const premio = verificarDiario();
   irParaHub();
   if(premio) toast(`Prémio diário: +${50+G.nivel*5} ${ic('ouro',13)}, +2 ${ic('cristal',13)}!`);
@@ -929,6 +958,10 @@ $('#btn-comecar').addEventListener('click', ()=>{
     atualizarTopo();
     setTimeout(()=>toast(`${ic('arma',14)} Recebeste a tua primeira arma! Fala com o Mestre Aldric.`), 600);
   }
+}
+$('#btn-comecar').addEventListener('click', ()=>{
+  if(!G.classe){ modalEscolherClasse(entrarNoJogo); return; }
+  entrarNoJogo();
 });
 
 $('#btn-apagar-save').addEventListener('click', ()=>{

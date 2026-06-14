@@ -13,9 +13,6 @@
 </head>
 <body>
 
-<!-- canvas 3D partilhado (vila + combate), por trás dos overlays 2D -->
-<canvas id="canvas3d"></canvas>
-
 <!-- ============ ECRÃ: TÍTULO ============ -->
 <section id="ecra-titulo" class="ecra ativo">
   <div class="titulo-fundo"></div>
@@ -26,7 +23,7 @@
     <p class="tagline">«Há doze anos a Fenda abriu. Desde então, vigiamos.»</p>
     <button id="btn-comecar" class="btn btn-primario btn-grande">⚔ COMEÇAR A VIGÍLIA</button>
     <button id="btn-apagar-save" class="btn btn-fantasma">Apagar progresso</button>
-    <p class="versao">v3.0 · 3D · guardado automático</p>
+    <p class="versao">v3.0 · guardado automático</p>
   </div>
 </section>
 
@@ -50,8 +47,6 @@
       <span class="recurso pontos-alerta" id="hub-pontos-wrap" hidden><span data-ic="ponto" data-px="14"></span> <b id="hub-pontos">0</b> pts</span>
     </div>
   </header>
-
-  <button id="btn-interagir" class="btn-interagir" hidden></button>
 
   <!-- separador BATALHA: overlay sobre a vila -->
   <div id="batalha-overlay" class="batalha-overlay">
@@ -123,22 +118,13 @@
 <script src="js/balance.js"></script>
 <script src="js/data.js"></script>
 <script src="js/art.js"></script>
+<script src="js/sprites.js"></script>
 <script src="js/powers.js"></script>
+<script src="js/classes.js"></script>
 <script src="js/game.js"></script>
 <script src="js/combat.js"></script>
 <script src="js/hub.js"></script>
 <script src="js/ui.js"></script>
-
-<!-- motor 3D (three.js + assets KayKit) -->
-<script type="importmap">
-{
-  "imports": {
-    "three": "./lib/three.module.js",
-    "three/addons/": "./lib/jsm/"
-  }
-}
-</script>
-<script type="module" src="js/render3d.js"></script>
 
 <script>
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

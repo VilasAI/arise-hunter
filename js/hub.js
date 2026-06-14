@@ -19,9 +19,8 @@ const LOCAIS = [
 ];
 
 const HUB = {
-  ativo:false, W:0, H:0, tempo:0, modo3d:false, ent:null, lock3d:0,
-  jog:{ x:0, y:0, alvoX:null, alvoY:null, dir:1, andando:false, _px:0, _py:0 },
-  arrasto:null, perto:null,
+  ativo:false, W:0, H:0, tempo:0,
+  pressao:null,   // local sob o dedo (feedback de toque)
 };
 let hubRaf = 0, hubUltimoT = 0;
 let mapaCache = null;        // cenário pré-renderizado
@@ -32,36 +31,21 @@ let fumos = [];              // partículas de fumo
 /* PRNG determinístico para detalhe do mapa (igual em todos os frames) */
 function criarRnd(seed){ let s=seed; return ()=>{ s=(s*9301+49297)%233280; return s/233280; }; }
 
-const hubTem3D = ()=> !!(window.R3 && window.R3.ok);
 let mapaDim = '';   // evita re-pintar o mapa se o ecrã não mudou
 function hubRedimensionar(){
   const dpr = Math.min(window.devicePixelRatio||1, 2);
   HUB.W = window.innerWidth; HUB.H = window.innerHeight;
   const dim = HUB.W+'x'+HUB.H+'x'+dpr;
-  if(dim === mapaDim && (mapaCache || HUB.modo3d)) return;
+  if(dim === mapaDim && mapaCache) return;
   mapaDim = dim;
   hubCanvas.width = HUB.W*dpr; hubCanvas.height = HUB.H*dpr;
   hctx.setTransform(dpr,0,0,dpr,0,0);
-  if(!HUB.modo3d) prerenderMapa();      // mapa 2D só no fallback
+  prerenderMapa();
 }
-window.addEventListener('resize', ()=>{ if(HUB.ativo){ hubRedimensionar(); if(HUB.modo3d) montarVila3d(); } });
-
-/* (re)constrói a vila 3D e o Vigia controlável */
-function montarVila3d(){
-  if(!hubTem3D()) return;
-  R3.limpar();
-  R3.cenaVila({ W:HUB.W, H:HUB.H });
-  HUB.ent = R3.addPersonagem({ modelo:'Knight', escala:0.5, x:HUB.jog.x, y:HUB.jog.y, spawn:true });
-  HUB.lock3d = 1.0;
-}
+window.addEventListener('resize', ()=>{ if(HUB.ativo) hubRedimensionar(); });
 
 function hubAtivar(){
-  HUB.modo3d = hubTem3D();
   hubRedimensionar();
-  if(HUB.jog.x === 0){ HUB.jog.x = HUB.W*0.5; HUB.jog.y = HUB.H*0.80; }
-  HUB.jog.x = clamp(HUB.jog.x, 20, HUB.W-20);
-  HUB.jog.y = clamp(HUB.jog.y, HUB.H*0.24, HUB.H*0.90);
-  if(HUB.modo3d) montarVila3d();
   HUB.ativo = true;
   hubUltimoT = performance.now();
   cancelAnimationFrame(hubRaf);
@@ -69,34 +53,23 @@ function hubAtivar(){
 }
 function hubParar(){ HUB.ativo = false; cancelAnimationFrame(hubRaf); }
 
-/* ---------- controlo: toque-para-andar + arrasto contínuo ---------- */
-function destinoToque(sx, sy){
-  // em 3D converte o ponto do ecrã no ponto do chão (corrige perspetiva)
-  if(HUB.modo3d && window.R3){
-    const g = R3.apontarChao(sx, sy);
-    if(g){ HUB.jog.alvoX = g.x; HUB.jog.alvoY = g.y; return; }
+/* ---------- controlo: tocar no sítio = entrar (sem boneco a andar) ---------- */
+function localEm(sx, sy){
+  let melhor = null, md = 9999;
+  for(const l of LOCAIS){
+    const lx = l.x*HUB.W, ly = l.y*HUB.H - 24;   // centro visual (corpo do edifício)
+    const d = Math.hypot(lx - sx, ly - sy);
+    if(d < 82 && d < md){ md = d; melhor = l; }
   }
-  HUB.jog.alvoX = sx; HUB.jog.alvoY = sy;
+  return melhor;
 }
-hubCanvas.addEventListener('pointerdown', e=>{
-  HUB.arrasto = { x:e.clientX, y:e.clientY };
-  destinoToque(e.clientX, e.clientY);
+hubCanvas.addEventListener('pointerdown', e=>{ HUB.pressao = localEm(e.clientX, e.clientY); });
+hubCanvas.addEventListener('pointerup', e=>{
+  const l = localEm(e.clientX, e.clientY);
+  if(l && l === HUB.pressao) interagirLocal(l.id);
+  HUB.pressao = null;
 });
-hubCanvas.addEventListener('pointermove', e=>{
-  if(!HUB.arrasto) return;
-  destinoToque(e.clientX, e.clientY);
-});
-hubCanvas.addEventListener('pointerup', ()=>{ HUB.arrasto = null; });
-hubCanvas.addEventListener('pointercancel', ()=>{ HUB.arrasto = null; });
-
-document.getElementById('btn-interagir').addEventListener('click', ()=>{
-  if(HUB.perto) interagirLocal(HUB.perto.id);
-});
-
-/* quando o 3D terminar de carregar, troca a vila 2D pela 3D em tempo real */
-window.addEventListener('r3-pronto', ()=>{
-  if(HUB.ativo && !HUB.modo3d){ HUB.modo3d = true; hubRedimensionar(); montarVila3d(); }
-});
+hubCanvas.addEventListener('pointercancel', ()=>{ HUB.pressao = null; });
 
 /* ---------- ciclo ---------- */
 function hubLoop(t){
@@ -105,97 +78,19 @@ function hubLoop(t){
   const dt = Math.min((t-hubUltimoT)/1000, 0.05);
   hubUltimoT = t;
   HUB.tempo += dt;
-  hubAtualizar(dt);
-  if(HUB.modo3d){ hubSincronizar3d(dt); R3.tick(dt); hubOverlay3d(); }
-  else hubDesenhar(dt);
-}
-
-/* ---------- sincronização 3D da vila ---------- */
-function hubSincronizar3d(dt){
-  const j = HUB.jog;
-  if(HUB.ent){
-    R3.pos(HUB.ent, j.x, j.y);
-    const dx = j.x-(j._px??j.x), dy = j.y-(j._py??j.y);
-    j._px=j.x; j._py=j.y;
-    if(j.andando) R3.virar(HUB.ent, dx, dy);
-    HUB.lock3d = Math.max(0,(HUB.lock3d||0)-dt);
-    if(HUB.lock3d<=0) R3.anim(HUB.ent, j.andando?'Walking_A':'Idle_A', {fade:0.2});
-  }
-}
-
-function hubOverlay3d(){
-  const {W,H}=HUB, t=HUB.tempo, j=HUB.jog;
-  hctx.clearRect(0,0,W,H);
-  // marcador de destino
-  if(j.alvoX!==null && !HUB.arrasto){
-    const a=R3.proj(j.x,j.y,2);
-    hctx.strokeStyle='rgba(240,200,110,.7)'; hctx.lineWidth=2;
-    const r=8+Math.sin(t*6)*2;
-    hctx.beginPath(); hctx.ellipse(a.x,a.y,r,r*0.4,0,0,Math.PI*2); hctx.stroke();
-  }
-  // exclamação sobre quadro/NPC com missões por reclamar (posição no mundo 3D)
-  if(haMissaoPorReclamar() && R3.locaisVila){
-    for(const lid of ['quadro','npc']){
-      const lv = R3.locaisVila.find(x=>x.id===lid); if(!lv) continue;
-      const a=R3.projWorld(lv.wx, lv.wz, 2.2);
-      hctx.font='bold 26px Georgia,serif'; hctx.textAlign='center';
-      hctx.fillStyle='#1a1208'; hctx.fillText('!', a.x+2, a.y+2 - Math.abs(Math.sin(t*3))*6);
-      hctx.fillStyle='#f0c052'; hctx.fillText('!', a.x, a.y - Math.abs(Math.sin(t*3))*6);
-    }
-  }
-}
-
-function hubAtualizar(dt){
-  const j = HUB.jog;
-  if(j.alvoX !== null){
-    let ax, ay;
-    if(HUB.modo3d){   // caixa da ilha em px de jogo
-      ax = clamp(j.alvoX, HUB.W/2-380, HUB.W/2+380);
-      ay = clamp(j.alvoY, HUB.H*0.60-300, HUB.H*0.60+300);
-    } else {
-      ax = clamp(j.alvoX, 20, HUB.W-20);
-      ay = clamp(j.alvoY, HUB.H*0.24, HUB.H*0.90);
-    }
-    const dx = ax-j.x, dy = ay-j.y, d = Math.hypot(dx,dy);
-    if(d < 6){ if(!HUB.arrasto){ j.alvoX = null; } j.andando = false; }
-    else {
-      const vel = 230 * statsTotais().velMov * dt;
-      j.x += dx/d*Math.min(vel,d);
-      j.y += dy/d*Math.min(vel,d);
-      j.dir = dx>=0 ? 1 : -1;
-      j.andando = true;
-    }
-  } else j.andando = false;
-
-  let perto = null;
-  if(HUB.modo3d && HUB.ent && window.R3 && R3.locaisVila){
-    // proximidade no MUNDO 3D (edifícios em posições fixas)
-    const pw = HUB.ent.obj.position;
-    let melhor = 1.9;
-    for(const lv of R3.locaisVila){
-      const d = Math.hypot(lv.wx - pw.x, lv.wz - pw.z);
-      if(d < melhor){ melhor = d; perto = LOCAIS.find(l=>l.id===lv.id) || null; }
-    }
-  } else {
-    let melhor = 86;
-    for(const l of LOCAIS){
-      const d = Math.hypot(l.x*HUB.W - j.x, l.y*HUB.H - j.y);
-      if(d < melhor){ melhor = d; perto = l; }
-    }
-  }
-  if(perto !== HUB.perto){
-    HUB.perto = perto;
-    const b = document.getElementById('btn-interagir');
-    if(perto){
-      b.innerHTML = `${ic(perto.icone,20)} ${perto.verbo}: ${perto.nome}`;
-      b.hidden = false;
-    } else b.hidden = true;
-  }
+  hubDesenhar(dt);
 }
 
 /* ============================================================
    PRÉ-RENDERIZAÇÃO DO MAPA
    ============================================================ */
+/* preenche uma área com um tile repetido (pixel art, nearest-neighbor) */
+function tileFill(c, nome, x0, y0, x1, y1, dsize){
+  const o = SPR.reg[nome]; if(!o || !o.ok) return false;
+  c.imageSmoothingEnabled = false;
+  for(let y=y0; y<y1; y+=dsize) for(let x=x0; x<x1; x+=dsize) c.drawImage(o.img, x, y, dsize, dsize);
+  return true;
+}
 function prerenderMapa(){
   const {W,H} = HUB;
   const dpr = Math.min(window.devicePixelRatio||1, 2);
@@ -210,6 +105,7 @@ function prerenderMapa(){
   const agua = c.createLinearGradient(0,0,0,H);
   agua.addColorStop(0,'#1c6a74'); agua.addColorStop(.5,'#1a5f6e'); agua.addColorStop(1,'#123f4e');
   c.fillStyle = agua; c.fillRect(0,0,W,H);
+  if(SPR.ok('cf_water')) tileFill(c,'cf_water',0,0,W,H,24);
   // manchas de profundidade
   for(let i=0;i<10;i++){
     c.fillStyle = `rgba(10,40,52,${0.12+rndM()*0.12})`;
@@ -250,6 +146,7 @@ function prerenderMapa(){
   const relva = c.createLinearGradient(0,0,0,H);
   relva.addColorStop(0,'#5d7a34'); relva.addColorStop(1,'#41602a');
   c.fillStyle = relva; tracarIlha(c, 0.962); c.fill();
+  if(SPR.ok('cf_grass')){ c.save(); tracarIlha(c,0.962); c.clip(); tileFill(c,'cf_grass',0,0,W,H,24); c.restore(); }
   // textura da relva (salpicos)
   c.save(); tracarIlha(c, 0.962); c.clip();
   for(let i=0;i<700;i++){
@@ -301,7 +198,11 @@ function prerenderMapa(){
     [.93,.66],[.34,.52],[.68,.46],[.26,.64],
   ];
   for(const [ax,ay] of arvores){
-    desenharArvore(c, ax*W, ay*H, s*(0.8+rndM()*0.5), rndM);
+    if(SPR.ok('cf_tree')){
+      const o=SPR.reg.cf_tree, h=70*s*(0.85+rndM()*0.4), w=h*(o.w/o.h);
+      c.imageSmoothingEnabled=false;
+      c.drawImage(o.img, ax*W-w/2, ay*H-h*0.88, w, h);
+    } else desenharArvore(c, ax*W, ay*H, s*(0.8+rndM()*0.5), rndM);
   }
 
   /* --- doca e barco (água, lado esquerdo) --- */
@@ -394,6 +295,18 @@ function desenharLocalCache(c, l, s, rndM){
   c.fillStyle='rgba(0,0,0,.35)';
   c.beginPath(); c.ellipse(2*s, 10*s, 52*s, 14*s, 0, 0, Math.PI*2); c.fill();
 
+  if(l.tipo==='casa' && SPR.ok('cf_house')){
+    const o=SPR.reg.cf_house, h=108*s, w=h*(o.w/o.h);
+    c.imageSmoothingEnabled=false;
+    c.drawImage(o.img, -w/2, 8*s - h, w, h);
+    // placa com o ícone do edifício (para distinguir loja/ferreiro/base)
+    const py = 8*s - h + 6*s;
+    c.fillStyle='#3a2d1d'; c.fillRect(-16*s, py-16*s, 32*s, 19*s);
+    c.fillStyle='#8a6a40'; c.fillRect(-14*s, py-14*s, 28*s, 15*s);
+    ARTE.desenharIcone(c, l.icone, 0, py-6*s, 13*s);
+    c.restore();
+    return;
+  }
   if(l.tipo==='casa'){
     const corTelhado = l.id==='ferreiro' ? ['#7a4a28','#9c5e32','#5d3820']
                      : l.id==='loja'     ? ['#8a3f2e','#b05540','#6b3022']
@@ -593,20 +506,18 @@ function hubDesenhar(dt){
     }
   }
 
-  /* marcador de destino */
-  const j = HUB.jog;
-  if(j.alvoX !== null && !HUB.arrasto){
-    hctx.strokeStyle='rgba(240,200,110,.7)'; hctx.lineWidth=2;
-    const r = 8 + Math.sin(t*6)*2;
-    hctx.beginPath(); hctx.ellipse(j.alvoX, clamp(j.alvoY,H*0.24,H*0.90), r, r*0.4, 0, 0, Math.PI*2); hctx.stroke();
+  /* realce dos sítios tocáveis (sem boneco — toca para entrar) */
+  for(const l of LOCAIS){
+    const lx = l.x*W, ly = l.y*H + 6*s;
+    const pressed = HUB.pressao === l;
+    const pulso = 0.5 + Math.sin(t*3 + l.x*9)*0.5;
+    hctx.strokeStyle = pressed ? 'rgba(255,225,150,.95)'
+                               : `rgba(240,200,110,${0.28+pulso*0.30})`;
+    hctx.lineWidth = pressed ? 3 : 2;
+    hctx.beginPath();
+    hctx.ellipse(lx, ly, (30+pulso*4)*s, (11+pulso*1.5)*s, 0, 0, Math.PI*2);
+    hctx.stroke();
   }
-
-  /* herói */
-  hctx.save();
-  hctx.translate(j.x, j.y);
-  hctx.scale(s, s);
-  spriteHeroi(hctx, { dir:j.dir, passo: j.andando ? Math.sin(t*13)*3 : 0, t });
-  hctx.restore();
 }
 
 function haMissaoPorReclamar(){

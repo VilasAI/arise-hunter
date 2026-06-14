@@ -40,14 +40,6 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .ecra{position:fixed;inset:0;display:none;flex-direction:column;z-index:1}
 .ecra.ativo{display:flex}
 
-/* canvas 3D partilhado, sempre por trás dos overlays */
-#canvas3d{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block}
-/* quando o 3D está ativo, os fundos 2D ficam transparentes (classe no <body>) */
-body.r3 #ecra-hub{background:transparent}
-body.r3 #ecra-combate{background:transparent}
-body.r3 #hub-canvas{background:transparent}
-body.r3 #canvas{background:transparent}
-
 /* ---------- Título ---------- */
 #ecra-titulo{align-items:center;justify-content:center;text-align:center}
 #titulo-canvas{position:absolute;inset:0;width:100%;height:100%}
@@ -118,19 +110,6 @@ body.r3 #canvas{background:transparent}
 .pontos-alerta b{color:var(--bronze)}
 .pontos-alerta{animation:brilho 1.6s ease-in-out infinite}
 @keyframes brilho{0%,100%{opacity:1}50%{opacity:.5}}
-
-/* botão de interação por proximidade */
-.btn-interagir{
-  position:absolute;left:50%;transform:translateX(-50%);
-  bottom:calc(186px + var(--safe-bottom));z-index:6;
-  background:linear-gradient(180deg,#6d5226,#4a3517);
-  border:2px solid var(--bronze);border-radius:12px;
-  padding:13px 26px;font-size:16px;font-weight:700;color:#f2e6c8;
-  box-shadow:0 3px 0 #2a1e0c, 0 6px 22px rgba(0,0,0,.6);
-  animation:saltitar 1.1s ease-in-out infinite;
-}
-@keyframes saltitar{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
-.btn-interagir:active{transform:translateX(-50%) scale(.95)}
 
 /* ---------- barra de separadores (estilo Clash Royale) ---------- */
 .tab-bar{
@@ -539,6 +518,17 @@ body.r3 #canvas{background:transparent}
   .painel-corpo{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;align-content:start}
   .painel-corpo>.seccao-titulo,.painel-corpo>.equipado-fila,.painel-corpo>.grelha-itens,.painel-corpo>button{grid-column:1/-1}
   .slots-poder{bottom:calc(12px + var(--safe-bottom));flex-direction:row}
-  .btn-interagir{bottom:calc(20px + var(--safe-bottom))}
   .dica-controlo{bottom:8px;left:80px;right:240px}
 }
+
+/* ---------- escolha de classe ---------- */
+.classe-lista{display:flex;flex-direction:column;gap:8px;max-height:68vh;overflow-y:auto;margin-top:10px}
+.classe-cartao{display:flex;gap:10px;align-items:center;text-align:left;padding:10px;border:2px solid var(--bronze);border-radius:12px;background:linear-gradient(180deg,#241c14,#1a140d);color:#f2e6c8;cursor:pointer;width:100%}
+.classe-cartao:active{transform:scale(.98)}
+.classe-icone{flex:0 0 auto;width:52px;height:52px;display:flex;align-items:center;justify-content:center;border:2px solid var(--bronze);border-radius:10px;background:rgba(0,0,0,.3)}
+.classe-info{flex:1;min-width:0}
+.classe-nome{font-weight:800;font-size:16px}
+.classe-estilo{font-size:11px;color:#c9b79a;margin-bottom:2px}
+.classe-lema{font-size:11px;font-style:italic;color:#9c8c6a;margin-bottom:4px}
+.classe-passiva{font-size:11px;color:#d8c9a8;line-height:1.3}
+.classe-poderes{font-size:11px;color:#a8c98a;margin-top:3px}

@@ -104,9 +104,46 @@ const PODERES = {
       { nome:'Évasão',    desc:'-30% cooldown',              mod:{cd:0.7} },
     ],
   },
+  /* ---- poderes de classe (Batedor / Paladino) ---- */
+  tiro: {
+    nome:'Chuva de Flechas', icone:'p_lamina', cor:'#7da33c', tipo:'ativo', cd:5, mp:14,
+    desc:'Dispara um leque de flechas espectrais em cone.',
+    base:{ dano:0.7, flechas:5 },
+    talentos:[
+      { nome:'Aljava Cheia', desc:'+2 flechas',  mod:{flechasExtra:2} },
+      { nome:'Ponta de Aço', desc:'+30% dano',   mod:{efeito:1.3} },
+    ],
+  },
+  luz: {
+    nome:'Luz Sagrada', icone:'p_furia', cor:'#f0d272', tipo:'ativo', cd:10, mp:22,
+    desc:'Cura-te e queima os inimigos próximos com luz sagrada.',
+    base:{ cura:0.32, dano:0.9, raio:150 },
+    talentos:[
+      { nome:'Graça',      desc:'+50% de cura',        mod:{efeito:1.5} },
+      { nome:'Condenação', desc:'+40% dano sagrado',   mod:{dano:1.4} },
+    ],
+  },
+  martelo: {
+    nome:'Martelo Sagrado', icone:'arma', cor:'#e8c84a', tipo:'ativo', cd:8, mp:18,
+    desc:'Esmaga o chão: dano em área e atordoa os inimigos.',
+    base:{ dano:1.4, raio:135, stun:1.2 },
+    talentos:[
+      { nome:'Sísmico',    desc:'Área 35% maior',   mod:{raio:1.35} },
+      { nome:'Concussão',  desc:'Atordoa +0,8 s',   mod:{stunExtra:0.8} },
+    ],
+  },
+  bencao: {
+    nome:'Bênção', icone:'p_escudo', cor:'#f0d272', tipo:'ativo', cd:14, mp:20,
+    desc:'Escudo sagrado que absorve dano e regenera vida.',
+    base:{ absorve:0.22, regen:0.04, dur:6 },
+    talentos:[
+      { nome:'Fé Inabalável', desc:'Escudo +40%',           mod:{efeito:1.4} },
+      { nome:'Renovação',     desc:'Regeneração a dobrar',  mod:{regen:2} },
+    ],
+  },
 };
 
-const ORDEM_PODERES = ['lamina','sombras','investida','sede','escudo','brasas','corrente','gelo','terror','furia','passo'];
+const ORDEM_PODERES = ['lamina','sombras','investida','sede','escudo','brasas','corrente','gelo','terror','furia','passo','tiro','luz','martelo','bencao'];
 
 /* ---------- estado / progressão ---------- */
 function poderAprendido(id){ return G.poderes[id] || null; }

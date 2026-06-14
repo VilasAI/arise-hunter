@@ -82,6 +82,8 @@ function iniciarCombate(masmorra){
     mortes:0, lootPend:[],
     auto:G.auto,
     modo3d: tem3D(),
+    regenClasse: (typeof passivaClasse==='function' ? passivaClasse().regenHp : 0),
+    buffBencao: null,
   };
   criarAliados();
   if(C.modo3d) montarCena3d(); else prerenderCenario();
@@ -174,7 +176,7 @@ function criarInimigo(base, rank, classe, i=0){
    Direcionais (lâmina/investida/corrente): segurar o botão e arrastar
    mostra a mira; largar dispara nessa direção; toque = alvo mais próximo.
    Instantâneos: disparam logo no pointerdown.                          */
-const PODERES_DIRECIONAIS = { lamina:300, investida:280, corrente:240 }; // alcance da mira
+const PODERES_DIRECIONAIS = { lamina:300, investida:280, corrente:240, tiro:300 }; // alcance da mira
 let mira = null;   // {pid, slot, id, sx, sy, dx, dy, drag}
 
 function montarSlotsPoder(){
@@ -349,8 +351,19 @@ function atacar(){
   j.atacando = 0.18;
   if(j.ent3d){ R3.anim(j.ent3d, 'Throw', {uma:true, ts:1.7}); j.lock3d = 0.3; }
   const alvo = inimigoMaisProximo();
+  if(alvo) j.dirAtq = alvo.x>=j.x?1:-1;              // vira-se para o alvo
+
+  // classes à distância (Mago/Batedor): tiro básico em projétil
+  if(typeof classeDistancia==='function' && classeDistancia()){
+    let dx, dy;
+    if(alvo){ dx=alvo.x-j.x; dy=(alvo.y-20)-(j.y-26); } else { dx=j.dirAtq; dy=0; }
+    const d=Math.hypot(dx,dy)||1, cor=corClasse()||'#cfe0a0';
+    C.projeteis.push({ tipo:'lamina', x:j.x+j.dirAtq*10, y:j.y-26, vx:dx/d*640, vy:dy/d*640, t:1.0, dano: atqAtual(), cor });
+    for(let i=0;i<3;i++) particula(j.x+j.dirAtq*20, j.y-26, cor, 2.2, 0.2);
+    return;
+  }
+
   if(alvo){
-    j.dirAtq = alvo.x>=j.x?1:-1;                     // vira-se para o alvo
     const d = Math.hypot(alvo.x-j.x, alvo.y-j.y);
     if(d <= BAL.combate.alcanceAtaque + alvo.raio){
       golpeConecta(alvo);
@@ -566,6 +579,60 @@ function usarPoder(slot, dir){
       for(let i=0;i<8;i++) particula(j.x, j.y-20, p.cor, 3.5, 0.4);
       break;
     }
+    case 'tiro': {
+      const nf = p.base.flechas + ((tal&&tal.mod.flechasExtra)||0);
+      let bx, by;
+      if(dir){ bx=dir.x; by=dir.y; }
+      else if(alvo){ bx=alvo.x-j.x; by=(alvo.y-20)-(j.y-26); }
+      else { bx=j.dirAtq; by=0; }
+      const baseAng = Math.atan2(by,bx);
+      for(let k=0;k<nf;k++){
+        const ang = baseAng + (k-(nf-1)/2)*0.14;
+        C.projeteis.push({ tipo:'lamina', x:j.x, y:j.y-26, vx:Math.cos(ang)*600, vy:Math.sin(ang)*600, t:0.9,
+                           dano: atqAtual()*p.base.dano*ef, cor:p.cor });
+      }
+      for(let i=0;i<6;i++) particula(j.x+j.dirAtq*16, j.y-26, p.cor, 3, 0.3);
+      break;
+    }
+    case 'luz': {
+      const cura = t.hpMax * p.base.cura * ef;
+      j.hp = Math.min(t.hpMax, j.hp + cura);
+      numero(j.x, j.y-74, '+'+Math.round(cura), '#f0d272', 16);
+      const danoMul = (tal&&tal.mod.dano)||1;
+      for(const e of [...C.inimigos]){
+        if(Math.hypot(e.x-j.x,e.y-j.y) <= p.base.raio + e.raio){
+          const g = calcularGolpe(atqAtual()*p.base.dano*danoMul*ef, t.crit, t.critDano, t.pen, e.def);
+          ferirInimigo(e, g.dano, g.crit, p.cor);
+        }
+      }
+      for(let i=0;i<22;i++){ const a=(i/22)*Math.PI*2; particula(j.x+Math.cos(a)*30, j.y-20+Math.sin(a)*18, '#f0e0a0', 4, 0.5, Math.cos(a)*120, Math.sin(a)*80); }
+      C.anelSkill = { x:j.x, y:j.y, t:0.45, cor:'#f0d272' };
+      break;
+    }
+    case 'martelo': {
+      const raio = p.base.raio * ((tal&&tal.mod.raio)||1);
+      const stun = p.base.stun + ((tal&&tal.mod.stunExtra)||0);
+      for(const e of C.inimigos){
+        if(Math.hypot(e.x-j.x,e.y-j.y) <= raio + e.raio){
+          const g = calcularGolpe(atqAtual()*p.base.dano*ef, t.crit, t.critDano, t.pen, e.def);
+          ferirInimigo(e, g.dano, g.crit, p.cor);
+          e.congelado = Math.max(e.congelado, stun);
+        }
+      }
+      C.shake = Math.max(C.shake, 10);
+      C.anelSkill = { x:j.x, y:j.y, t:0.5, cor:p.cor };
+      for(let i=0;i<20;i++){ const a=(i/20)*Math.PI*2; particula(j.x+Math.cos(a)*40, j.y+Math.sin(a)*22, p.cor, 5, 0.5, Math.cos(a)*200, Math.sin(a)*120); }
+      break;
+    }
+    case 'bencao': {
+      C.escudoMax = Math.round(t.hpMax * p.base.absorve * ef);
+      C.escudo = C.escudoMax;
+      document.getElementById('hud-escudo').hidden = false;
+      C.buffBencao = { t: p.base.dur, regen: p.base.regen * ((tal&&tal.mod.regen)||1) };
+      numero(j.x, j.y-78, 'BÊNÇÃO', '#f0d272', 16);
+      for(let i=0;i<14;i++) particula(j.x, j.y-30, '#f0e0a0', 4, 0.6);
+      break;
+    }
   }
 }
 
@@ -620,13 +687,15 @@ function autoIA(dt){
     if(!id || (C.cdPoder[id]||0)>0) continue;
     const p = PODERES[id];
     if(j.mp < (p.mp||0)) continue;
-    if(id==='escudo' && j.hp > C.stats.hpMax*0.55) continue;
+    if((id==='escudo'||id==='bencao') && j.hp > C.stats.hpMax*0.55) continue;
+    if(id==='luz' && j.hp > C.stats.hpMax*0.7 && C.inimigos.length<2) continue;
     if(id==='furia' && !C.inimigos.some(e=>e.classe!=='normal')) continue;
-    if(['brasas','gelo'].includes(id) && C.inimigos.length<3) continue;
-    if(d<200 || ['lamina','corrente'].includes(id)){ usarPoder(i); return; }
+    if(['brasas','gelo','martelo'].includes(id) && C.inimigos.length<3) continue;
+    if(d<200 || ['lamina','corrente','tiro'].includes(id)){ usarPoder(i); return; }
   }
-  // aproxima-se a andar (sem teleporte) e ataca quando está ao alcance
-  const alc = BAL.combate.alcanceAtaque + alvo.raio;
+  // classes à distância atacam de longe; corpo-a-corpo aproxima-se
+  const dist = (typeof classeDistancia==='function' && classeDistancia());
+  const alc = dist ? 320 : BAL.combate.alcanceAtaque + alvo.raio;
   if(d > alc - 12){
     const v = BAL.combate.velJogador * C.stats.velMov * dt;
     j.x = clamp(j.x + (alvo.x-j.x)/d*v, 24, C.W-24);
@@ -847,6 +916,9 @@ function atualizar(dt){
   C.buffFuria = Math.max(0, C.buffFuria-dt);
   C.buffGelo = Math.max(0, C.buffGelo-dt);
   j.mp = clamp(j.mp + BAL.jogador.regenMp*dt, 0, t.mpMax);
+  // regeneração: Bênção (Paladino) + passiva de classe
+  if(C.buffBencao){ j.hp = Math.min(t.hpMax, j.hp + t.hpMax*C.buffBencao.regen*dt); C.buffBencao.t -= dt; if(C.buffBencao.t<=0) C.buffBencao=null; }
+  if(C.regenClasse>0 && j.hp>0) j.hp = Math.min(t.hpMax, j.hp + t.hpMax*C.regenClasse*dt);
 
   // esquiva em curso (dash curto até ao ponto, com rasto fantasma)
   if(j.alvoX!==null){
@@ -1197,7 +1269,8 @@ function inimigoMaisProximoDe(ent){
 
 function ferirJogador(bruto){
   const j=C.jogador;
-  let dano = Math.max(1, Math.round(bruto - defAtual()*0.6));
+  const dm = (typeof passivaClasse==='function') ? passivaClasse().danoMult : 1;
+  let dano = Math.max(1, Math.round(bruto*dm - defAtual()*0.6));
   // Escudo Rúnico absorve primeiro
   if(C.escudo>0){
     const abs = Math.min(C.escudo, dano);
@@ -1446,6 +1519,9 @@ function prerenderCenario(){
   c.setTransform(dpr,0,0,dpr,0,0);
   const rng = (function(seed){ let s2=seed; return ()=>{ s2=(s2*9301+49297)%233280; return s2/233280; }; })(C.sala*977+IDX_RARIDADE_RANK(C.masmorra.rank)*131+7);
 
+  // ---- caminho com TILES reais (Dungeon_Tileset). Fallback vetorial em baixo. ----
+  if(SPR.ok('dungeon_tileset')){ prerenderDungeonTiles(c, rng); return; }
+
   // parede de pedra com tijolos de tom variado
   const parede = c.createLinearGradient(0,0,0,C.chaoTopo);
   parede.addColorStop(0,'#15100b'); parede.addColorStop(0.7,'#2c241a'); parede.addColorStop(1,'#3a2f20');
@@ -1563,21 +1639,61 @@ function prerenderCenario(){
   c.fillStyle=topo; c.fillRect(0,0,W,70);
 }
 
+/* cenário das masmorras com TILES do Dungeon_Tileset (16px → 48px) */
+function prerenderDungeonTiles(c, rng){
+  const {W,H} = C, TS=16, TD=48, topo=C.chaoTopo;
+  const FLOORS = [[7,1],[7,2],[7,3],[6,1],[6,2]];       // lajes lisas
+  const WALLB  = [[2,2],[2,3],[1,2],[1,3],[3,2],[3,3]]; // corpo de parede
+  const WTOP   = [0,2];                                 // remate de topo
+  const WBASE  = [4,2];                                 // rodapé (parede→chão)
+  c.fillStyle='#1a1018'; c.fillRect(0,0,W,H);
+  for(let y=0; y<topo; y+=TD)
+    for(let x=0; x<W; x+=TD){ const w=WALLB[Math.floor(rng()*WALLB.length)]; SPR.tile(c,'dungeon_tileset',w[0],w[1],TS,x,y,TD); }
+  for(let x=0; x<W; x+=TD) SPR.tile(c,'dungeon_tileset',WTOP[0],WTOP[1],TS,x,0,TD);
+  for(let x=0; x<W; x+=TD) SPR.tile(c,'dungeon_tileset',WBASE[0],WBASE[1],TS,x,topo-TD,TD);
+  for(let y=Math.floor(topo); y<H; y+=TD)
+    for(let x=0; x<W; x+=TD){ const f=FLOORS[Math.floor(rng()*FLOORS.length)]; SPR.tile(c,'dungeon_tileset',f[0],f[1],TS,x,y,TD); }
+  const sg = c.createLinearGradient(0,topo-TD,0,topo+TD*1.4);
+  sg.addColorStop(0,'rgba(0,0,0,0.45)'); sg.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=sg; c.fillRect(0,topo-TD,W,TD*2.4);
+  for(const bx of [W*0.22, W*0.78]){
+    c.fillStyle='#2a1d10'; c.fillRect(bx-20, 8, 40, 5);
+    c.fillStyle = C.masmorra.cor; c.globalAlpha = 0.6;
+    c.beginPath(); c.moveTo(bx-16,13); c.lineTo(bx+16,13); c.lineTo(bx+16,86); c.lineTo(bx,72); c.lineTo(bx-16,86); c.closePath(); c.fill();
+    c.globalAlpha=1;
+    c.fillStyle='rgba(0,0,0,0.3)'; c.beginPath(); c.moveTo(bx+6,13); c.lineTo(bx+16,13); c.lineTo(bx+16,86); c.lineTo(bx+6,76); c.closePath(); c.fill();
+    c.fillStyle='rgba(232,220,195,0.9)'; c.font='bold 17px Georgia,serif'; c.textAlign='center'; c.fillText(C.masmorra.rank, bx, 48);
+  }
+  c.fillStyle = C.masmorra.cor; c.globalAlpha = 0.05; c.fillRect(0,0,W,H); c.globalAlpha = 1;
+  const tg = c.createLinearGradient(0,0,0,70);
+  tg.addColorStop(0,'rgba(0,0,0,0.5)'); tg.addColorStop(1,'transparent');
+  c.fillStyle=tg; c.fillRect(0,0,W,70);
+}
+
 /* desenho do cenário por frame: cache + tochas vivas + luz */
 function desenharCenario(){
   const {W,H}=C, t=C.tempo;
   if(cenarioCache) ctx.drawImage(cenarioCache, 0, 0, W, H);
 
+  const tochaSprite = SPR.ok('torch_1');
   for(let i=0;i<2;i++){
     const tx = W*(0.32+i*0.36), ty = C.chaoTopo-92;
     const fl = 0.7+Math.sin(t*9+i*2.4)*0.3;
-    // chama em camadas
-    ctx.fillStyle=`rgba(200,70,30,${0.85*fl})`;
-    ctx.beginPath(); ctx.ellipse(tx, ty-7, 6, 11+fl*3, Math.sin(t*11+i)*0.15, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle=`rgba(226,118,45,${0.9*fl})`;
-    ctx.beginPath(); ctx.ellipse(tx, ty-6, 4.5, 8+fl*2, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle=`rgba(240,200,110,${0.9*fl})`;
-    ctx.beginPath(); ctx.ellipse(tx, ty-4, 2.2, 4.5, 0, 0, Math.PI*2); ctx.fill();
+    if(tochaSprite){
+      // tocha pixel animada (4 frames)
+      const fr = 1 + (Math.floor(t*10+i*2)%4);
+      ctx.save(); ctx.translate(tx, ty+6); ctx.imageSmoothingEnabled=false;
+      SPR.imagem(ctx, 'torch_'+fr, 56, false, 0.5);
+      ctx.restore();
+    } else {
+      // chama vetorial (fallback)
+      ctx.fillStyle=`rgba(200,70,30,${0.85*fl})`;
+      ctx.beginPath(); ctx.ellipse(tx, ty-7, 6, 11+fl*3, Math.sin(t*11+i)*0.15, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle=`rgba(226,118,45,${0.9*fl})`;
+      ctx.beginPath(); ctx.ellipse(tx, ty-6, 4.5, 8+fl*2, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle=`rgba(240,200,110,${0.9*fl})`;
+      ctx.beginPath(); ctx.ellipse(tx, ty-4, 2.2, 4.5, 0, 0, Math.PI*2); ctx.fill();
+    }
     // poça de luz aditiva
     ctx.save();
     ctx.globalCompositeOperation='lighter';
@@ -1600,28 +1716,65 @@ function sombraChao(x,y,r){
   ctx.beginPath(); ctx.ellipse(x,y+6,r,r*0.32,0,0,Math.PI*2); ctx.fill();
 }
 
+/* cor de tinta do sprite conforme a classe escolhida (ou null) */
+function corClasse(){
+  if(typeof CLASSES!=='undefined' && G && G.classe && CLASSES[G.classe]) return CLASSES[G.classe].tinta || null;
+  return null;
+}
+/* sprite (vetorial) -> base de animação 2D pixel + tamanho/tinta */
+const MODELO2D = {
+  goblin:    { base:'orc',             kind:'big', cor:'#8fbf5a', esc:0.82 },
+  lobo:      { base:'orc',             kind:'big', cor:'#9aa4b0', esc:0.80 },
+  formiga:   { base:'enemy_skeleton1', kind:'pix', cor:'#c87a3a', esc:1.0  },
+  aranha:    { base:'enemy_vampire',   kind:'pix', cor:'#6a5a8a', esc:0.95 },
+  esqueleto: { base:'enemy_skeleton1', kind:'pix', cor:null,      esc:1.05 },
+  espectro:  { base:'enemy_vampire',   kind:'pix', cor:'#aecdf0', esc:1.0, alpha:0.7 },
+  orc:       { base:'orc',             kind:'big', cor:null,      esc:1.08 },
+  orcmago:   { base:'orc',             kind:'big', cor:'#9a6fd0', esc:0.92 },
+  draconiano:{ base:'orc',             kind:'big', cor:'#3fa89a', esc:1.12 },
+  golem:     { base:'enemy_skeleton2', kind:'pix', cor:'#9ecfe6', esc:1.25 },
+  cavaleiro: { base:'soldier',         kind:'big', cor:'#5a4a78', esc:1.06 },
+  sacerdote: { base:'enemy_vampire',   kind:'pix', cor:'#c0504e', esc:1.0  },
+};
+const modelo2dDe = sprite => MODELO2D[sprite] || MODELO2D.goblin;
+/* resolve o nome do sheet para o estado pedido (pix usa take_damage como hurt) */
+function anim2d(m, estado){
+  if(estado==='hurt' && m.kind==='pix') return m.base+'_take_damage';
+  return m.base+'_'+estado;
+}
+
 function desenharJogador(){
   const j=C.jogador, s=escalaProf(j.y);
-  ctx.save(); ctx.translate(j.x,j.y); ctx.scale(s, s);
+  sombraChao(j.x, j.y, 16*s);
 
   // aura de fúria (brilho aditivo)
   if(C.buffFuria>0){
-    ctx.save();
-    ctx.globalCompositeOperation='lighter';
-    const g = ctx.createRadialGradient(0,-26,4, 0,-26,42);
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const g = ctx.createRadialGradient(j.x,j.y-26*s,4, j.x,j.y-26*s,46*s);
     g.addColorStop(0,'rgba(216,130,40,0.30)'); g.addColorStop(1,'rgba(216,130,40,0)');
-    ctx.fillStyle=g;
-    ctx.beginPath(); ctx.arc(0,-26,42,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(j.x,j.y-26*s,46*s,0,Math.PI*2); ctx.fill();
     ctx.restore();
   }
-  spriteHeroi(ctx, {
-    dir: j.dirAtq||1,
-    passo: (j.andando || j.alvoX!==null) ? Math.sin(C.tempo*16)*3 : 0,
-    golpe: j.atacando>0 ? (0.18-j.atacando)/0.18 : null,
-    invul: j.invul>0,
-    t: C.tempo,
-  });
-  ctx.restore();
+
+  if(SPR.ok('soldier_idle')){
+    let nome, idx;
+    if(j.atacando>0){ nome='soldier_attack'; idx=Math.floor((1-(j.atacando/0.18))*SPR.n(nome)); }
+    else if(j.andando || j.alvoX!==null){ nome='soldier_walk'; idx=Math.floor(C.tempo*12); }
+    else { nome='soldier_idle'; idx=Math.floor(C.tempo*6); }
+    ctx.save(); ctx.translate(j.x, j.y);
+    if(j.invul>0 && Math.floor(C.tempo*20)%2) ctx.globalAlpha=0.45;
+    SPR.frameH(ctx, nome, idx, SPR.n(nome), 138*s, (j.dirAtq||1)<0, corClasse(), 0.74);
+    ctx.restore();
+  } else {
+    ctx.save(); ctx.translate(j.x,j.y); ctx.scale(s, s);
+    spriteHeroi(ctx, {
+      dir: j.dirAtq||1,
+      passo: (j.andando || j.alvoX!==null) ? Math.sin(C.tempo*16)*3 : 0,
+      golpe: j.atacando>0 ? (0.18-j.atacando)/0.18 : null,
+      invul: j.invul>0, t: C.tempo,
+    });
+    ctx.restore();
+  }
 
   // escudo rúnico visível
   if(C.escudo>0){
@@ -1665,16 +1818,39 @@ function desenharInimigo(e){
     ctx.restore();
   }
 
-  ctx.save();
-  if(e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));   // tremor de telégrafo
-  ctx.scale(dir*s, s);
-  if(e.flash>0) ctx.filter='brightness(2.4)';
-  else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
-  if(e.windup>0){ ctx.shadowColor='#c04438'; ctx.shadowBlur=16; }
-  ctx.lineJoin='round'; ctx.lineCap='round';
-  ARTE.monstro(ctx, e.sprite, e.adornos);
-  ctx.filter='none'; ctx.shadowBlur=0;
-  ctx.restore();
+  const m2 = modelo2dDe(e.sprite);
+  if(SPR.ok(m2.base+'_idle')){
+    let est, idx, nome;
+    if(e.flash>0) est='hurt';
+    else if(e.windup>0) est='attack';
+    else { const mov = (Math.abs(e.x-(e._dpx??e.x))+Math.abs(e.y-(e._dpy??e.y)))>0.4; est = mov?'walk':'idle'; }
+    e._dpx=e.x; e._dpy=e.y;
+    nome = anim2d(m2, est);
+    const nf = SPR.n(nome);
+    if(est==='attack')    idx = Math.floor(clamp(1 - e.windup/(e.ranged?0.6:0.55),0,1)*nf);
+    else if(est==='hurt') idx = Math.floor(clamp(1 - e.flash/0.12,0,1)*nf);
+    else                  idx = Math.floor(C.tempo*(est==='walk'?11:6) + e.x*0.05);
+    const alt = (m2.kind==='big'?132:74) * s * (m2.esc||1);
+    ctx.save();
+    if(e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));
+    if(m2.alpha) ctx.globalAlpha=m2.alpha;
+    if(e.flash>0) ctx.filter='brightness(2.4)';
+    else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
+    SPR.frameH(ctx, nome, idx, nf, alt, C.jogador.x < e.x, m2.cor, m2.kind==='big'?0.74:0.86);
+    ctx.filter='none'; ctx.globalAlpha=1;
+    ctx.restore();
+  } else {
+    ctx.save();
+    if(e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));   // tremor de telégrafo
+    ctx.scale(dir*s, s);
+    if(e.flash>0) ctx.filter='brightness(2.4)';
+    else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
+    if(e.windup>0){ ctx.shadowColor='#c04438'; ctx.shadowBlur=16; }
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    ARTE.monstro(ctx, e.sprite, e.adornos);
+    ctx.filter='none'; ctx.shadowBlur=0;
+    ctx.restore();
+  }
 
   // indicadores de estado (desenhados, sem emoji)
   let ix = e.queimar && (e.congelado>0||e.lento) ? -7*s : 0;
