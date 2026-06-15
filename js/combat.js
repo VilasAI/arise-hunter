@@ -1763,10 +1763,10 @@ function desenharJogador(){
     else { nome='soldier_idle'; idx=Math.floor(C.tempo*6); }
     ctx.save(); ctx.translate(j.x, j.y);
     if(j.invul>0 && Math.floor(C.tempo*20)%2) ctx.globalAlpha=0.45;
-    SPR.frameH(ctx, nome, idx, SPR.n(nome), 138*s, (j.dirAtq||1)<0, corClasse(), 0.74);
+    SPR.frameH(ctx, nome, idx, SPR.n(nome), 180*s, (j.dirAtq||1)<0, corClasse(), 0.74);
     ctx.restore();
   } else {
-    ctx.save(); ctx.translate(j.x,j.y); ctx.scale(s, s);
+    ctx.save(); ctx.translate(j.x,j.y); ctx.scale(s*1.3, s*1.3);
     spriteHeroi(ctx, {
       dir: j.dirAtq||1,
       passo: (j.andando || j.alvoX!==null) ? Math.sin(C.tempo*16)*3 : 0,
@@ -1790,7 +1790,7 @@ function desenharAliado(a){
   const cv = ARTE.monstroTintado(a.sprite, 'rgba(118,86,196,0.88)');
   ctx.save();
   ctx.globalAlpha=0.92;
-  ctx.drawImage(cv, a.x-40*s, a.y-65*s, 80*s, 70*s);
+  ctx.drawImage(cv, a.x-52*s, a.y-84*s, 104*s, 91*s);
   // brasas violetas a soltar-se
   if(Math.random()<0.1){
     ctx.globalAlpha=0.5;
@@ -1830,7 +1830,7 @@ function desenharInimigo(e){
     if(est==='attack')    idx = Math.floor(clamp(1 - e.windup/(e.ranged?0.6:0.55),0,1)*nf);
     else if(est==='hurt') idx = Math.floor(clamp(1 - e.flash/0.12,0,1)*nf);
     else                  idx = Math.floor(C.tempo*(est==='walk'?11:6) + e.x*0.05);
-    const alt = (m2.kind==='big'?132:74) * s * (m2.esc||1);
+    const alt = (m2.kind==='big'?172:96) * s * (m2.esc||1);
     ctx.save();
     if(e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));
     if(m2.alpha) ctx.globalAlpha=m2.alpha;
@@ -1842,7 +1842,7 @@ function desenharInimigo(e){
   } else {
     ctx.save();
     if(e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));   // tremor de telégrafo
-    ctx.scale(dir*s, s);
+    ctx.scale(dir*s*1.3, s*1.3);
     if(e.flash>0) ctx.filter='brightness(2.4)';
     else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
     if(e.windup>0){ ctx.shadowColor='#c04438'; ctx.shadowBlur=16; }

@@ -1,7 +1,7 @@
 ﻿/* Service worker â€” VigÃ­lia
    CÃ³digo (HTML/CSS/JS): network-first â†’ atualizaÃ§Ãµes aplicam-se logo.
    Assets 3D (glb/gltf/bin/png) e lib: cache-first â†’ offline rÃ¡pido. */
-const CACHE = 'vigilia-v14';
+const CACHE = 'vigilia-v15';
 const NUCLEO = [
   './', './index.html', './css/style.css',
   './js/balance.js', './js/data.js', './js/art.js', './js/sprites.js', './js/powers.js',

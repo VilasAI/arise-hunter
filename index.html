@@ -127,8 +127,38 @@
 <script src="js/ui.js"></script>
 
 <script>
+/* mostra erros no ecrã — permite diagnosticar no telemóvel sem consola */
+(function(){
+  function mostrar(msg){
+    var d=document.getElementById('erro-fatal');
+    if(!d){
+      d=document.createElement('div'); d.id='erro-fatal';
+      d.style.cssText='position:fixed;inset:0;z-index:99999;background:#1a1210;color:#f3d9b0;'+
+        'font:12px/1.5 ui-monospace,monospace;padding:18px;overflow:auto;white-space:pre-wrap;'+
+        '-webkit-user-select:text;user-select:text';
+      d.textContent='VIGÍLIA — erro ao arrancar:\n\n';
+      (document.body||document.documentElement).appendChild(d);
+    }
+    d.textContent += msg + '\n';
+  }
+  window.addEventListener('error', function(e){
+    mostrar((e.message||'erro')+'  @ '+String(e.filename||'').split('/').pop()+':'+(e.lineno||'?'));
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    mostrar('promessa rejeitada: '+((e.reason&&e.reason.message)||e.reason||'?'));
+  });
+})();
+
+/* service worker com auto-atualização: expulsa versões antigas em cache.
+   Se já existia um SW a controlar a página, recarrega uma vez quando o novo assume. */
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.register('sw.js').then(function(reg){ reg.update(); }).catch(function(){});
+  if (navigator.serviceWorker.controller) {
+    var recarregou = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if (recarregou) return; recarregou = true; location.reload();
+    });
+  }
 }
 </script>
 </body>
