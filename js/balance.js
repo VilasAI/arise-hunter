@@ -136,7 +136,7 @@ const BAL = {
 
   /* ---------- Stamina de masmorra ---------- */
   stamina: {
-    max: 10,             // stamina máxima base (Reservatório da base aumenta)
+    max: 20,             // stamina máxima base (Reservatório da base aumenta)
     custoPortal: 3,      // custo de entrar num portal normal
     custoDiaria: 0,      // a masmorra diária é grátis
     minutosPorPonto: 6,  // regenera 1 ponto a cada X minutos reais
