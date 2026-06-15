@@ -657,14 +657,14 @@ function ligarEventosPainel(tab, corpo){
           if(ref && (it.tipo!==ref.tipo || it.raridade!==ref.raridade)){ toast('Só itens do mesmo tipo e raridade.'); return; }
           if(selFusao.length < FUSAO_QTD) selFusao.push(id);
         }
-        renderPainel();
+        refrescar();
       });
     });
     corpo.querySelector('#btn-fundir')?.addEventListener('click', ()=>{
       const r = fundir(selFusao);
       selFusao = [];
       if(r.ok){ toast('Fusão concluída!'); refrescar(); modalItem(r.item); }
-      else { toast(r.msg); renderPainel(); }
+      else { toast(r.msg); refrescar(); }
     });
   }
   if(tab==='loja'){
@@ -697,7 +697,7 @@ function ligarEventosPainel(tab, corpo){
       b.addEventListener('click', ()=>{
         const s = G.sombras.find(x=>x.nome===b.dataset.sombraToggle);
         if(!s.ativa && sombrasAtivas().length >= statsTotais().maxSombras){ toast('Limite de sombras ativas atingido.'); return; }
-        s.ativa = !s.ativa; guardar(); renderPainel();
+        s.ativa = !s.ativa; guardar(); refrescar();
       });
     });
     corpo.querySelectorAll('[data-sombra-up]').forEach(b=>{
