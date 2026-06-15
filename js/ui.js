@@ -45,7 +45,7 @@ function atualizarTopo(){
   $('#hub-despertar').textContent = G.despertar>0 ? ' '+'★'.repeat(G.despertar) : '';
   $('#hub-ouro').textContent = G.ouro;
   $('#hub-cristais').textContent = G.cristais;
-  $('#hub-stamina').textContent = `${staminaAtual()}/${staminaMax()}`;
+  $('#hub-stamina').textContent = MODO_TESTE ? '∞ TESTE' : `${staminaAtual()}/${staminaMax()}`;
   $('#hub-xp').style.width = (G.xp / xpParaNivel(G.nivel) * 100) + '%';
   $('#hub-pontos-wrap').hidden = G.pontos <= 0;
   $('#hub-pontos').textContent = G.pontos;

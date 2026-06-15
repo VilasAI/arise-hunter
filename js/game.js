@@ -3,6 +3,10 @@
 
 const SAVE_KEY = 'arise-hunter-save-v1';
 
+/* Modo de teste: abrir o link com ?teste (ou ?test) dá energia ilimitada,
+   para poder jogar em contínuo à caça de bugs. Não afeta jogadores normais. */
+const MODO_TESTE = /[?&](teste|test|debug)\b/i.test(location.search);
+
 let G = null; // estado global do jogador
 
 function novoJogo(){
@@ -333,6 +337,7 @@ function masmorraDiaria(){
 function staminaMax(){ return BAL.stamina.max + G.base.reservatorio * BAL.base.reservatorioPorNivel; }
 
 function staminaAtual(){
+  if(MODO_TESTE) return staminaMax();         // teste: energia sempre cheia
   // regenera 1 ponto a cada X minutos reais desde a última atualização
   const max = staminaMax();
   const passou = Math.floor((Date.now() - G.stamina.ts) / (BAL.stamina.minutosPorPonto*60000));
@@ -346,6 +351,7 @@ function staminaAtual(){
 }
 
 function gastarStamina(n){
+  if(MODO_TESTE) return true;                 // teste: não gasta energia
   if(staminaAtual() < n) return false;
   if(G.stamina.v >= staminaMax()) G.stamina.ts = Date.now(); // começa a contar regen
   G.stamina.v -= n;
