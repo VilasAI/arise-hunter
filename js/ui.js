@@ -5,6 +5,7 @@
 const $ = s => document.querySelector(s);
 let selFusao = [];
 let painelAtual = null;
+let ferreiroSub = 'mochila';   // sub-separador ativo do Ferreiro
 
 /* ---------- helpers de arte ---------- */
 function sombraImg(rank, px=40){
@@ -131,7 +132,7 @@ function refrescar(){
 let tabAtual = 'batalha';
 const TABS = {
   loja:    { html: ()=>htmlLoja(),                        eventos:['loja'] },
-  ferreiro:{ html: ()=>htmlInventario()+htmlFerreiro(),   eventos:['itens','ferreiro'] },
+  ferreiro:{ html: ()=>htmlFerreiro(),                    eventos:['itens','ferreiro'] },
   vigia:   { html: ()=>htmlHeroi()+htmlBase(),            eventos:['heroi','base'] },
   missoes: { html: ()=>htmlQuadro(),                      eventos:['quadro'] },
 };
@@ -333,14 +334,66 @@ function modalItem(it){
 }
 
 /* ============ FERREIRO ============ */
+const FERREIRO_SUBS = [
+  { id:'mochila', icone:'mochila',  nome:'Mochila' },
+  { id:'forja',   icone:'forja',    nome:'Forja'   },
+  { id:'runas',   icone:'r_trovao', nome:'Runas'   },
+  { id:'fusao',   icone:'cristal',  nome:'Fusão'   },
+];
+
 function htmlFerreiro(){
+  const t = statsTotais();
   let h = `<div class="npc-fala">«Aço, runas e suor. Traz-me as tuas armas, Vigia.»</div>`;
-  h += sec('forja','Melhorar & encantar');
+
+  // ----- equipamento + atributos (contexto sempre visível) -----
+  h += `<div class="equipado-fila">`;
+  for(const tipo of TIPOS_ITEM){
+    const it = itemPorId(G.equipado[tipo.id]);
+    h += it
+      ? `<div class="slot-eq cheio r-${it.raridade}" data-item="${it.id}">${ARTE.imgItem(it,34)}<small>+${it.nivel} ${RARIDADES[IDX_RARIDADE[it.raridade]].nome}</small></div>`
+      : `<div class="slot-eq">${ic(tipo.id,26)}<small>${tipo.nome}</small></div>`;
+  }
+  h += `</div>
+  <div class="cartao"><div class="stats-fila">
+    <span>${ic('arma',15)} <b>${Math.round(t.atq)}</b></span>
+    <span>${ic('armadura',15)} <b>${t.def}</b></span>
+    <span>${ic('hp',15)} <b>${t.hpMax}</b></span>
+    <span>${ic('ponto',15)} <b class="t-lendario">${poderTotal()}</b></span>
+  </div></div>`;
+
+  // ----- seletor de função -----
+  h += `<div class="sub-tabs">${FERREIRO_SUBS.map(s=>
+    `<button class="sub-tab ${ferreiroSub===s.id?'ativa':''}" data-ferreiro-sub="${s.id}">${ic(s.icone,18)}<span>${s.nome}</span></button>`
+  ).join('')}</div>`;
+
+  // ----- função ativa -----
+  h += `<div class="ferreiro-painel">`;
+  if(ferreiroSub==='mochila')    h += blocoMochila();
+  else if(ferreiroSub==='forja') h += blocoForja();
+  else if(ferreiroSub==='runas') h += blocoRunas();
+  else                           h += blocoFusao();
+  h += `</div>`;
+  return h;
+}
+
+function blocoMochila(){
+  let h = `<p class="ferreiro-desc">A tua mochila. Toca num item para o <b>equipar</b> ou <b>vender</b>.</p>`;
+  h += G.inventario.length
+    ? `<div class="grelha-itens">${G.inventario.map(i=>celulaItem(i)).join('')}</div>`
+    : `<div class="cartao vazio">Sem itens — explora os portais!</div>`;
+  return h;
+}
+
+function blocoForja(){
+  let h = `<p class="ferreiro-desc">Toca num item para o <b>melhorar</b> (mais poder) ou <b>encantar</b> com um atributo.</p>`;
   h += G.inventario.length
     ? `<div class="grelha-itens" data-modo="forja">${G.inventario.map(i=>celulaItem(i)).join('')}</div>`
     : `<div class="cartao vazio">Sem itens para forjar.</div>`;
+  return h;
+}
 
-  h += sec('r_trovao',`Runas da arma (${slotsRuna()} slot${slotsRuna()>1?'s':''})`);
+function blocoRunas(){
+  let h = `<p class="ferreiro-desc">Encaixa runas na arma para efeitos passivos. Tens <b>${slotsRuna()} slot${slotsRuna()>1?'s':''}</b>.</p>`;
   h += `<div class="linha" style="margin-bottom:10px">`;
   for(let i=0;i<2;i++){
     const id = i<slotsRuna() ? G.runasEq[i] : null;
@@ -349,13 +402,17 @@ function htmlFerreiro(){
       ? `<div class="runa-slot ${runa?'cheia':''}" data-runa-slot="${i}">${runa?ic(runa.icone,26):'+'}</div>`
       : `<div class="runa-slot" style="opacity:.35">🔒</div>`;
   }
-  h += `<div class="nota">Toca num slot para encaixar/remover.${G.base.forja<BAL.runas.slot2ForjaNivel?` 2º slot: Forja da Base nv.${BAL.runas.slot2ForjaNivel}.`:''}</div></div>`;
+  h += `</div>`;
+  h += `<div class="nota" style="margin-bottom:10px">Toca num slot para encaixar/remover.${G.base.forja<BAL.runas.slot2ForjaNivel?` 2º slot: Forja da Base nv.${BAL.runas.slot2ForjaNivel}.`:''}</div>`;
   const possuidas = RUNAS.filter(r=>qtdRuna(r.id)>0);
   h += possuidas.length
     ? possuidas.map(r=>`<div class="runa-cel">${ic(r.icone,30)}<div class="crescer"><b>${r.nome}</b> ×${qtdRuna(r.id)}<div class="nota">${r.desc}</div></div></div>`).join('')
     : `<div class="cartao vazio nota">Sem runas — caem dos bosses de rank C ou superior.</div>`;
+  return h;
+}
 
-  h += sec('cristal',`Fusão — ${FUSAO_QTD} iguais (mesmo tipo e raridade) dão 1 de raridade acima`);
+function blocoFusao(){
+  let h = `<p class="ferreiro-desc">Junta <b>${FUSAO_QTD} itens iguais</b> (mesmo tipo e raridade) para criar 1 de raridade acima.</p>`;
   // o 1º item selecionado fixa tipo+raridade; os incompatíveis ficam bloqueados
   const refFus = selFusao.length ? itemPorId(selFusao[0]) : null;
   const compatFus = i => !refFus || (i.tipo===refFus.tipo && i.raridade===refFus.raridade);
@@ -368,7 +425,7 @@ function htmlFerreiro(){
   const prontos = Object.values(grupos).filter(n=>n>=FUSAO_QTD).length;
   h += `<div class="nota" style="margin-bottom:8px">${
     prontos ? `Tens ${prontos} conjunto${prontos>1?'s':''} pronto${prontos>1?'s':''} para fundir.`
-            : `Precisas de ${FUSAO_QTD} itens iguais (mesmo tipo e raridade, abaixo do máximo).`}</div>`;
+            : `Ainda não tens ${FUSAO_QTD} itens iguais (abaixo da raridade máxima).`}</div>`;
   h += `<div class="grelha-itens" data-modo="fusao">${itensFus.map(i=>{
     const cls = (selFusao.includes(i.id)?'sel ':'') + (refFus && !compatFus(i)?'incompat':'');
     return celulaItem(i, cls);
@@ -641,6 +698,13 @@ function ligarEventosPainel(tab, corpo){
     });
   }
   if(tab==='ferreiro'){
+    corpo.querySelectorAll('[data-ferreiro-sub]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        ferreiroSub = b.dataset.ferreiroSub;
+        if(ferreiroSub!=='fusao') selFusao = [];   // não arrasta seleção entre funções
+        refrescar();
+      });
+    });
     corpo.querySelector('[data-modo="forja"]')?.querySelectorAll('[data-item]').forEach(c=>{
       c.addEventListener('click', ()=> modalForja(itemPorId(+c.dataset.item)));
     });
