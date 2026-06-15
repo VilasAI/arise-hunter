@@ -153,6 +153,8 @@ function criarInimigo(base, rank, classe, i=0){
     cd: rnd(0.5,1.5), windup:0, habAtiva:null, investe:null,
     raio: classe==='boss'?34 : classe==='elite'?24 : 16,
     flash:0,
+    strafe: Math.random()<0.5?-1:1,   // sentido do passo lateral (arqueiros)
+    flank: rnd(-0.42,0.42),           // ângulo de cerco (corpo-a-corpo)
     queimar:null,          // {t, dps}
     lento:null,            // {t, fator}
     congelado:0,           // segundos
@@ -1020,7 +1022,8 @@ function atualizar(dt){
           C.tiros.push({
             x:e.x, y:e.y-24, vx:Math.cos(ang)*vp, vy:Math.sin(ang)*vp,
             dano, t:3,
-            cor: e.sprite==='orcmago' ? '#b89ae8' : e.sprite==='sacerdote' ? '#d05c4e' : '#9ad06a',
+            cor: e.sprite==='orcmago' ? '#b89ae8' : e.sprite==='sacerdote' ? '#d05c4e'
+               : e.sprite==='draconiano' ? '#e2762d' : e.sprite==='aranha' ? '#9ad06a' : '#d8c38a',
           });
         }
         else if(d < e.raio+52 && j.invul<=0) ferirJogador(dano);
@@ -1043,15 +1046,31 @@ function atualizar(dt){
       } else if(e.recupera > 0){
         // recua ligeiramente depois de atacar
         e.x -= dx/d*e.vel*0.35*velMult*dt; e.y -= dy/d*e.vel*0.35*velMult*dt;
-      } else if(e.ranged && d < alcance*0.55){
-        // mantém a distância (kiting)
-        e.x = clamp(e.x - dx/d*e.vel*0.8*velMult*dt, 20, C.W-20);
-        e.y = clamp(e.y - dy/d*e.vel*0.8*velMult*dt, C.chaoTopo, C.chaoFundo);
-        if(e.cd<=0) e.windup = 0.6;
+      } else if(e.ranged){
+        // arqueiro/feiticeiro: mantém-se recuado e dispara (kiting + strafe)
+        const perto = alcance*0.70, longe = alcance*0.98;
+        if(d < perto){
+          // demasiado perto — recua sem virar costas ao Vigia
+          e.x = clamp(e.x - dx/d*e.vel*0.95*velMult*dt, 20, C.W-20);
+          e.y = clamp(e.y - dy/d*e.vel*0.95*velMult*dt, C.chaoTopo, C.chaoFundo);
+        } else if(d > longe){
+          // fora de alcance — aproxima-se até poder disparar
+          e.x += dx/d*e.vel*0.75*velMult*dt; e.y += dy/d*e.vel*0.75*velMult*dt;
+        } else {
+          // distância ideal — passo lateral (perpendicular) para ser alvo difícil
+          const perpx = -dy/d, perpy = dx/d, spd = e.vel*0.5*velMult*dt;
+          e.x = clamp(e.x + perpx*e.strafe*spd, 20, C.W-20);
+          e.y += perpy*e.strafe*spd;
+          if(e.y <= C.chaoTopo+8 || e.y >= C.chaoFundo-8) e.strafe *= -1;
+          e.y = clamp(e.y, C.chaoTopo, C.chaoFundo);
+        }
+        if(e.cd<=0 && d < alcance*1.05) e.windup = 0.6;   // dispara assim que recarrega
       } else if(d > alcance){
-        e.x += dx/d*e.vel*velMult*dt; e.y += dy/d*e.vel*velMult*dt;
+        // corpo-a-corpo: persegue o Vigia cercando-o por um ângulo de flanco
+        const ang = Math.atan2(dy,dx) + e.flank;
+        e.x += Math.cos(ang)*e.vel*velMult*dt; e.y += Math.sin(ang)*e.vel*velMult*dt;
       } else if(e.cd<=0){
-        e.windup = e.ranged ? 0.6 : 0.55;
+        e.windup = 0.55;
       }
     }
   }
@@ -1763,10 +1782,10 @@ function desenharJogador(){
     else { nome='soldier_idle'; idx=Math.floor(C.tempo*6); }
     ctx.save(); ctx.translate(j.x, j.y);
     if(j.invul>0 && Math.floor(C.tempo*20)%2) ctx.globalAlpha=0.45;
-    SPR.frameH(ctx, nome, idx, SPR.n(nome), 180*s, (j.dirAtq||1)<0, corClasse(), 0.74);
+    SPR.frameH(ctx, nome, idx, SPR.n(nome), 210*s, (j.dirAtq||1)<0, corClasse(), 0.74);
     ctx.restore();
   } else {
-    ctx.save(); ctx.translate(j.x,j.y); ctx.scale(s*1.3, s*1.3);
+    ctx.save(); ctx.translate(j.x,j.y); ctx.scale(s*1.5, s*1.5);
     spriteHeroi(ctx, {
       dir: j.dirAtq||1,
       passo: (j.andando || j.alvoX!==null) ? Math.sin(C.tempo*16)*3 : 0,
@@ -1790,7 +1809,7 @@ function desenharAliado(a){
   const cv = ARTE.monstroTintado(a.sprite, 'rgba(118,86,196,0.88)');
   ctx.save();
   ctx.globalAlpha=0.92;
-  ctx.drawImage(cv, a.x-52*s, a.y-84*s, 104*s, 91*s);
+  ctx.drawImage(cv, a.x-60*s, a.y-97*s, 120*s, 105*s);
   // brasas violetas a soltar-se
   if(Math.random()<0.1){
     ctx.globalAlpha=0.5;
@@ -1830,7 +1849,7 @@ function desenharInimigo(e){
     if(est==='attack')    idx = Math.floor(clamp(1 - e.windup/(e.ranged?0.6:0.55),0,1)*nf);
     else if(est==='hurt') idx = Math.floor(clamp(1 - e.flash/0.12,0,1)*nf);
     else                  idx = Math.floor(C.tempo*(est==='walk'?11:6) + e.x*0.05);
-    const alt = (m2.kind==='big'?172:96) * s * (m2.esc||1);
+    const alt = (m2.kind==='big'?200:112) * s * (m2.esc||1);
     ctx.save();
     if(e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));
     if(m2.alpha) ctx.globalAlpha=m2.alpha;
@@ -1842,7 +1861,7 @@ function desenharInimigo(e){
   } else {
     ctx.save();
     if(e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));   // tremor de telégrafo
-    ctx.scale(dir*s*1.3, s*1.3);
+    ctx.scale(dir*s*1.5, s*1.5);
     if(e.flash>0) ctx.filter='brightness(2.4)';
     else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
     if(e.windup>0){ ctx.shadowColor='#c04438'; ctx.shadowBlur=16; }

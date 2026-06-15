@@ -43,11 +43,11 @@ const MASMORRAS = [
 /* mHp/mDano: multiplicadores sobre BAL.inimigosRank (balance.js)
    sprite: desenho vetorial em js/art.js */
 const MONSTROS = {
-  E:[{nome:'Goblin',sprite:'goblin',mHp:1.0,mDano:1.0,vel:55},{nome:'Lobo Cinzento',sprite:'lobo',mHp:0.8,mDano:1.2,vel:75}],
+  E:[{nome:'Goblin',sprite:'goblin',mHp:1.0,mDano:1.0,vel:55},{nome:'Lobo Cinzento',sprite:'lobo',mHp:0.8,mDano:1.2,vel:75},{nome:'Goblin Arqueiro',sprite:'goblin',mHp:0.7,mDano:0.9,vel:50,ranged:true}],
   D:[{nome:'Formiga Soldado',sprite:'formiga',mHp:1.0,mDano:1.0,vel:65},{nome:'Aranha Venenosa',sprite:'aranha',mHp:0.8,mDano:1.2,vel:80,ranged:true}],
-  C:[{nome:'Esqueleto Guerreiro',sprite:'esqueleto',mHp:1.0,mDano:0.9,vel:60},{nome:'Espectro',sprite:'espectro',mHp:0.75,mDano:1.1,vel:90}],
+  C:[{nome:'Esqueleto Guerreiro',sprite:'esqueleto',mHp:1.0,mDano:0.9,vel:60},{nome:'Espectro',sprite:'espectro',mHp:0.75,mDano:1.1,vel:90},{nome:'Arqueiro Esquelético',sprite:'esqueleto',mHp:0.75,mDano:1.0,vel:52,ranged:true}],
   B:[{nome:'Orc Berserker',sprite:'orc',mHp:1.0,mDano:0.85,vel:65},{nome:'Mago Orc',sprite:'orcmago',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
-  A:[{nome:'Draconiano',sprite:'draconiano',mHp:0.85,mDano:0.85,vel:70},{nome:'Golem de Gelo',sprite:'golem',mHp:1.2,mDano:0.7,vel:45}],
+  A:[{nome:'Draconiano',sprite:'draconiano',mHp:0.85,mDano:0.85,vel:70},{nome:'Golem de Gelo',sprite:'golem',mHp:1.2,mDano:0.7,vel:45},{nome:'Draconiano Cuspidor',sprite:'draconiano',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
   S:[{nome:'Cavaleiro do Vazio',sprite:'cavaleiro',mHp:0.8,mDano:0.7,vel:75},{nome:'Sacerdote Sombrio',sprite:'sacerdote',mHp:0.65,mDano:0.85,vel:60,ranged:true}],
 };
 

@@ -70,7 +70,7 @@ const BAL = {
     recuperar: 0.8,      // pausa do inimigo depois de cada golpe
     separacao: 34,       // distância mínima entre inimigos (não se empilham)
     knockback: 22,       // px de recuo do inimigo ao ser atingido (boss: 1/3)
-    alcanceRanged: 230,  // distância de disparo dos inimigos à distância
+    alcanceRanged: 270,  // distância de disparo dos inimigos à distância
     velProjInimigo: 240, // px/s dos projéteis inimigos
   },
 
