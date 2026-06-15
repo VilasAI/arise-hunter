@@ -263,6 +263,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .item-cel .item-nv{position:absolute;top:3px;right:5px;font-size:10px;font-weight:800;color:var(--texto)}
 .item-cel .item-tipo{font-size:9px;color:var(--texto2);font-weight:600;font-family:Verdana,sans-serif}
 .item-cel.sel{box-shadow:0 0 0 2px var(--bronze) inset}
+.item-cel.incompat{opacity:.3;filter:grayscale(.7);pointer-events:none}
 .r-comum{border-color:var(--c-comum)}
 .r-raro{border-color:var(--c-raro);box-shadow:0 0 9px rgba(90,143,192,.3)}
 .r-epico{border-color:var(--c-epico);box-shadow:0 0 11px rgba(154,111,208,.35)}

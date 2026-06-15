@@ -355,8 +355,24 @@ function htmlFerreiro(){
     ? possuidas.map(r=>`<div class="runa-cel">${ic(r.icone,30)}<div class="crescer"><b>${r.nome}</b> ×${qtdRuna(r.id)}<div class="nota">${r.desc}</div></div></div>`).join('')
     : `<div class="cartao vazio nota">Sem runas — caem dos bosses de rank C ou superior.</div>`;
 
-  h += sec('cristal',`Fusão — ${FUSAO_QTD} iguais dão 1 de raridade acima`);
-  h += `<div class="grelha-itens" data-modo="fusao">${G.inventario.map(i=>celulaItem(i, selFusao.includes(i.id)?'sel':'')).join('')}</div>
+  h += sec('cristal',`Fusão — ${FUSAO_QTD} iguais (mesmo tipo e raridade) dão 1 de raridade acima`);
+  // o 1º item selecionado fixa tipo+raridade; os incompatíveis ficam bloqueados
+  const refFus = selFusao.length ? itemPorId(selFusao[0]) : null;
+  const compatFus = i => !refFus || (i.tipo===refFus.tipo && i.raridade===refFus.raridade);
+  // agrupa conjuntos fundíveis lado a lado (por tipo, depois raridade)
+  const itensFus = [...G.inventario].sort((a,b)=>
+    a.tipo.localeCompare(b.tipo) || IDX_RARIDADE[a.raridade]-IDX_RARIDADE[b.raridade]);
+  // pistas: quantos conjuntos completos existem
+  const grupos = {};
+  for(const i of G.inventario){ if(IDX_RARIDADE[i.raridade]<RARIDADES.length-1){ const k=i.tipo+'|'+i.raridade; grupos[k]=(grupos[k]||0)+1; } }
+  const prontos = Object.values(grupos).filter(n=>n>=FUSAO_QTD).length;
+  h += `<div class="nota" style="margin-bottom:8px">${
+    prontos ? `Tens ${prontos} conjunto${prontos>1?'s':''} pronto${prontos>1?'s':''} para fundir.`
+            : `Precisas de ${FUSAO_QTD} itens iguais (mesmo tipo e raridade, abaixo do máximo).`}</div>`;
+  h += `<div class="grelha-itens" data-modo="fusao">${itensFus.map(i=>{
+    const cls = (selFusao.includes(i.id)?'sel ':'') + (refFus && !compatFus(i)?'incompat':'');
+    return celulaItem(i, cls);
+  }).join('')}</div>
   <button class="btn btn-primario" id="btn-fundir" style="width:100%;margin-top:12px" ${selFusao.length!==FUSAO_QTD?'disabled':''}>Fundir (${selFusao.length}/${FUSAO_QTD})</button>`;
   return h;
 }
@@ -634,8 +650,13 @@ function ligarEventosPainel(tab, corpo){
     corpo.querySelector('[data-modo="fusao"]')?.querySelectorAll('[data-item]').forEach(c=>{
       c.addEventListener('click', ()=>{
         const id = +c.dataset.item;
-        if(selFusao.includes(id)) selFusao = selFusao.filter(x=>x!==id);
-        else if(selFusao.length < FUSAO_QTD) selFusao.push(id);
+        if(selFusao.includes(id)){ selFusao = selFusao.filter(x=>x!==id); }
+        else {
+          const it = itemPorId(id), ref = selFusao.length ? itemPorId(selFusao[0]) : null;
+          if(IDX_RARIDADE[it.raridade] >= RARIDADES.length-1){ toast('Raridade máxima — não dá para fundir.'); return; }
+          if(ref && (it.tipo!==ref.tipo || it.raridade!==ref.raridade)){ toast('Só itens do mesmo tipo e raridade.'); return; }
+          if(selFusao.length < FUSAO_QTD) selFusao.push(id);
+        }
         renderPainel();
       });
     });
