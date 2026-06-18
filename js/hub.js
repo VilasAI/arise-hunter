@@ -96,15 +96,32 @@ function prerenderMapa(){
   const dpr = Math.min(window.devicePixelRatio||1, 2);
   mapaCache = document.createElement('canvas');
   mapaCache.width = W*dpr; mapaCache.height = H*dpr;
-  const c = mapaCache.getContext('2d');
-  c.setTransform(dpr,0,0,dpr,0,0);
+  const mc = mapaCache.getContext('2d');
+  mc.setTransform(dpr,0,0,dpr,0,0);
+
+  /* PIXEL-ART: o cenário vetorial (água, relva, caminhos, praça, falésias,
+     doca, barris…) é pintado numa tela de BAIXA resolução e depois ampliado
+     com nearest-neighbor, ficando com arestas "aos quadrados" no mesmo
+     espírito dos sprites pixel-art das casas e árvores — em vez do aspeto
+     liso/pintado que destoava. PX = tamanho de cada pixel grande (px ecrã);
+     2 ≈ o tamanho do pixel dos próprios sprites num ecrã retina. */
+  const PX = 2;
+  const lw = Math.max(1, Math.ceil(W/PX)), lh = Math.max(1, Math.ceil(H/PX));
+  const BW = lw*PX, BH = lh*PX;   // extensão exata do buffer (≥ W,H) — evita costura na borda
+  const loCv = document.createElement('canvas');
+  loCv.width = lw; loCv.height = lh;
+  const c = loCv.getContext('2d');
+  c.setTransform(1/PX, 0, 0, 1/PX, 0, 0);
+  c.imageSmoothingEnabled = false;
+  const crisp = [];   // sprites a redesenhar nítidos por cima (sem reamostragem dupla)
+
   const rndM = criarRnd(7331);
   const s = Math.min(W,H)/420;
 
   /* --- água --- */
   const agua = c.createLinearGradient(0,0,0,H);
   agua.addColorStop(0,'#1c6a74'); agua.addColorStop(.5,'#1a5f6e'); agua.addColorStop(1,'#123f4e');
-  c.fillStyle = agua; c.fillRect(0,0,W,H);
+  c.fillStyle = agua; c.fillRect(0,0,BW,BH);
   if(SPR.ok('cf_water')) tileFill(c,'cf_water',0,0,W,H,24);
   // manchas de profundidade
   for(let i=0;i<10;i++){
@@ -200,8 +217,7 @@ function prerenderMapa(){
   for(const [ax,ay] of arvores){
     if(SPR.ok('cf_tree')){
       const o=SPR.reg.cf_tree, h=70*s*(0.85+rndM()*0.4), w=h*(o.w/o.h);
-      c.imageSmoothingEnabled=false;
-      c.drawImage(o.img, ax*W-w/2, ay*H-h*0.88, w, h);
+      crisp.push({ img:o.img, x:ax*W-w/2, y:ay*H-h*0.88, w, h });
     } else desenharArvore(c, ax*W, ay*H, s*(0.8+rndM()*0.5), rndM);
   }
 
@@ -211,7 +227,7 @@ function prerenderMapa(){
   /* --- edifícios e adereços --- */
   chamines = [];
   for(const l of [...LOCAIS].sort((a,b)=>a.y-b.y)){
-    desenharLocalCache(c, l, s, rndM);
+    desenharLocalCache(c, l, s, rndM, crisp);
   }
   // barris e caixas junto ao mercador
   const lj = LOCAIS.find(l=>l.id==='loja');
@@ -223,12 +239,17 @@ function prerenderMapa(){
   c.fillRect(fe.x*W+34*s, fe.y*H-2*s, 16*s, 7*s);
   c.fillRect(fe.x*W+38*s, fe.y*H+5*s, 8*s, 6*s);
 
-  /* --- luz quente global + vinheta --- */
-  const luz = c.createRadialGradient(W*0.5, H*0.40, Math.min(W,H)*0.18, W*0.5, H*0.55, Math.max(W,H)*0.75);
+  /* ampliar o cenário pixelado para o cache e pôr os sprites nítidos por cima */
+  mc.imageSmoothingEnabled = false;
+  mc.drawImage(loCv, 0, 0, lw, lh, 0, 0, BW, BH);
+  for(const sp of crisp) mc.drawImage(sp.img, sp.x, sp.y, sp.w, sp.h);
+
+  /* --- luz quente global + vinheta (sobre tudo; é iluminação, fica suave) --- */
+  const luz = mc.createRadialGradient(W*0.5, H*0.40, Math.min(W,H)*0.18, W*0.5, H*0.55, Math.max(W,H)*0.75);
   luz.addColorStop(0,'rgba(255,220,150,0.10)');
   luz.addColorStop(0.55,'rgba(0,0,0,0)');
   luz.addColorStop(1,'rgba(8,6,16,0.42)');
-  c.fillStyle=luz; c.fillRect(0,0,W,H);
+  mc.fillStyle=luz; mc.fillRect(0,0,W,H);
 }
 
 function desenharArvore(c, x, y, s, rndM){
@@ -289,7 +310,7 @@ function desenharBarril(c, x, y, s){
 }
 
 /* edifícios detalhados (parte estática, vai para o cache) */
-function desenharLocalCache(c, l, s, rndM){
+function desenharLocalCache(c, l, s, rndM, crisp){
   const x = l.x*HUB.W, y = l.y*HUB.H;
   c.save(); c.translate(x,y);
   c.fillStyle='rgba(0,0,0,.35)';
@@ -297,8 +318,8 @@ function desenharLocalCache(c, l, s, rndM){
 
   if(l.tipo==='casa' && SPR.ok('cf_house')){
     const o=SPR.reg.cf_house, h=108*s, w=h*(o.w/o.h);
-    c.imageSmoothingEnabled=false;
-    c.drawImage(o.img, -w/2, 8*s - h, w, h);
+    // sprite nítido por cima do cenário pixelado (preserva a textura original)
+    crisp.push({ img:o.img, x:x - w/2, y:y + 8*s - h, w, h });
     // placa com o ícone do edifício (para distinguir loja/ferreiro/base)
     const py = 8*s - h + 6*s;
     c.fillStyle='#3a2d1d'; c.fillRect(-16*s, py-16*s, 32*s, 19*s);
