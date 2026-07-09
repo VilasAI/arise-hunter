@@ -589,3 +589,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 @media (orientation:landscape) and (max-height:520px){
   .btn-ult{right:114px;bottom:calc(104px + var(--safe-bottom))}
 }
+
+/* ---------- árvore de poderes ---------- */
+.no-arvore{padding:8px 10px}
+.no-arvore.no-on{border-color:var(--bronze);background:linear-gradient(180deg,#2a2218,#1e1810)}

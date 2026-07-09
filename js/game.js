@@ -23,10 +23,11 @@ function novoJogo(){
     clears:{},                 // rank -> nº de vezes concluída
     auto:false,
     diario:{ data:'', feitoDiaria:false, loginDado:false },
-    // poderes
+    // poderes + árvore
     poderes:{ lamina:{ tier:1, talento:null } },
     equipadosPoder:['lamina', null, null],
     pontosHabUsados:0,
+    arvore:{ nos:{}, respecs:0 },
     // runas / stamina / base
     runas:{}, runasEq:[null, null],
     stamina:{ v:BAL.stamina.max, ts:Date.now() },
@@ -58,7 +59,7 @@ function migrarSave(obj){
   }
   // saves anteriores ao sistema de poderes/vila
   const novo = novoJogo();
-  for(const k of ['poderes','equipadosPoder','runas','runasEq','stamina','base','contadores','missoesFeitas']){
+  for(const k of ['poderes','equipadosPoder','runas','runasEq','stamina','base','contadores','missoesFeitas','arvore']){
     if(obj[k] === undefined) obj[k] = novo[k];
   }
   if(obj.pontosHabUsados === undefined) obj.pontosHabUsados = 0;
@@ -123,30 +124,32 @@ function bonusEquipamento(){
 
 function statsTotais(){
   const J = BAL.jogador, b = bonusEquipamento();
+  const arv = (typeof bonusArvore==='function') ? bonusArvore() : { atqPct:0,hpPct:0,defPct:0,mpPct:0,velMovPct:0,critFlat:0,critDanoFlat:0,cdrFlat:0,sorteFlat:0,rouboFlat:0,ultCargaPct:0,efPoder:{} };
   const forca = G.basicas.for + b.for;
   const vit   = G.basicas.vit + b.vit;
   const agi   = G.basicas.agi + b.agi;
-  const atq   = J.danoBase + forca * BAL.basicas.forca.danoPorPonto + b.atq;
+  const atq   = Math.round((J.danoBase + forca * BAL.basicas.forca.danoPorPonto + b.atq) * (1 + arv.atqPct/100));
   const pas = (typeof passivaClasse==='function') ? passivaClasse()
             : { def:1, pen:0, mp:1, hp:1, crit:0, critDano:0, velMov:0 };
   return {
     forca, vit, agi, atq,
-    hpMax:  Math.round((J.hpBase + vit * BAL.basicas.vitalidade.hpPorPonto) * pas.hp),
-    mpMax:  Math.round((J.mpBase + (G.nivel-1) * J.mpPorNivel) * pas.mp),
-    def:    Math.round((vit * J.defPorVit + b.def) * pas.def),
+    hpMax:  Math.round((J.hpBase + vit * BAL.basicas.vitalidade.hpPorPonto) * pas.hp * (1 + arv.hpPct/100)),
+    mpMax:  Math.round((J.mpBase + (G.nivel-1) * J.mpPorNivel) * pas.mp * (1 + arv.mpPct/100)),
+    def:    Math.round((vit * J.defPorVit + b.def) * pas.def * (1 + arv.defPct/100)),
     velAtq: J.velAtqBase * (1 + agi * BAL.basicas.agilidade.velAtqPorPonto),
-    velMov: J.velMovBase * (1 + agi * BAL.basicas.agilidade.velMovPorPonto) * (1 + pas.velMov),
-    // avançadas (valor final, caps aplicados; equipamento + passiva de classe)
-    crit:     Math.min(60, valorAvancada('crit', G.avancadas.crit, b.crit) + pas.crit),
-    critDano: Math.min(350, valorAvancada('critDano', G.avancadas.critDano) + pas.critDano),
-    sorte:    valorAvancada('sorte',    G.avancadas.sorte,    b.sorte)
+    velMov: J.velMovBase * (1 + agi * BAL.basicas.agilidade.velMovPorPonto) * (1 + pas.velMov + arv.velMovPct/100),
+    // avançadas (valor final, caps aplicados; equipamento + passiva + árvore)
+    crit:     Math.min(60, valorAvancada('crit', G.avancadas.crit, b.crit) + pas.crit + arv.critFlat),
+    critDano: Math.min(350, valorAvancada('critDano', G.avancadas.critDano) + pas.critDano + arv.critDanoFlat),
+    sorte:    valorAvancada('sorte',    G.avancadas.sorte,    b.sorte) + arv.sorteFlat
               + (runaEquipada('fortuna') ? BAL.runas.fortunaSorte : 0),
-    roubo:    valorAvancada('roubo',    G.avancadas.roubo)
+    roubo:    valorAvancada('roubo',    G.avancadas.roubo) + arv.rouboFlat
               + (poderTier('sede') ? PODERES.sede.base.roubo * efeitoPoder('sede') : 0)
               + (runaEquipada('sangue') ? BAL.runas.sangueRoubo : 0),
     pen:      Math.min(50, valorAvancada('pen', G.avancadas.pen) + pas.pen),
-    cdr:      valorAvancada('cdr',      G.avancadas.cdr),
+    cdr:      valorAvancada('cdr',      G.avancadas.cdr) + arv.cdrFlat,
     danoSkill: atq * BAL.skill.multDano,
+    cargaUltMult: 1 + arv.ultCargaPct/100,
     maxSombras: clamp(BAL.sombras.maxBase + Math.floor(G.nivel / BAL.sombras.nivelPorSombra) + G.despertar,
                       1, BAL.sombras.maxAbsoluto),
   };
@@ -294,7 +297,8 @@ function tentarExtrairSombra(rank){
 
 function statsSombra(s){
   const base = SOMBRAS_BASE[s.rank], c = BAL.sombras.crescimentoPorNivel;
-  const mult = 1 + G.base.altar * BAL.base.altarBonusPorNivel;   // Altar do Dom
+  const mult = (1 + G.base.altar * BAL.base.altarBonusPorNivel)              // Altar do Dom
+             * ((typeof arvKeystone==='function' && arvKeystone('a_ks_dom')) ? 1.25 : 1); // Rei das Sombras
   return {
     atq: Math.round(base.atq*(1+s.nivel*c)*mult),
     hp:  Math.round(base.hp *(1+s.nivel*c)*mult),

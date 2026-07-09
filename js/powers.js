@@ -160,13 +160,14 @@ function talentoDe(id){
   return PODERES[id].talentos[p.talento];
 }
 
-/* multiplicador de efeito do poder (tier × talento) */
+/* multiplicador de efeito do poder (tier × talento × nós da árvore) */
 function efeitoPoder(id){
   const tier = poderTier(id);
   if(!tier) return 0;
   let ef = BAL.tiersPoder[tier-1].efeito;
   const t = talentoDe(id);
   if(t && t.mod.efeito) ef *= t.mod.efeito;
+  ef *= 1 + (bonusArvore().efPoder[id]||0)/100;
   return ef;
 }
 
@@ -189,7 +190,6 @@ function custoPoder(id){
     tier: alvo,
     pontos: Math.max(1, t.custoPts),
     ouro: BAL.poderes.custoOuroTier * alvo,
-    cristais: BAL.poderes.custoCristaisTier * alvo,
     despertar: t.despertar,
   };
 }
@@ -200,7 +200,6 @@ function podeEvoluirPoder(id){
   if(G.despertar < c.despertar) return {ok:false, msg:`Exige Despertar ${c.despertar}.`};
   if(pontosHabDisponiveis() < c.pontos) return {ok:false, msg:'Pontos de habilidade insuficientes.'};
   if(G.ouro < c.ouro) return {ok:false, msg:'Ouro insuficiente.'};
-  if(G.cristais < c.cristais) return {ok:false, msg:'Cristais insuficientes.'};
   return {ok:true, custo:c};
 }
 
@@ -210,7 +209,6 @@ function evoluirPoder(id){
   const c = r.custo;
   G.pontosHabUsados += c.pontos;
   G.ouro -= c.ouro;
-  G.cristais -= c.cristais;
   if(G.poderes[id]) G.poderes[id].tier = c.tier;
   else G.poderes[id] = { tier:1, talento:null };
   G.contadores.poderes++;

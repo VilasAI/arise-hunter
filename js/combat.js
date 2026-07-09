@@ -333,11 +333,13 @@ function atacar(){
   for(let i=0;i<4;i++) particula(j.x + j.dirAtq*42, j.y-26, '#d8c9a8', 2.5, 0.22);
 }
 
-/* Roubo de Vida (stat + Sede de Sangue + Runa Sangrenta) */
+/* Roubo de Vida (stat + Sede de Sangue + Runa Sangrenta + Ira Imortal) */
 function aplicarRoubo(dano){
   const j=C.jogador, t=C.stats;
-  if(t.roubo<=0) return;
-  const cura = dano * t.roubo/100;
+  let roubo = t.roubo;
+  if(C.buffFuria>0 && arvKeystone('g_ks_fur')) roubo += 15;   // Ira Imortal
+  if(roubo<=0) return;
+  const cura = dano * roubo/100;
   if(cura < 0.5 || j.hp >= t.hpMax) return;
   j.hp = Math.min(t.hpMax, j.hp + cura);
   if(cura >= 1) numero(j.x, j.y-74, '+'+Math.round(cura), '#94bd52', 12);
@@ -396,7 +398,8 @@ function usarUltimate(){
     case 'guerreiro':                       // Baluarte: efeitos lidos em ferirJogador/golpeConecta
     case 'mago':                            // Tempestade: meteoros no atualizar
     case 'batedor':                         // Tempo de Caça: disparos no atualizar
-      u.t = cfg.dur * mult; u.tick = 0;
+      u.t = (cfg.dur + (G.classe==='guerreiro' && arvKeystone('g_ks_dom') ? 3 : 0)) * mult;  // Baluarte Eterno
+      u.tick = 0;
       break;
     case 'assassino': {                     // Chamada: a coleção inteira entra em campo
       u.t = cfg.dur;                        // (o Altar já reforça as sombras)
@@ -423,6 +426,7 @@ function usarUltimate(){
           e.congelado = Math.max(e.congelado, cfg.cegar);   // cegos
         }
       }
+      if(arvKeystone('p_ks_dom')) j.invul = Math.max(j.invul, 1.5);   // Alvorada
       C.anelSkill = { x:j.x, y:j.y, t:0.6, cor:'#f0e0a0' };
       for(let i=0;i<30;i++){ const a=(i/30)*Math.PI*2; particula(j.x+Math.cos(a)*36, j.y-18+Math.sin(a)*20, '#f0e0a0', 5, 0.6, Math.cos(a)*240, Math.sin(a)*150); }
       break;
@@ -484,7 +488,7 @@ function usarPoder(slot, dir){
 
   switch(id){
     case 'lamina': {
-      const n = (tal && tal.mod.projeteis) || 1;
+      const n = ((tal && tal.mod.projeteis) || 1) + (arvKeystone('b_ks_lam') ? 1 : 0);  // Lâminas Gémeas
       for(let k=0;k<n;k++){
         if(dir){
           // disparo em linha reta na direção da mira
@@ -515,6 +519,7 @@ function usarPoder(slot, dir){
           const g = calcularGolpe(atqAtual()*p.base.dano*ef, t.crit, t.critDano, t.pen, e.def);
           ferirInimigo(e, g.dano, g.crit, p.cor);
           aplicarRoubo(g.dano);
+          if(arvKeystone('g_ks_inv')) e.congelado = Math.max(e.congelado, 0.8);  // Terramoto
         }
       }
       for(let i=0;i<14;i++) particula(j.x+dx/d*i*20, j.y+dy/d*i*20, p.cor, 4, 0.4);
@@ -544,7 +549,8 @@ function usarPoder(slot, dir){
       }
       if(!primeiro){ j.mp += p.mp||0; C.cdPoder[id] = 0; return; }  // sem alvo: devolve
       const saltos = p.base.saltos + ((tal && tal.mod.saltosExtra)||0);
-      cadeiaRelampago(primeiro, atqAtual()*p.base.dano*ef, saltos, p.base.decai);
+      const decai = arvKeystone('m_ks_cor') ? 1 : p.base.decai;     // Tempestade Perfeita
+      cadeiaRelampago(primeiro, atqAtual()*p.base.dano*ef, saltos, decai);
       break;
     }
     case 'brasas': {
@@ -553,6 +559,7 @@ function usarPoder(slot, dir){
           const g = calcularGolpe(atqAtual()*p.base.dano*ef, t.crit, t.critDano, t.pen, e.def);
           ferirInimigo(e, g.dano, g.crit, PODERES.brasas.cor);
           aplicarQueimadura(e, atqAtual()*p.base.queima*ef, p.base.dur);
+          if(arvKeystone('m_ks_bra')) aplicarLentidao(e, 0.15, p.base.dur);   // Pira
         }
       }
       for(let i=0;i<26;i++){
@@ -564,7 +571,8 @@ function usarPoder(slot, dir){
       break;
     }
     case 'gelo': {
-      const congela = p.base.congela + ((tal && tal.mod.congelaExtra)||0);
+      const congela = p.base.congela + ((tal && tal.mod.congelaExtra)||0)
+                    + (arvKeystone('m_ks_gel') ? 0.6 : 0);   // Zero Absoluto
       for(const e of C.inimigos){
         if(Math.hypot(e.x-j.x,e.y-j.y) <= p.base.raio + e.raio){
           e.congelado = Math.max(e.congelado, congela);
@@ -596,6 +604,7 @@ function usarPoder(slot, dir){
       const g = calcularGolpe(atqAtual()*p.base.dano*ef, t.crit, t.critDano, t.pen, fraco.def);
       ferirInimigo(fraco, g.dano, g.crit, p.cor);
       aplicarRoubo(g.dano);
+      if(arvKeystone('a_ks_exe') && fraco.hp<=0) C.cdPoder[id] = 0;   // Decapitar
       C.shake = Math.max(C.shake, 8);
       for(let i=0;i<14;i++) particula(fraco.x, fraco.y-16, p.cor, 4.5, 0.5);
       break;
@@ -610,11 +619,16 @@ function usarPoder(slot, dir){
       const g = calcularGolpe(atqAtual()*p.base.dano*ef, critP, t.critDano, t.pen, alvo.def);
       ferirInimigo(alvo, g.dano, g.crit, p.cor);
       aplicarRoubo(g.dano);
+      if(arvKeystone('a_ks_pas') && alvo.hp>0){                  // Golpe Fantasma
+        const g2 = calcularGolpe(atqAtual()*p.base.dano*ef*0.6, critP, t.critDano, t.pen, alvo.def);
+        ferirInimigo(alvo, g2.dano, g2.crit, p.cor);
+        aplicarRoubo(g2.dano);
+      }
       for(let i=0;i<8;i++) particula(j.x, j.y-20, p.cor, 3.5, 0.4);
       break;
     }
     case 'tiro': {
-      const nf = p.base.flechas + ((tal&&tal.mod.flechasExtra)||0);
+      const nf = p.base.flechas + ((tal&&tal.mod.flechasExtra)||0) + (arvKeystone('b_ks_tir') ? 2 : 0);  // Chuva Negra
       let bx, by;
       if(dir){ bx=dir.x; by=dir.y; }
       else if(alvo){ bx=alvo.x-j.x; by=(alvo.y-20)-(j.y-26); }
@@ -633,8 +647,9 @@ function usarPoder(slot, dir){
       j.hp = Math.min(t.hpMax, j.hp + cura);
       numero(j.x, j.y-74, '+'+Math.round(cura), '#f0d272', 16);
       const danoMul = (tal&&tal.mod.dano)||1;
+      const raioLuz = p.base.raio * (arvKeystone('p_ks_luz') ? 1.5 : 1);   // Sol Nascente
       for(const e of [...C.inimigos]){
-        if(Math.hypot(e.x-j.x,e.y-j.y) <= p.base.raio + e.raio){
+        if(Math.hypot(e.x-j.x,e.y-j.y) <= raioLuz + e.raio){
           const g = calcularGolpe(atqAtual()*p.base.dano*danoMul*ef, t.crit, t.critDano, t.pen, e.def);
           ferirInimigo(e, g.dano, g.crit, p.cor);
         }
@@ -645,7 +660,7 @@ function usarPoder(slot, dir){
     }
     case 'martelo': {
       const raio = p.base.raio * ((tal&&tal.mod.raio)||1);
-      const stun = p.base.stun + ((tal&&tal.mod.stunExtra)||0);
+      const stun = p.base.stun + ((tal&&tal.mod.stunExtra)||0) + (arvKeystone('p_ks_mar') ? 0.5 : 0);  // Julgamento
       for(const e of C.inimigos){
         if(Math.hypot(e.x-j.x,e.y-j.y) <= raio + e.raio){
           const g = calcularGolpe(atqAtual()*p.base.dano*ef, t.crit, t.critDano, t.pen, e.def);
@@ -680,6 +695,10 @@ function distSegmento(px,py, ax,ay, bx,by){
 }
 
 function ferirInimigo(e, dano, crit, cor){
+  // keystones: Pânico (na Aura de Terror) · Marca do Ceifeiro (alvos enfraquecidos)
+  if(arvKeystone('b_ks_ter') && poderTier('terror') &&
+     Math.hypot(e.x-C.jogador.x, e.y-C.jogador.y) < PODERES.terror.base.raio) dano = Math.round(dano*1.10);
+  if(arvKeystone('a_ks_sed') && e.hp/e.hpMax < 0.30) dano = Math.round(dano*1.15);
   e.hp -= dano; e.flash = 0.12;
   // knockback com decaimento: impulso para longe do Watcher que trava suave (bosses quase imunes)
   const j2 = C.jogador;
@@ -692,7 +711,8 @@ function ferirInimigo(e, dano, crit, cor){
   // carga da ultimate: proporcional ao dano causado (relativo ao ataque)
   if(temUltimate() && C.ult.t<=0){
     C.ult.carga = Math.min(BAL.ultimates.cargaMax,
-      C.ult.carga + dano/atqAtual()*BAL.ultimates.cargaPorGolpe + (e.hp<=0 ? BAL.ultimates.cargaPorAbate : 0));
+      C.ult.carga + (dano/atqAtual()*BAL.ultimates.cargaPorGolpe + (e.hp<=0 ? BAL.ultimates.cargaPorAbate : 0))
+                    * (C.stats.cargaUltMult||1));
   }
   numero(e.x, e.y - e.raio - 14, crit ? dano+'!' : dano, crit?'#e8c84a':cor, crit?24:15);
   if(e.hp<=0){
@@ -791,7 +811,7 @@ function atualizar(dt){
     const U = BAL.ultimates, mult = multAltarUlt();
     C.ult.tick -= dt;
     if(G.classe==='mago' && C.ult.tick<=0 && C.inimigos.length){
-      C.ult.tick = U.mago.ritmo;
+      C.ult.tick = U.mago.ritmo * (arvKeystone('m_ks_dom') ? 0.8 : 1);   // Olho da Tempestade
       const e = escolher(C.inimigos);
       const g = calcularGolpe(atqAtual()*U.mago.dano*mult, t.crit, t.critDano, t.pen, e.def);
       ferirInimigo(e, g.dano, g.crit, '#b89ae8');
@@ -800,7 +820,8 @@ function atualizar(dt){
     } else if(G.classe==='batedor' && C.ult.tick<=0 && C.inimigos.length){
       C.ult.tick = U.batedor.ritmo;
       const alvos = [...C.inimigos]
-        .sort((a,b)=> Math.hypot(a.x-j.x,a.y-j.y) - Math.hypot(b.x-j.x,b.y-j.y)).slice(0,3);
+        .sort((a,b)=> Math.hypot(a.x-j.x,a.y-j.y) - Math.hypot(b.x-j.x,b.y-j.y))
+        .slice(0, arvKeystone('b_ks_dom') ? 4 : 3);   // Época de Caça
       for(const e of alvos){
         C.projeteis.push({ tipo:'lamina', x:j.x, y:j.y-26, alvo:e, critG:true,
                            dano: atqAtual()*U.batedor.dano*mult, vel:700, cor:'#cfe0a0' });
@@ -1222,7 +1243,22 @@ function ferirJogador(bruto, atacante){
     const abs = Math.min(C.escudo, dano);
     C.escudo -= abs; dano -= abs;
     numero(j.x, j.y-66, '🛡'+abs, '#b8a8e0', 13);
-    if(C.escudo<=0) toast('O escudo quebrou!');
+    // Muralha Viva: com escudo ativo, reflete 15% do dano bruto
+    if(arvKeystone('g_ks_esc') && atacante && atacante.hp>0){
+      ferirInimigo(atacante, Math.max(1, Math.round(bruto*0.15)), false, '#c9a55a');
+    }
+    if(C.escudo<=0){
+      toast('O escudo quebrou!');
+      // Aegis: o escudo quebra numa explosão sagrada
+      if(arvKeystone('p_ks_ben')){
+        for(const e of [...C.inimigos]){
+          if(Math.hypot(e.x-j.x, e.y-j.y) <= 160 + e.raio){
+            ferirInimigo(e, Math.max(1, Math.round(atqAtual()*1.2)), false, '#f0d272');
+          }
+        }
+        C.anelSkill = { x:j.x, y:j.y, t:0.5, cor:'#f0d272' };
+      }
+    }
     if(dano<=0){ C.shake=Math.max(C.shake,3); return; }
   }
   j.hp -= dano;

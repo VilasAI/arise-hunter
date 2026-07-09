@@ -152,10 +152,17 @@ const BAL = {
   /* ---------- Poderes ---------- */
   poderes: {
     nivelPorPonto: 2,    // 1 ponto de habilidade a cada X níveis
-    custoOuroTier: 150,  // ouro por tier (× tier alvo)
-    custoCristaisTier: 4,// cristais por tier (× tier alvo)
+    custoOuroTier: 150,  // ouro por tier (× tier alvo) — cristais fora (D020)
     tierTalento: 3,      // tier a partir do qual se escolhe o talento
     slotsAtivos: 3,      // poderes ativos equipáveis em combate
+  },
+
+  /* ---------- Árvore de poderes (D019/D020) ---------- */
+  arvore: {
+    custoMenor: 1,          // pontos por nó menor
+    custoKeystone: 3,       // pontos por keystone
+    respecOuroBase: 250,    // 2.º respec em diante: base + nível × porNivel
+    respecOuroPorNivel: 30, // (o 1.º respec é grátis)
   },
 
   /* ---------- Stamina de masmorra ---------- */

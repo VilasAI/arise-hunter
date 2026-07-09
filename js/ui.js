@@ -613,52 +613,114 @@ function htmlHeroi(){
     </div>`;
   }
 
-  const pts = pontosHabDisponiveis();
-  h += sec('p_brasas',`Poderes — ${pts} ponto${pts!==1?'s':''} de habilidade`);
-  h += `<div class="cartao nota">
-    1 ponto a cada ${BAL.poderes.nivelPorPonto} níveis. Ativos equipam-se em ${BAL.poderes.slotsAtivos} slots;
-    passivos funcionam sempre. Talento à escolha no tier ${BAL.poderes.tierTalento}.
-  </div>`;
-  for(const id of (typeof poderesDaClasse==='function' ? poderesDaClasse() : ORDEM_PODERES)) h += cartaoPoder(id);
+  h += htmlArvore();
   return h;
 }
 
-function cartaoPoder(id){
-  const p = PODERES[id], tier = poderTier(id), aprendido = tier>0;
-  const eqIdx = G.equipadosPoder.indexOf(id);
-  const c = custoPoder(id);
-  let pips='';
-  for(let i=1;i<=5;i++) pips += `<span class="tier-pip ${i<=tier?'on':''}"></span>`;
-  let talHtml='';
-  if(aprendido && tier >= BAL.poderes.tierTalento){
-    const escolhido = G.poderes[id].talento;
-    talHtml = `<div class="talento-opcoes">` + p.talentos.map((t,i)=>
-      `<div class="talento ${escolhido===i?'escolhido':''}" data-talento="${id}:${i}"><b>${t.nome}</b><br>${t.desc}</div>`
-    ).join('') + `</div>`;
-  } else if(aprendido){
-    talHtml = `<div class="nota" style="margin-top:6px">Talentos no tier ${BAL.poderes.tierTalento}</div>`;
-  }
-  let botao='';
-  if(c){
-    const bloqD = G.despertar < c.despertar;
-    botao = `<button class="btn btn-sec" data-poder-up="${id}" style="font-size:11px" ${bloqD?'disabled':''}>
-      ${aprendido?'Tier '+c.tier:'Aprender'}<br>${ic('ponto',10)}${c.pontos} ${ic('ouro',10)}${c.ouro} ${ic('cristal',10)}${c.cristais}${bloqD?`<br>${ic('despertar',10)}${c.despertar}`:''}
-    </button>`;
-  } else botao = `<span class="etiqueta">MÁX</span>`;
-  return `
-  <div class="cartao poder-cartao" style="${aprendido?'':'opacity:.7'}">
-    <div class="poder-icone ${eqIdx>=0?'eq':''}" style="border-color:${aprendido?p.cor:'var(--borda)'}">${ic(p.icone,30)}</div>
-    <div class="crescer">
-      <div class="portal-nome">${p.nome}
-        <span class="nota">${p.tipo==='ativo'?`ATIVO · ${p.cd}s · ${p.mp}mp`:'PASSIVO'}</span>
-      </div>
-      <div class="portal-info">${p.desc}${aprendido?` · efeito ×${efeitoPoder(id).toFixed(2)}`:''}</div>
-      <div class="poder-tiers">${pips}</div>
-      ${talHtml}
-      ${aprendido && p.tipo==='ativo' ? `<button class="btn btn-sec" data-poder-eq="${id}" style="font-size:11px;margin-top:8px">${eqIdx>=0?`No slot ${eqIdx+1} — mudar`:'Equipar num slot'}</button>`:''}
-    </div>
-    ${botao}
+/* ============ ÁRVORE DE PODERES (D019/D021 — colunas por ramo) ============ */
+let ramoAtual = 0;
+
+function htmlArvore(){
+  const arv = arvoreDaClasse();
+  if(!arv) return '';
+  if(ramoAtual >= arv.ramos.length) ramoAtual = 0;
+  const pts = pontosHabDisponiveis();
+  let h = sec('p_brasas',`Árvore de Poderes — ${pts} ponto${pts!==1?'s':''}`);
+  h += `<div class="cartao nota">1 ponto a cada ${BAL.poderes.nivelPorPonto} níveis. Tiers custam pontos + ouro;
+    nós menores ${BAL.arvore.custoMenor} ponto; keystones ${BAL.arvore.custoKeystone} pontos (exigem Despertar 2).</div>`;
+  h += `<div class="sub-tabs">` + arv.ramos.map((r,i)=>{
+    const icone = r.dom ? ultimateClasse().icone : PODERES[r.poder].icone;
+    const nome  = r.dom ? 'Dom' : PODERES[r.poder].nome.split(' ')[0];
+    return `<button class="sub-tab ${ramoAtual===i?'ativa':''}" data-ramo="${i}">${ic(icone,18)}<span>${nome}</span></button>`;
+  }).join('') + `</div>`;
+  const ramo = arv.ramos[ramoAtual];
+  h += `<div class="ferreiro-painel">${ramo.dom ? ramoDomHtml(ramo) : ramoPoderHtml(ramo)}</div>`;
+  const cr = custoRespec();
+  h += `<div class="cartao linha">
+    <div class="crescer nota">Recomeçar a árvore devolve todos os pontos (o ouro gasto não volta).</div>
+    <button class="btn btn-sec" id="btn-respec" style="font-size:12px">${cr===0?'Respec<br>grátis':`Respec<br>${ic('ouro',11)}${cr}`}</button>
   </div>`;
+  return h;
+}
+
+/* nó menor / keystone: cartão compacto com estado e botão de compra */
+function linhaNo(ramoIdx, tipo, idx, comprado, disp, nome, desc, custo){
+  const attr = tipo==='ks' ? `data-ks="${ramoIdx}"` : `data-no="${ramoIdx}:${idx}"`;
+  const marca = tipo==='ks' ? '◆' : '○';
+  return `<div class="cartao linha no-arvore ${comprado?'no-on':''}" style="${comprado?'':disp.ok?'':'opacity:.55'}">
+    <div class="crescer">
+      <div class="portal-nome">${marca} ${nome} ${comprado?'<span class="etiqueta">✓</span>':''}</div>
+      <div class="portal-info">${desc}</div>
+      ${!comprado && !disp.ok ? `<div class="nota">🔒 ${disp.msg}</div>` : ''}
+    </div>
+    ${!comprado && disp.ok ? `<button class="btn btn-sec" ${attr} style="font-size:11px">${ic('ponto',11)}${custo}</button>` : ''}
+  </div>`;
+}
+
+function ramoPoderHtml(ramo){
+  const id = ramo.poder, p = PODERES[id], tier = poderTier(id);
+  const eqIdx = G.equipadosPoder.indexOf(id);
+  const ramoIdx = arvoreDaClasse().ramos.indexOf(ramo);
+  let h = `<div class="cartao poder-cartao">
+    <div class="poder-icone ${eqIdx>=0?'eq':''}" style="border-color:${tier>0?p.cor:'var(--borda)'}">${ic(p.icone,30)}</div>
+    <div class="crescer">
+      <div class="portal-nome">${p.nome} <span class="nota">${p.tipo==='ativo'?`ATIVO · ${p.cd}s · ${p.mp}mp`:'PASSIVO'}</span></div>
+      <div class="portal-info">${p.desc}${tier>0?` · efeito ×${efeitoPoder(id).toFixed(2)}`:''}</div>
+      ${tier>0 && p.tipo==='ativo' ? `<button class="btn btn-sec" data-poder-eq="${id}" style="font-size:11px;margin-top:8px">${eqIdx>=0?`No slot ${eqIdx+1} — mudar`:'Equipar num slot'}</button>`:''}
+    </div>
+  </div>`;
+  const c = custoPoder(id);
+  for(let t2=1; t2<=5; t2++){
+    const comprado = t2 <= tier, proximo = c && t2 === c.tier;
+    const gate = BAL.tiersPoder[t2-1].despertar;
+    h += `<div class="cartao linha no-arvore ${comprado?'no-on':''}" style="${comprado||proximo?'':'opacity:.55'}">
+      <div class="crescer">
+        <div class="portal-nome">● Tier ${t2} ${comprado?'<span class="etiqueta">✓</span>':''}</div>
+        <div class="portal-info">Efeito ×${BAL.tiersPoder[t2-1].efeito.toFixed(2)} · cooldown ×${BAL.tiersPoder[t2-1].cd.toFixed(2)}</div>
+        ${gate>0 && G.despertar<gate ? `<div class="nota">🔒 Exige Despertar ${gate}</div>`:''}
+      </div>
+      ${proximo && G.despertar>=gate ? `<button class="btn btn-sec" data-poder-up="${id}" style="font-size:11px">${tier>0?'Evoluir':'Aprender'}<br>${ic('ponto',10)}${c.pontos} ${ic('ouro',10)}${c.ouro}</button>` : ''}
+    </div>`;
+    // bifurcação de talento no tier 3
+    if(t2===BAL.poderes.tierTalento && tier>=BAL.poderes.tierTalento){
+      const escolhido = G.poderes[id].talento;
+      h += `<div class="talento-opcoes">` + p.talentos.map((t,i)=>
+        `<div class="talento ${escolhido===i?'escolhido':''}" data-talento="${id}:${i}"><b>${t.nome}</b><br>${t.desc}</div>`
+      ).join('') + `</div>`;
+    }
+    // nós menores pendurados neste tier
+    for(const no of ramo.menores){
+      if(no.req !== t2) continue;
+      h += linhaNo(ramoIdx, 'no', ramo.menores.indexOf(no), noComprado(no.id), noDisponivel(ramo,no), no.nome, descEfeito(no.ef), BAL.arvore.custoMenor);
+    }
+  }
+  h += linhaNo(ramoIdx, 'ks', 0, noComprado(ramo.keystone.id), keystoneDisponivel(ramo), ramo.keystone.nome+' (keystone)', ramo.keystone.desc, BAL.arvore.custoKeystone);
+  return h;
+}
+
+function ramoDomHtml(ramo){
+  const ult = ultimateClasse();
+  const ramoIdx = arvoreDaClasse().ramos.indexOf(ramo);
+  const bloq = G.despertar < 1;
+  let h = `<div class="cartao" style="border-color:${ult.cor}">
+    <div class="portal-nome" style="color:${ult.cor}">${ic(ult.icone,18)} ${ult.nome} <span class="nota">ULTIMATE</span></div>
+    <div class="portal-info">${ult.desc}</div>
+    ${bloq?`<div class="nota" style="margin-top:6px">🔒 O ramo do Dom abre no 1.º Despertar (nível ${BAL.despertar.niveis[0]}).</div>`:''}
+  </div>`;
+  for(const no of ramo.menores){
+    h += linhaNo(ramoIdx, 'no', ramo.menores.indexOf(no), noComprado(no.id), noDisponivel(ramo,no), no.nome, descEfeito(no.ef), BAL.arvore.custoMenor);
+  }
+  h += linhaNo(ramoIdx, 'ks', 0, noComprado(ramo.keystone.id), keystoneDisponivel(ramo), ramo.keystone.nome+' (keystone do Dom)', ramo.keystone.desc, BAL.arvore.custoKeystone);
+  return h;
+}
+
+/* descrição legível do efeito de um nó menor */
+function descEfeito(ef){
+  const nomes = { atqPct:'% ataque', hpPct:'% vida', defPct:'% defesa', mpPct:'% mana',
+                  velMovPct:'% movimento', critFlat:'% crítico', critDanoFlat:'% dano crítico',
+                  cdrFlat:'% vel. cooldown', sorteFlat:' Sorte', rouboFlat:'% roubo de vida',
+                  ultCargaPct:'% carga da ultimate', efPoderPct:'% efeito deste poder' };
+  return Object.keys(ef).map(k=>`+${ef[k]}${nomes[k]||''}`).join(' · ');
 }
 
 function modalEquiparPoder(id){
@@ -826,6 +888,34 @@ function ligarEventosPainel(tab, corpo){
         if(escolherTalento(id, +idx)){ toast(`Talento: ${PODERES[id].talentos[+idx].nome}`); refrescar(); }
         else toast(`Talentos desbloqueiam no tier ${BAL.poderes.tierTalento}.`);
       });
+    });
+    // árvore de poderes: ramos, nós menores, keystones, respec
+    corpo.querySelectorAll('[data-ramo]').forEach(b=>{
+      b.addEventListener('click', ()=>{ ramoAtual = +b.dataset.ramo; refrescar(); });
+    });
+    corpo.querySelectorAll('[data-no]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const [ri, ni] = b.dataset.no.split(':').map(Number);
+        const ramo = arvoreDaClasse().ramos[ri];
+        const r = comprarNo(ramo, ramo.menores[ni], false);
+        toast(r.ok ? `${ramo.menores[ni].nome} adquirido!` : r.msg);
+        refrescar();
+      });
+    });
+    corpo.querySelectorAll('[data-ks]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const ramo = arvoreDaClasse().ramos[+b.dataset.ks];
+        const r = comprarNo(ramo, null, true);
+        toast(r.ok ? `✦ Keystone: ${ramo.keystone.nome}!` : r.msg);
+        refrescar();
+      });
+    });
+    corpo.querySelector('#btn-respec')?.addEventListener('click', ()=>{
+      const custo = custoRespec();
+      if(!confirm(`Recomeçar a árvore${custo?` por ${custo} de ouro`:' (grátis)'}? Todos os pontos são devolvidos.`)) return;
+      const r = resetArvore();
+      toast(r.ok ? 'Árvore recomeçada — pontos devolvidos.' : r.msg);
+      refrescar();
     });
   }
 }
