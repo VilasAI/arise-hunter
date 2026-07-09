@@ -31,6 +31,7 @@ function iniciarCombate(masmorra){
       x:w*0.25, y:h*0.65, hp:t.hpMax, mp:t.mpMax,
       cdAtq:0, cdEsq:0, invul:0, atacando:0, dirAtq:1,
       alvoX:null, alvoY:null, andando:false,
+      vx:0, vy:0, movia:false, atqBuf:false,  // peso do movimento · ataque em buffer
     },
     joy:null,                         // joystick flutuante {id,bx,by,dx,dy,mag}
     stats:t,
@@ -54,6 +55,7 @@ function iniciarCombate(masmorra){
   document.getElementById('hud-boss').hidden = true;
   document.getElementById('hud-escudo').hidden = true;
   mostrarEcra('ecra-combate');
+  AUDIO.musica('combate');
   ultimoT = performance.now();
   cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
@@ -113,7 +115,7 @@ function criarInimigo(base, rank, classe, i=0){
     vel: base.vel * (classe==='boss'?0.85:1),
     cd: rnd(0.5,1.5), windup:0, habAtiva:null, investe:null,
     raio: classe==='boss'?34 : classe==='elite'?24 : 16,
-    flash:0,
+    flash:0, kbvx:0, kbvy:0,
     strafe: Math.random()<0.5?-1:1,   // sentido do passo lateral (arqueiros)
     flank: rnd(-0.42,0.42),           // ângulo de cerco (corpo-a-corpo)
     queimar:null,          // {t, dps}
@@ -297,7 +299,12 @@ function inimigoMaisProximo(px,py){
 /* golpe no lugar: auto-mira no inimigo ao alcance, NUNCA arrasta o jogador */
 function atacar(){
   const j = C.jogador;
-  if(j.cdAtq>0) return;
+  if(j.cdAtq>0){
+    // toque perto do fim da recarga fica guardado e dispara sozinho (buffer)
+    if(j.cdAtq <= BAL.feel.bufferAtq) j.atqBuf = true;
+    return;
+  }
+  j.atqBuf = false;
   j.cdAtq = 0.55 / velAtqAtual();
   j.atacando = 0.18;
   const alvo = inimigoMaisProximo();
@@ -361,6 +368,9 @@ function esquivar(nx,ny){
   }
   j.cdEsq = B.dashCd * (1 - t.cdr/100);
   j.invul = B.dashInvul;
+  j.atacando = 0;
+  j.cdAtq = Math.min(j.cdAtq, BAL.feel.dashCancel);   // o dash cancela o recovery do golpe
+  AUDIO.sfx('dash');
   j.alvoX = clamp(j.x + nx*B.dashDist, 30, C.W-30);
   j.alvoY = clamp(j.y + ny*B.dashDist, C.chaoTopo, C.chaoFundo);
   if(Math.abs(nx) > 0.2) j.dirAtq = nx>=0?1:-1;
@@ -414,6 +424,7 @@ function usarPoder(slot, dir){
 
   j.mp -= p.mp||0;
   C.cdPoder[id] = cooldownPoder(id, t.cdr);
+  AUDIO.sfx('poder');
 
   switch(id){
     case 'lamina': {
@@ -596,14 +607,14 @@ function distSegmento(px,py, ax,ay, bx,by){
 
 function ferirInimigo(e, dano, crit, cor){
   e.hp -= dano; e.flash = 0.12;
-  // knockback: empurra o inimigo para longe do Watcher (bosses quase imunes)
+  // knockback com decaimento: impulso para longe do Watcher que trava suave (bosses quase imunes)
   const j2 = C.jogador;
   const kdx = e.x-j2.x, kdy = e.y-j2.y, kd = Math.hypot(kdx,kdy)||1;
-  const kb = BAL.combate.knockback * (e.classe==='boss' ? 0.25 : e.classe==='elite' ? 0.5 : 1);
-  e.x = clamp(e.x + kdx/kd*kb, 20, C.W-20);
-  e.y = clamp(e.y + kdy/kd*kb, C.chaoTopo, C.chaoFundo);
-  // crítico: micro hit-stop dramático
-  if(crit) C.hitstop = Math.max(C.hitstop, 0.06);
+  const kb = BAL.feel.kbVel * (e.classe==='boss' ? 0.25 : e.classe==='elite' ? 0.5 : 1);
+  e.kbvx = kdx/kd*kb; e.kbvy = kdy/kd*kb;
+  // hit-stop universal leve; nos críticos, dramático
+  C.hitstop = Math.max(C.hitstop, crit ? BAL.feel.hitstopCrit : BAL.feel.hitstop);
+  AUDIO.sfx(crit ? 'crit' : 'golpe');
   numero(e.x, e.y - e.raio - 14, crit ? dano+'!' : dano, crit?'#e8c84a':cor, crit?24:15);
   if(e.hp<=0){
     C.mortes++;
@@ -684,6 +695,7 @@ function atualizar(dt){
   // cooldowns / regen / buffs
   j.cdAtq=Math.max(0,j.cdAtq-dt); j.cdEsq=Math.max(0,j.cdEsq-dt);
   j.invul=Math.max(0,j.invul-dt);
+  if(j.atqBuf && j.cdAtq<=0 && C.fase==='luta') atacar();   // dispara o toque guardado
   for(const k of Object.keys(C.cdPoder)) C.cdPoder[k] = Math.max(0, C.cdPoder[k]-dt);
   C.buffFuria = Math.max(0, C.buffFuria-dt);
   C.buffGelo = Math.max(0, C.buffGelo-dt);
@@ -705,17 +717,30 @@ function atualizar(dt){
   for(const r of C.rastos) r.t -= dt;
   C.rastos = C.rastos.filter(r=>r.t>0);
 
-  // MOVIMENTO LIVRE pelo joystick (analógico: velocidade segue a inclinação)
-  j.andando = false;
+  // MOVIMENTO LIVRE pelo joystick — analógico e com peso: a velocidade real
+  // persegue a do joystick com a constante de tempo BAL.feel.acelMov
+  let tvx = 0, tvy = 0;
   if(C.joy && C.joy.mag>0.08 && j.alvoX===null && C.fase==='luta' && !C.auto){
     const lento = C.lentoJog ? 1-C.lentoJog.fator : 1;
-    const v = BAL.combate.velJogador * t.velMov * lento * C.joy.mag * dt;
+    const vMax = BAL.combate.velJogador * t.velMov * lento * C.joy.mag;
     const m = Math.hypot(C.joy.dx, C.joy.dy)||1;
-    j.x = clamp(j.x + C.joy.dx/m*v, 24, C.W-24);
-    j.y = clamp(j.y + C.joy.dy/m*v, C.chaoTopo, C.chaoFundo);
+    tvx = C.joy.dx/m*vMax; tvy = C.joy.dy/m*vMax;
     if(Math.abs(C.joy.dx) > JOY_RAIO*0.12) j.dirAtq = C.joy.dx>=0 ? 1 : -1;
-    j.andando = true;
   }
+  const kAcel = Math.min(1, dt/BAL.feel.acelMov);
+  j.vx += (tvx-j.vx)*kAcel; j.vy += (tvy-j.vy)*kAcel;
+  const vAbs = Math.hypot(j.vx, j.vy);
+  if(vAbs > 8){
+    j.x = clamp(j.x + j.vx*dt, 24, C.W-24);
+    j.y = clamp(j.y + j.vy*dt, C.chaoTopo, C.chaoFundo);
+  }
+  j.andando = vAbs > 20;
+  // poeira no arranque e na travagem
+  const querMover = !!(tvx || tvy);
+  if(querMover !== j.movia && (querMover || vAbs > 80)){
+    for(let i=0;i<5;i++) particula(j.x+rnd(-8,8), j.y-2, '#a3937a', 2.2, 0.3, rnd(-40,40), rnd(-60,-10));
+  }
+  j.movia = querMover;
   j.atacando = Math.max(0, j.atacando-dt);
 
   if(C.auto && C.fase==='luta') autoIA(dt);
@@ -750,6 +775,14 @@ function atualizar(dt){
   // inimigos
   for(const e of C.inimigos){
     e.flash = Math.max(0, e.flash-dt);
+    // knockback em curso: impulso que decai até parar (nada de saltos secos)
+    if(e.kbvx || e.kbvy){
+      e.x = clamp(e.x + e.kbvx*dt, 20, C.W-20);
+      e.y = clamp(e.y + e.kbvy*dt, C.chaoTopo, C.chaoFundo);
+      const trav = Math.exp(-BAL.feel.kbTravao*dt);
+      e.kbvx *= trav; e.kbvy *= trav;
+      if(Math.abs(e.kbvx)+Math.abs(e.kbvy) < 6) e.kbvx = e.kbvy = 0;
+    }
     // estados
     if(e.queimar){
       e.queimar.t -= dt;
@@ -1069,6 +1102,7 @@ function ferirJogador(bruto){
     if(dano<=0){ C.shake=Math.max(C.shake,3); return; }
   }
   j.hp -= dano;
+  AUDIO.sfx('dano');
   numero(j.x, j.y-60, dano, '#d05c4e', 16);
   C.shake = Math.max(C.shake, 6);
   C.danoFlash = 0.3;
@@ -1620,6 +1654,7 @@ function desenharInimigo(e){
     const alt = (m2.kind==='big'?200:112) * s * (m2.esc||1);
     ctx.save();
     if(e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));
+    if(e.flash>0){ const q=BAL.feel.squash*(e.flash/0.12); ctx.scale(1+q, 1-q); }  // squash & stretch
     if(m2.alpha) ctx.globalAlpha=m2.alpha;
     if(e.flash>0) ctx.filter='brightness(2.4)';
     else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
@@ -1630,6 +1665,7 @@ function desenharInimigo(e){
     ctx.save();
     if(e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));   // tremor de telégrafo
     ctx.scale(dir*s*1.5, s*1.5);
+    if(e.flash>0){ const q=BAL.feel.squash*(e.flash/0.12); ctx.scale(1+q, 1-q); }  // squash & stretch
     if(e.flash>0) ctx.filter='brightness(2.4)';
     else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
     if(e.windup>0){ ctx.shadowColor='#c04438'; ctx.shadowBlur=16; }

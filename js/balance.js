@@ -69,9 +69,20 @@ const BAL = {
     leash: 420,          // distância a partir da qual os inimigos desistem
     recuperar: 0.8,      // pausa do inimigo depois de cada golpe
     separacao: 34,       // distância mínima entre inimigos (não se empilham)
-    knockback: 22,       // px de recuo do inimigo ao ser atingido (boss: 1/3)
     alcanceRanged: 270,  // distância de disparo dos inimigos à distância
     velProjInimigo: 240, // px/s dos projéteis inimigos
+  },
+
+  /* ---------- Game feel (D025 — combate suave) ---------- */
+  feel: {
+    bufferAtq: 0.15,     // janela (s): toque de ataque durante a recarga fica guardado
+    dashCancel: 0.12,    // o dash corta a recarga do ataque para este máximo (s)
+    acelMov: 0.08,       // constante de tempo (s) da aceleração/travagem do movimento
+    hitstop: 0.02,       // micro-pausa (s) em qualquer golpe que conecta
+    hitstopCrit: 0.06,   // micro-pausa nos críticos
+    squash: 0.25,        // intensidade do squash & stretch no sprite atingido
+    kbVel: 320,          // velocidade inicial (px/s) do knockback (decai até parar)
+    kbTravao: 9,         // decaimento exponencial do knockback (por segundo)
   },
 
   /* ---------- Curva de XP ---------- */

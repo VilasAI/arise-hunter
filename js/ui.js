@@ -54,6 +54,7 @@ function atualizarTopo(){
 function irParaHub(){
   atualizarTopo();
   mostrarEcra('ecra-hub');
+  AUDIO.musica('calma');
   mudarTab('batalha');
 }
 
@@ -99,6 +100,7 @@ const PAINEIS = {
 
 function abrirPainel(id){
   if(id==='npc'){ modalNPC(); return; }
+  AUDIO.sfx('ui');
   painelAtual = id;
   selFusao = [];
   const p = PAINEIS[id] || {icone:'ponto', titulo:id};
@@ -138,6 +140,7 @@ const TABS = {
 };
 
 function mudarTab(tab){
+  AUDIO.sfx('ui');
   tabAtual = tab;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('ativo', b.dataset.tab===tab));
   const cont = $('#tab-conteudo'), bat = $('#batalha-overlay');
@@ -814,6 +817,8 @@ function ligarEventosPainel(tab, corpo){
 function fimCombateUI(r){
   irParaHub();
   if(r.fuga){ toast('Saíste do portal.'); return; }
+  if(r.vitoria) AUDIO.sfx('loot');
+  if(r.subiu) AUDIO.sfx('nivel');
   let h;
   if(r.vitoria && r.despertou){
     h = `<div class="recompensa-grande">
@@ -1055,5 +1060,15 @@ $('#btn-apagar-save').addEventListener('click', ()=>{
     toast('Progresso apagado.');
   }
 });
+
+/* botões de som (título + combate) */
+function atualizarBotoesSom(){
+  $('#btn-som').textContent = AUDIO.mudo ? 'Som: desligado' : 'Som: ligado';
+  $('#btn-som-c').classList.toggle('mudo', AUDIO.mudo);
+}
+$('#btn-som').addEventListener('click', ()=>{ AUDIO.alternarMudo(); atualizarBotoesSom(); });
+$('#btn-som-c').addEventListener('click', ()=>{ AUDIO.alternarMudo(); atualizarBotoesSom(); });
+atualizarBotoesSom();
+AUDIO.musica('calma');   // tema do título/vila — começa a tocar no 1.º toque
 
 carregar();
