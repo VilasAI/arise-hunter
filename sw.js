@@ -1,7 +1,7 @@
-﻿/* Service worker â€” VigÃ­lia
-   CÃ³digo (HTML/CSS/JS): network-first â†’ atualizaÃ§Ãµes aplicam-se logo.
-   Assets 3D (glb/gltf/bin/png) e lib: cache-first â†’ offline rÃ¡pido. */
-const CACHE = 'vigilia-v15';
+/* Service worker — Vigília
+   Código (HTML/CSS/JS): network-first → atualizações aplicam-se logo.
+   Assets (spritesheets, ícones): cache-first → offline rápido. */
+const CACHE = 'vigilia-v16';
 const NUCLEO = [
   './', './index.html', './css/style.css',
   './js/balance.js', './js/data.js', './js/art.js', './js/sprites.js', './js/powers.js',
@@ -25,11 +25,10 @@ self.addEventListener('fetch', e => {
   if(e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   const ehAsset = url.pathname.includes('/assets/') ||
-                  url.pathname.includes('/lib/') ||
-                  /\.(glb|gltf|bin|png|jpg|svg)$/i.test(url.pathname);
+                  /\.(png|jpg|svg)$/i.test(url.pathname);
 
   if(ehAsset){
-    // cache-first (assets grandes e estÃ¡veis)
+    // cache-first (assets grandes e estáveis)
     e.respondWith(
       caches.open(CACHE).then(async c => {
         const hit = await c.match(e.request);
@@ -40,7 +39,7 @@ self.addEventListener('fetch', e => {
       })
     );
   } else {
-    // network-first (cÃ³digo e navegaÃ§Ã£o) com fallback Ã  cache offline
+    // network-first (código e navegação) com fallback à cache offline
     e.respondWith(
       fetch(e.request).then(resp => {
         if(resp.ok) caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
@@ -49,4 +48,3 @@ self.addEventListener('fetch', e => {
     );
   }
 });
-

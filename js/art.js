@@ -104,7 +104,7 @@ const ARTE = (function(){
       c.fillStyle='#e8b33a'; c.beginPath(); c.roundRect(10.4,11,3.2,4,1); c.fill(); tracar(c,1.4);
       brilho(c,8,9,1.8,1);
     },
-    heroi(c){ // elmo do vigia
+    heroi(c){ // elmo do Watcher
       c.fillStyle='#2e4632';
       c.beginPath(); c.arc(12,12,8.5,Math.PI*0.9,Math.PI*2.1); c.lineTo(19,18); c.lineTo(5,18); c.closePath(); c.fill(); tracar(c);
       c.fillStyle='#e8c49a'; c.beginPath(); c.roundRect(8,11,8,6,2); c.fill(); tracar(c,1.6);

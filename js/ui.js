@@ -93,7 +93,7 @@ const PAINEIS = {
   loja:{ icone:'loja', titulo:'Mercador' },
   quadro:{ icone:'quadro', titulo:'Quadro de Missões' },
   base:{ icone:'base', titulo:'A Tua Base' },
-  heroi:{ icone:'heroi', titulo:'O Vigia' },
+  heroi:{ icone:'heroi', titulo:'O Watcher' },
   itens:{ icone:'mochila', titulo:'Inventário' },
 };
 
@@ -343,7 +343,7 @@ const FERREIRO_SUBS = [
 
 function htmlFerreiro(){
   const t = statsTotais();
-  let h = `<div class="npc-fala">«Aço, runas e suor. Traz-me as tuas armas, Vigia.»</div>`;
+  let h = `<div class="npc-fala">«Aço, runas e suor. Traz-me as tuas armas, Watcher.»</div>`;
 
   // ----- equipamento + atributos (contexto sempre visível) -----
   h += `<div class="equipado-fila">`;
@@ -473,7 +473,7 @@ function modalRunaSlot(slot){
 function htmlLoja(){
   const stock = stockLoja();
   const comprados = G.diario.comprados || [];
-  let h = `<div class="npc-fala">«Mercadoria fresca todos os dias, Vigia. Vê o que a caravana trouxe.»</div>`;
+  let h = `<div class="npc-fala">«Mercadoria fresca todos os dias, Watcher. Vê o que a caravana trouxe.»</div>`;
   h += sec('loja','Stock do dia');
   for(const it of stock){
     const preco = Math.round(valorItem(it)*BAL.economia.lojaMargem);
@@ -510,7 +510,7 @@ function htmlQuadro(){
       <div class="nota">Recompensa: ${m.rec.ouro?`${ic('ouro',12)} ${m.rec.ouro} `:''}${m.rec.cristais?`${ic('cristal',12)} ${m.rec.cristais}`:''}</div>
     </div>`;
   }
-  h += sec('trofeu','Ranking de Vigias') + `<div class="cartao">`;
+  h += sec('trofeu','Ranking de Watchers') + `<div class="cartao">`;
   tabelaRanking().forEach((r,i)=>{
     h += `<div class="rank-linha ${r.eu?'rank-eu':''}">
       <div class="rank-pos ${i<3?'top':''}">${i+1}</div>
@@ -672,7 +672,7 @@ function modalNPC(){
       <div class="portal-nome">${pendente.nome}</div>
       <div class="portal-info">${pendente.desc}</div>
       ${pendente.tut?`<div class="npc-fala" style="margin:8px 0 0">«${pendente.tut}»</div>`:''}
-    </div>`:`<div class="cartao vazio">«Cumpriste tudo o que a Ordem pediu. Descansa, Vigia.»</div>`}
+    </div>`:`<div class="cartao vazio">«Cumpriste tudo o que a Ordem pediu. Descansa, Watcher.»</div>`}
     <div class="modal-acoes">
       <button class="btn btn-sec" id="npc-quadro">Ver Quadro</button>
       <button class="btn btn-primario" id="npc-fechar">Até já</button>
@@ -1038,7 +1038,7 @@ function entrarNoJogo(){
     setTimeout(modalStats, 800);
   }
   if(G.nivel===1 && !G.inventario.length){
-    G.inventario.push({ id:G.proxId++, tipo:'arma', nome:'Adaga do Vigia', raridade:'comum', base:8, nivel:0, encante:null });
+    G.inventario.push({ id:G.proxId++, tipo:'arma', nome:'Adaga do Watcher', raridade:'comum', base:8, nivel:0, encante:null });
     equipar(G.inventario[0]);
     atualizarTopo();
     setTimeout(()=>toast(`${ic('arma',14)} Recebeste a tua primeira arma! Fala com o Mestre Aldric.`), 600);

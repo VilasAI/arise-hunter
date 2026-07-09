@@ -1,5 +1,5 @@
-/* ============ PODERES DO VIGIA ============
-   11 poderes (ativos e passivos), 5 tiers cada (BAL.tiersPoder)
+/* ============ PODERES DO WATCHER ============
+   15 poderes (ativos e passivos), 5 tiers cada (BAL.tiersPoder)
    e 2 talentos de escolha por poder (a partir do tier 3).      */
 'use strict';
 

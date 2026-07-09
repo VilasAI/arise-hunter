@@ -17,7 +17,7 @@ const TIPOS_ITEM = [
 ];
 
 const NOMES_ITEM = {
-  arma:     ['Adaga do Vigia','Lâmina Sombria','Espada do Eco','Foice Lunar','Katana do Vazio','Lança Astral','Gládio Rúnico','Machado do Abismo'],
+  arma:     ['Adaga do Watcher','Lâmina Sombria','Espada do Eco','Foice Lunar','Katana do Vazio','Lança Astral','Gládio Rúnico','Machado do Abismo'],
   armadura: ['Casaco Reforçado','Cota de Malha Élfica','Manto do Crepúsculo','Couraça Dracónica','Armadura Espectral','Véu do Monarca'],
   anel:     ['Anel de Ferro','Anel do Caçador','Selo Arcano','Aliança do Eclipse','Anel do Soberano','Olho da Tempestade'],
 };
@@ -57,7 +57,7 @@ const MONSTROS = {
    acido    — cospe poças de ácido que queimam o chão
    orbes    — dispara 3 orbes teleguiadas (esquivável)
    investida— carga em linha telegrafada
-   sopro    — cone de gelo que congela o Vigia
+   sopro    — cone de gelo que congela o Watcher
    aneis    — anéis de destruição em série + teleporte      */
 const BOSSES = {
   E:{nome:'Rei Goblin',           sprite:'goblin',     adornos:['coroa'],        hab:'invocar',   vel:50},
@@ -100,7 +100,7 @@ const RUNAS = [
 /* ---------- Missões do Quadro (NPC: Mestre Aldric) ---------- */
 const MISSOES = [
   { id:'m_tut1',  nome:'Primeiros Passos',    desc:'Derrota 10 monstros nos portais.',      tipo:'mortes',  alvo:10,  rec:{ouro:120},             tut:'Toca para atacar, mantém premido para o poder, desliza para esquivar.' },
-  { id:'m_tut2',  nome:'Aço do Vigia',        desc:'Melhora um item no Ferreiro.',          tipo:'forjas',  alvo:1,   rec:{ouro:150,cristais:3},  tut:'O Ferreiro fica na praça — leva ouro.' },
+  { id:'m_tut2',  nome:'Aço do Watcher',      desc:'Melhora um item no Ferreiro.',          tipo:'forjas',  alvo:1,   rec:{ouro:150,cristais:3},  tut:'O Ferreiro fica na praça — leva ouro.' },
   { id:'m_clear_d',nome:'Selar a Brecha',     desc:'Encerra um portal de rank D.',          tipo:'clearRank', rank:'D', alvo:1, rec:{ouro:250,cristais:4} },
   { id:'m_sombra',nome:'A Primeira Vigília',  desc:'Extrai a tua primeira sombra.',         tipo:'sombras', alvo:1,   rec:{cristais:8},           tut:'Sombras extraem-se ao derrotar bosses — a Sorte ajuda.' },
   { id:'m_poder', nome:'Eco do Dom',          desc:'Aprende ou evolui 2 poderes.',          tipo:'poderes', alvo:2,   rec:{ouro:300,cristais:5} },
@@ -114,7 +114,7 @@ const MISSOES = [
 const NPC = {
   nome:'Mestre Aldric', emoji:'🧙', icone:'npc',
   saudacoes:[
-    'A Fenda não descansa, Vigia. Tu também não devias.',
+    'A Fenda não descansa, Watcher. Tu também não devias.',
     'Cada portal selado é uma aldeia que dorme em paz.',
     'O teu dom é raro — as sombras respondem-te. Usa-o bem.',
     'Há rumores de um portal S a formar-se a norte. Prepara-te.',

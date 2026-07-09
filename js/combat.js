@@ -9,50 +9,12 @@ const ctx = canvas.getContext('2d');
 let C = null;          // estado do combate atual
 let rafId = 0, ultimoT = 0;
 
-const tem3D = ()=> !!(window.R3 && window.R3.ok);
-
-/* sprite (vetorial 2D) -> modelo 3D KayKit + tinta + escala.
-   Os "monstros" passam a ser caçadores/cultistas corrompidos da Fenda. */
-const MODELO3D = {
-  goblin:    { modelo:'Rogue',     tinta:0x6fae3a, escala:0.85, hunch:true,  horns:0.7, olhos:0xffd23a, auraCor:0x4a8a2a },
-  lobo:      { modelo:'Barbarian', tinta:0x9aa4b0, escala:0.82, hunch:true, horns:0.5, olhos:0xff5a3a, auraCor:0x5a5a66 },
-  formiga:   { modelo:'Rogue',     tinta:0xb84a2a, escala:0.78, hunch:true,  horns:0.6, olhos:0xffaa33, auraCor:0x7a3a1a },
-  aranha:    { modelo:'Mage',      tinta:0x4a3a5a, escala:0.8,  hunch:true,  horns:0.4, olhos:0xff3a3a, auraCor:0x2a1a3a },
-  esqueleto: { modelo:'Knight',    tinta:0xd8d0bc, escala:0.95, hunch:false, horns:0,   olhos:0x88ddff, auraCor:0x4a5a6a },
-  espectro:  { modelo:'Mage',      tinta:0xaecdf0, opacidade:0.55, escala:0.95, float:true, horns:0, olhos:0xbfe2ff, auraCor:0x5a7aa8 },
-  orc:       { modelo:'Barbarian', tinta:0x5d8a3c, escala:1.1,  hunch:true,  horns:1.0, olhos:0xff7733, auraCor:0x3a5a22 },
-  orcmago:   { modelo:'Mage',      tinta:0x7a5aa8, escala:0.95, hunch:true,  horns:0.8, olhos:0xc89aff, auraCor:0x4a2a7a },
-  draconiano:{ modelo:'Barbarian', tinta:0x3c8a82, escala:1.12, hunch:true,  horns:1.2, olhos:0xffaa33, auraCor:0x1a5a52 },
-  golem:     { modelo:'Knight',    tinta:0x9ecfe6, escala:1.3,  hunch:false, horns:0,   olhos:0x7af0ff, auraCor:0x2a6088 },
-  cavaleiro: { modelo:'Knight',    tinta:0x3a3448, escala:1.05, hunch:false, horns:0.9, olhos:0xc89aff, auraCor:0x4a2a7a },
-  sacerdote: { modelo:'Mage',      tinta:0x3a3346, escala:1.0,  hunch:true,  horns:0.6, olhos:0xff4a4a, auraCor:0x5a1a2a },
-};
-function modelo3dDe(sprite){ return MODELO3D[sprite] || MODELO3D.goblin; }
-
-/* (re)constrói a cena 3D de combate + Vigia + sombras aliadas */
-function montarCena3d(){
-  if(!tem3D() || !C) return;
-  const m = C.masmorra;
-  R3.limpar();
-  R3.cenaCombate({ W:C.W, H:C.H, chaoTopo:C.chaoTopo, chaoFundo:C.chaoFundo,
-                   cor:m.cor, rank:m.rank, sala:C.sala });
-  const j = C.jogador;
-  j.ent3d = R3.addPersonagem({ modelo:'Knight', x:j.x, y:j.y, spawn:true });
-  j.lock3d = 1.0;
-  for(const a of C.aliados){
-    const md = modelo3dDe(a.sprite);
-    a.ent3d = R3.addPersonagem({ modelo:md.modelo, tinta:0x9a6fd0, opacidade:0.85,
-                                 escala:0.92, x:a.x, y:a.y, spawn:true });
-    a.lock3d = 1.0;
-  }
-}
-
 function redimensionar(){
   const dpr = Math.min(window.devicePixelRatio||1, 2);
   const w = window.innerWidth, h = window.innerHeight;
   canvas.width = w*dpr; canvas.height = h*dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  if(C){ C.W=w; C.H=h; C.chaoTopo=h*0.36; C.chaoFundo=h*0.90; if(!C.modo3d) prerenderCenario(); }
+  if(C){ C.W=w; C.H=h; C.chaoTopo=h*0.36; C.chaoFundo=h*0.90; prerenderCenario(); }
 }
 window.addEventListener('resize', redimensionar);
 
@@ -81,12 +43,11 @@ function iniciarCombate(masmorra){
     hitstop:0, danoFlash:0,            // micro-pausa nos críticos · flash ao levar dano
     mortes:0, lootPend:[],
     auto:G.auto,
-    modo3d: tem3D(),
     regenClasse: (typeof passivaClasse==='function' ? passivaClasse().regenHp : 0),
     buffBencao: null,
   };
   criarAliados();
-  if(C.modo3d) montarCena3d(); else prerenderCenario();
+  prerenderCenario();
   povoarSala();
   montarSlotsPoder();
   document.getElementById('btn-auto').classList.toggle('ligado', C.auto);
@@ -111,7 +72,7 @@ function criarAliados(){
 
 function povoarSala(){
   C.inimigos.length = 0;
-  if(!C.modo3d) prerenderCenario();         // cada sala tem variação própria
+  prerenderCenario();                       // cada sala tem variação própria
   const m = C.masmorra, rank = m.rank;
   const ultima = C.sala === C.totalSalas;
   const meio = C.sala === Math.ceil(C.totalSalas/2) && !ultima;
@@ -158,19 +119,7 @@ function criarInimigo(base, rank, classe, i=0){
     queimar:null,          // {t, dps}
     lento:null,            // {t, fator}
     congelado:0,           // segundos
-    ent3d:null, lock3d:0, anim3d:'',
   };
-  if(C.modo3d){
-    const md = modelo3dDe(base.sprite);
-    const escClasse = classe==='boss'?1.7 : classe==='elite'?1.25 : 1;
-    e.ent3d = R3.addPersonagem({
-      modelo:md.modelo, tinta:md.tinta, opacidade:md.opacidade,
-      escala:(md.escala||1)*escClasse, x:e.x, y:e.y, spawn:true,
-      monstro:true, horns:(md.horns||0)*(classe==='boss'?1.5:1),
-      hunch:md.hunch, float:md.float, olhos:md.olhos, auraCor:md.auraCor,
-    });
-    e.lock3d = 0.9;
-  }
   return e;
 }
 
@@ -351,7 +300,6 @@ function atacar(){
   if(j.cdAtq>0) return;
   j.cdAtq = 0.55 / velAtqAtual();
   j.atacando = 0.18;
-  if(j.ent3d){ R3.anim(j.ent3d, 'Throw', {uma:true, ts:1.7}); j.lock3d = 0.3; }
   const alvo = inimigoMaisProximo();
   if(alvo) j.dirAtq = alvo.x>=j.x?1:-1;              // vira-se para o alvo
 
@@ -416,7 +364,6 @@ function esquivar(nx,ny){
   j.alvoX = clamp(j.x + nx*B.dashDist, 30, C.W-30);
   j.alvoY = clamp(j.y + ny*B.dashDist, C.chaoTopo, C.chaoFundo);
   if(Math.abs(nx) > 0.2) j.dirAtq = nx>=0?1:-1;
-  if(j.ent3d){ R3.anim(j.ent3d, 'Jump_Full_Short', {uma:true, ts:1.6}); j.lock3d = 0.4; R3.virar(j.ent3d, nx, ny); }
   C.shake = Math.max(C.shake, 2.5);
   for(let i=0;i<8;i++) particula(j.x, j.y, '#a3937a', 3, 0.4);
 }
@@ -649,7 +596,7 @@ function distSegmento(px,py, ax,ay, bx,by){
 
 function ferirInimigo(e, dano, crit, cor){
   e.hp -= dano; e.flash = 0.12;
-  // knockback: empurra o inimigo para longe do Vigia (bosses quase imunes)
+  // knockback: empurra o inimigo para longe do Watcher (bosses quase imunes)
   const j2 = C.jogador;
   const kdx = e.x-j2.x, kdy = e.y-j2.y, kd = Math.hypot(kdx,kdy)||1;
   const kb = BAL.combate.knockback * (e.classe==='boss' ? 0.25 : e.classe==='elite' ? 0.5 : 1);
@@ -657,7 +604,6 @@ function ferirInimigo(e, dano, crit, cor){
   e.y = clamp(e.y + kdy/kd*kb, C.chaoTopo, C.chaoFundo);
   // crítico: micro hit-stop dramático
   if(crit) C.hitstop = Math.max(C.hitstop, 0.06);
-  if(e.ent3d && e.hp>0){ R3.anim(e.ent3d, crit?'Hit_B':'Hit_A', {uma:true}); e.lock3d = 0.35; }
   numero(e.x, e.y - e.raio - 14, crit ? dano+'!' : dano, crit?'#e8c84a':cor, crit?24:15);
   if(e.hp<=0){
     C.mortes++;
@@ -669,7 +615,6 @@ function ferirInimigo(e, dano, crit, cor){
       C.jogador.hp = Math.min(C.stats.hpMax, C.jogador.hp + cura);
     }
     for(let i=0;i<16;i++) particula(e.x,e.y,'#8a6fc8',4,0.6);
-    if(e.ent3d) R3.remover(e.ent3d, true);
     C.inimigos = C.inimigos.filter(x=>x!==e);
     if(e.classe==='elite'){ C.lootPend.push('elite'); }
   }
@@ -716,183 +661,9 @@ function loop(t){
   if(C.hitstop>0){ C.hitstop -= dt; dt *= 0.15; }   // micro-pausa dramática
   C.tempo += dt;
   atualizar(dt);
-  if(C.modo3d){
-    sincronizar3d(dt);
-    R3.tick(dt);
-    desenharOverlay3d();
-  } else {
-    desenhar();
-  }
+  desenhar();
 }
 
-/* ---------- sincronização das entidades 3D ---------- */
-function movimentoEnt(ent3dHost, dt){
-  const dx = ent3dHost.x - (ent3dHost._px ?? ent3dHost.x);
-  const dy = ent3dHost.y - (ent3dHost._py ?? ent3dHost.y);
-  ent3dHost._px = ent3dHost.x; ent3dHost._py = ent3dHost.y;
-  return Math.hypot(dx,dy) > 0.5;
-}
-
-function sincronizar3d(dt){
-  const j = C.jogador;
-  // Vigia
-  if(j.ent3d){
-    R3.pos(j.ent3d, j.x, j.y);
-    if(C.joy && C.joy.mag>0.08) R3.virar(j.ent3d, C.joy.dx, C.joy.dy);
-    else R3.virar(j.ent3d, j.dirAtq, 0.001);
-    j.lock3d = Math.max(0, (j.lock3d||0)-dt);
-    if(j.lock3d<=0 && C.fase!=='fim'){
-      const loco = (j.alvoX!==null) ? 'Running_A' : (j.andando ? 'Walking_A' : 'Idle_A');
-      R3.anim(j.ent3d, loco, {fade:0.2});
-    }
-  }
-  // sombras aliadas
-  for(const a of C.aliados){
-    if(!a.ent3d) continue;
-    R3.pos(a.ent3d, a.x, a.y);
-    const alvo = inimigoMaisProximoDe(a);
-    if(alvo) R3.virar(a.ent3d, alvo.x-a.x, alvo.y-a.y);
-    a.lock3d = Math.max(0,(a.lock3d||0)-dt);
-    const mov = movimentoEnt(a, dt);
-    if(a.lock3d<=0) R3.anim(a.ent3d, mov?'Walking_A':'Idle_A', {fade:0.2});
-  }
-  // inimigos
-  for(const e of C.inimigos){
-    if(!e.ent3d) continue;
-    R3.pos(e.ent3d, e.x, e.y);
-    R3.virar(e.ent3d, j.x-e.x, j.y-e.y);
-    e.lock3d = Math.max(0,(e.lock3d||0)-dt);
-    const mov = movimentoEnt(e, dt);
-    if(e.windup>0 && e.anim3d!=='atk'){
-      e.anim3d='atk';
-      R3.anim(e.ent3d, e.ranged?'Throw':'Hit_B', {uma:true, ts:1.3});
-      e.lock3d = Math.max(e.lock3d, e.windup);
-    } else if(e.windup<=0 && e.anim3d==='atk'){ e.anim3d=''; }
-    if(e.lock3d<=0 && e.windup<=0){
-      R3.anim(e.ent3d, e.investe?'Running_A':(mov?'Walking_A':'Idle_A'), {fade:0.2});
-    }
-  }
-  R3.shake(C.shake*0.5);
-}
-
-/* ---------- overlay 2D projetado sobre o 3D ---------- */
-function pj(x,y,alt){ return R3.proj(x,y,alt||0); }
-
-function desenharOverlay3d(){
-  const {W,H}=C, t=C.tempo;
-  ctx.clearRect(0,0,W,H);
-
-  // telégrafos no chão (poças, anéis, sopro/aoe dos bosses)
-  for(const p of C.pocas){
-    const a=pj(p.x,p.y), r=p.r*a.esc;
-    ctx.fillStyle='rgba(110,160,40,0.40)';
-    ctx.beginPath(); ctx.ellipse(a.x,a.y,r,r*0.45,0,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='rgba(160,210,60,0.6)'; ctx.lineWidth=2; ctx.stroke();
-  }
-  for(const an of C.aneisBoss){
-    const a=pj(an.x,an.y), f=clamp(an.t/1.3,0,1), r=an.r*a.esc;
-    ctx.strokeStyle='rgba(216,92,78,0.9)'; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.ellipse(a.x,a.y,r,r*0.5,0,0,Math.PI*2); ctx.stroke();
-    ctx.fillStyle=`rgba(216,92,78,${0.30*(1-f)})`;
-    ctx.beginPath(); ctx.ellipse(a.x,a.y,r*(1-f*0.7),r*0.5*(1-f*0.7),0,0,Math.PI*2); ctx.fill();
-  }
-  for(const e of C.inimigos){
-    if(!e.habAtiva || e.windup<=0) continue;
-    const h=e.habAtiva, a=pj(e.x,e.y), prog=1-e.windup/1.1;
-    ctx.strokeStyle='rgba(192,68,56,0.85)'; ctx.lineWidth=3;
-    ctx.fillStyle=`rgba(192,68,56,${0.10+0.18*prog})`;
-    if(h.tipo==='sopro'){
-      const al=pj(j_().x,j_().y), ang=Math.atan2(al.y-a.y,al.x-a.x);
-      ctx.save(); ctx.translate(a.x,a.y);
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,200*a.esc,ang-0.5,ang+0.5); ctx.closePath();
-      ctx.fill(); ctx.stroke(); ctx.restore();
-    } else {
-      ctx.beginPath(); ctx.ellipse(a.x,a.y,(40*prog+12)*a.esc,(40*prog+12)*a.esc*0.5,0,0,Math.PI*2);
-      ctx.fill(); ctx.stroke();
-    }
-  }
-
-  // mira por arrasto
-  if(mira && C.fase==='luta'){
-    const o=pj(C.jogador.x,C.jogador.y,60), len=PODERES_DIRECIONAIS[mira.id]*o.esc, cor=PODERES[mira.id].cor;
-    const ax=o.x+mira.dx*len, ay=o.y+mira.dy*len;
-    ctx.save(); ctx.globalAlpha=mira.drag?0.9:0.45;
-    ctx.strokeStyle=cor; ctx.lineWidth=3; ctx.setLineDash([10,8]);
-    ctx.beginPath(); ctx.moveTo(o.x,o.y); ctx.lineTo(ax,ay); ctx.stroke(); ctx.setLineDash([]);
-    const ang=Math.atan2(mira.dy,mira.dx); ctx.fillStyle=cor;
-    ctx.beginPath(); ctx.moveTo(ax,ay);
-    ctx.lineTo(ax-Math.cos(ang-0.42)*16,ay-Math.sin(ang-0.42)*16);
-    ctx.lineTo(ax-Math.cos(ang+0.42)*16,ay-Math.sin(ang+0.42)*16);
-    ctx.closePath(); ctx.fill(); ctx.restore();
-  }
-
-  // projéteis (lâmina), tiros inimigos e orbes
-  ctx.save(); ctx.globalCompositeOperation='lighter';
-  for(const p of C.projeteis){
-    if(p.tipo!=='lamina') continue;
-    const a=pj(p.x,p.y,26);
-    const g=ctx.createRadialGradient(a.x,a.y,1,a.x,a.y,13);
-    g.addColorStop(0,'#fff'); g.addColorStop(0.4,p.cor); g.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(a.x,a.y,13,0,Math.PI*2); ctx.fill();
-  }
-  for(const o of C.orbes){
-    const a=pj(o.x,o.y,30);
-    const g=ctx.createRadialGradient(a.x,a.y,1,a.x,a.y,16);
-    g.addColorStop(0,'rgba(220,200,255,0.9)'); g.addColorStop(0.4,'rgba(150,110,220,0.6)'); g.addColorStop(1,'rgba(150,110,220,0)');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(a.x,a.y,16,0,Math.PI*2); ctx.fill();
-  }
-  for(const tr of C.tiros){
-    const a=pj(tr.x,tr.y,26);
-    const g=ctx.createRadialGradient(a.x,a.y,1,a.x,a.y,12);
-    g.addColorStop(0,'rgba(255,255,255,0.85)'); g.addColorStop(0.35,tr.cor); g.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(a.x,a.y,12,0,Math.PI*2); ctx.fill();
-  }
-  // partículas
-  for(const p of C.particulas){
-    const a=pj(p.x,p.y,24), vida=clamp(p.t/p.tMax,0,1);
-    ctx.globalAlpha=vida*0.9; ctx.fillStyle=p.cor;
-    ctx.beginPath(); ctx.arc(a.x,a.y,p.tam*vida*a.esc,0,Math.PI*2); ctx.fill();
-  }
-  ctx.restore(); ctx.globalAlpha=1;
-
-  // escudo rúnico à volta do Vigia
-  if(C.escudo>0){
-    const a=pj(C.jogador.x,C.jogador.y,30);
-    ctx.strokeStyle='rgba(184,168,224,0.6)'; ctx.lineWidth=2.5;
-    ctx.beginPath(); ctx.ellipse(a.x,a.y,32*a.esc,40*a.esc,0,0,Math.PI*2); ctx.stroke();
-  }
-
-  // números de dano
-  ctx.textAlign='center';
-  for(const n of C.numeros){
-    const a=pj(n.x,n.y,50);
-    ctx.globalAlpha=clamp(n.t/0.4,0,1);
-    ctx.font=`900 ${n.tam}px Georgia,serif`;
-    ctx.fillStyle='#000'; ctx.fillText(n.txt,a.x+1.5,a.y+1.5);
-    ctx.fillStyle=n.cor; ctx.fillText(n.txt,a.x,a.y);
-  }
-  ctx.globalAlpha=1;
-
-  // flash de dano + vinheta
-  if(C.danoFlash>0){
-    const dv=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.32,W/2,H/2,Math.max(W,H)*0.7);
-    dv.addColorStop(0,'rgba(192,68,56,0)'); dv.addColorStop(1,`rgba(192,68,56,${0.4*C.danoFlash/0.3})`);
-    ctx.fillStyle=dv; ctx.fillRect(0,0,W,H);
-  }
-  // joystick
-  if(C.joy && !C.auto){
-    ctx.fillStyle='rgba(20,16,12,0.35)';
-    ctx.beginPath(); ctx.arc(C.joy.bx,C.joy.by,JOY_RAIO,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='rgba(201,165,90,0.4)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(C.joy.bx,C.joy.by,JOY_RAIO,0,Math.PI*2); ctx.stroke();
-    const kx=C.joy.bx+C.joy.dx, ky=C.joy.by+C.joy.dy;
-    ctx.fillStyle='rgba(201,165,90,0.55)';
-    ctx.beginPath(); ctx.arc(kx,ky,24,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='rgba(255,235,190,0.65)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(kx,ky,24,0,Math.PI*2); ctx.stroke();
-  }
-}
-function j_(){ return C.jogador; }
 
 function atualizar(dt){
   const j = C.jogador, t = C.stats;
@@ -905,7 +676,6 @@ function atualizar(dt){
       C.sala++;
       j.x = C.W*0.2; j.y = C.H*0.65;
       C.fase='luta';
-      if(C.modo3d) montarCena3d();      // nova sala = nova cena 3D + Vigia/sombras
       povoarSala();
     }
   }
@@ -1039,7 +809,7 @@ function atualizar(dt){
       if(e.classe==='boss' && e.hab && e.cd<=0 && Math.random()<0.45){
         prepararHabBoss(e);
       } else if(d > B.leash && e.classe!=='boss'){
-        // o Vigia fugiu: desinteressa-se e volta ao seu posto
+        // o Watcher fugiu: desinteressa-se e volta ao seu posto
         const hx = e.homeX ?? C.W*0.7, hy = e.homeY ?? (C.chaoTopo+C.chaoFundo)/2;
         const hd = Math.hypot(hx-e.x, hy-e.y);
         if(hd > 24){ e.x += (hx-e.x)/hd*e.vel*0.4*dt; e.y += (hy-e.y)/hd*e.vel*0.4*dt; }
@@ -1050,7 +820,7 @@ function atualizar(dt){
         // arqueiro/feiticeiro: mantém-se recuado e dispara (kiting + strafe)
         const perto = alcance*0.70, longe = alcance*0.98;
         if(d < perto){
-          // demasiado perto — recua sem virar costas ao Vigia
+          // demasiado perto — recua sem virar costas ao Watcher
           e.x = clamp(e.x - dx/d*e.vel*0.95*velMult*dt, 20, C.W-20);
           e.y = clamp(e.y - dy/d*e.vel*0.95*velMult*dt, C.chaoTopo, C.chaoFundo);
         } else if(d > longe){
@@ -1066,7 +836,7 @@ function atualizar(dt){
         }
         if(e.cd<=0 && d < alcance*1.05) e.windup = 0.6;   // dispara assim que recarrega
       } else if(d > alcance){
-        // corpo-a-corpo: persegue o Vigia cercando-o por um ângulo de flanco
+        // corpo-a-corpo: persegue o Watcher cercando-o por um ângulo de flanco
         const ang = Math.atan2(dy,dx) + e.flank;
         e.x += Math.cos(ang)*e.vel*velMult*dt; e.y += Math.sin(ang)*e.vel*velMult*dt;
       } else if(e.cd<=0){
@@ -1267,7 +1037,7 @@ function resolverHabBoss(e, dano){
           r: 95, t: 0.85 + i*0.45, dano: Math.round(dano*1.3), feito:false,
         });
       }
-      // teleporta para flanquear o Vigia
+      // teleporta para flanquear o Watcher
       for(let k=0;k<14;k++) particula(e.x, e.y-20, '#8a6fc8', 4, 0.5);
       e.x = clamp(j.x + (Math.random()<0.5?-1:1)*150, 30, C.W-30);
       e.y = clamp(j.y + rnd(-60,60), C.chaoTopo, C.chaoFundo);
@@ -1301,10 +1071,8 @@ function ferirJogador(bruto){
   j.hp -= dano;
   numero(j.x, j.y-60, dano, '#d05c4e', 16);
   C.shake = Math.max(C.shake, 6);
-  if(C.modo3d) R3.shake(8);
   C.danoFlash = 0.3;
-  if(j.ent3d && j.hp>0){ R3.anim(j.ent3d, 'Hit_A', {uma:true}); j.lock3d = 0.3; }
-  if(j.hp<=0){ j.hp=0; if(j.ent3d) R3.anim(j.ent3d,'Death_A',{uma:true}); terminarCombate(false); }
+  if(j.hp<=0){ j.hp=0; terminarCombate(false); }
 }
 
 /* ---------- efeitos ---------- */
@@ -1824,7 +1592,7 @@ function desenharInimigo(e){
   sombraChao(e.x,e.y,e.raio*s*1.1);
   ctx.save(); ctx.translate(e.x,e.y);
 
-  // vira-se para o Vigia (os desenhos olham para a esquerda)
+  // vira-se para o Watcher (os desenhos olham para a esquerda)
   const dir = C.jogador.x <= e.x ? 1 : -1;
 
   // elite/boss: aura subtil do rank por baixo
@@ -1973,10 +1741,8 @@ function terminarCombate(vitoria, fuga=false){
   }
   guardar();
 
-  const era3d = C.modo3d;
   setTimeout(()=>{
     cancelAnimationFrame(rafId);
-    if(era3d && window.R3) R3.limpar();
     C = null;
     fimCombateUI(resultado);
   }, fuga?50:650);

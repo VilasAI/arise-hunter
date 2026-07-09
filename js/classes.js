@@ -1,4 +1,4 @@
-/* ============ CLASSES DO VIGIA ============
+/* ============ CLASSES DO WATCHER ============
    5 classes (inspiradas no Shakes & Fidgets). Cada uma tem stats
    iniciais, poderes EXCLUSIVOS e uma passiva. A passiva é lida em
    statsTotais (game.js) e no combate (combat.js).                 */
