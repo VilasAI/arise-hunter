@@ -80,18 +80,27 @@ const AUDIO = (()=>{
                baixo:[110,110,0,110, 0,110,0,98, 87,87,0,87, 0,98,0,110],
                arp:  [440,0,0,349,  0,440,0,0,  415,0,0,349, 0,415,440,0] },
   };
+  /* variação por bioma (Fase 4): transposição + andamento por rank */
+  const VARIANTES = {
+    E:{tom:1,     bpm:0},  D:{tom:1.122, bpm:6},   C:{tom:0.943, bpm:-4},
+    B:{tom:1.189, bpm:10}, A:{tom:0.891, bpm:-8},  S:{tom:0.841, bpm:14},
+  };
+  let varTom = 1, varBpm = 0;
   function agendar(){
     if(!ac || mudo || !faixa){ proxT = 0; return; }
-    const fx = FAIXAS[faixa], dur = 15/fx.bpm;    // semicolcheia em segundos
+    const fx = FAIXAS[faixa], dur = 15/(fx.bpm + varBpm);   // semicolcheia em segundos
     if(!proxT || proxT < ac.currentTime){ proxT = ac.currentTime+0.05; passo = 0; }
     while(proxT < ac.currentTime + 0.30){
       const i = passo % 16;
-      if(fx.baixo[i]) tom(proxT, 'triangle', fx.baixo[i], 0, dur*2.2, 0.5,  gMus);
-      if(fx.arp[i])   tom(proxT, fx.ondaArp, fx.arp[i],   0, dur*0.9, 0.12, gMus);
+      if(fx.baixo[i]) tom(proxT, 'triangle', fx.baixo[i]*varTom, 0, dur*2.2, 0.5,  gMus);
+      if(fx.arp[i])   tom(proxT, fx.ondaArp, fx.arp[i]*varTom,   0, dur*0.9, 0.12, gMus);
       passo++; proxT += dur;
     }
   }
-  function musica(nome){ if(faixa !== nome){ faixa = nome; proxT = 0; } }
+  function musica(nome, variante){
+    const v = VARIANTES[variante] || {tom:1, bpm:0};
+    if(faixa !== nome || v.tom !== varTom){ faixa = nome; varTom = v.tom; varBpm = v.bpm; proxT = 0; }
+  }
 
   function aplicarMudo(){
     if(!ac) return;

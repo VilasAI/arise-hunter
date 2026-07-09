@@ -30,25 +30,33 @@ const ENCANTAMENTOS = [
   { id:'crit',  nome:'do Crítico',    stat:'crit' },
 ];
 
-/* Masmorras por rank. pesoLoot desloca a tabela de raridade para cima. */
+/* Masmorras/biomas por rank (D017: um bioma por rank, servos das legiões).
+   pesoLoot desloca a tabela de raridade para cima · luz = tinte ambiente do bioma. */
 const MASMORRAS = [
-  { rank:'E', nome:'Caverna dos Goblins',   nivelReq:1,  nivelMon:1,  salas:3, cor:'#9aa3ad', pesoLoot:0,   ouro:[20,45] },
-  { rank:'D', nome:'Túneis do Formigueiro', nivelReq:5,  nivelMon:6,  salas:3, cor:'#22c55e', pesoLoot:.5,  ouro:[45,90] },
-  { rank:'C', nome:'Cripta dos Esqueletos', nivelReq:10, nivelMon:12, salas:4, cor:'#3b82f6', pesoLoot:1,   ouro:[90,170] },
-  { rank:'B', nome:'Fortaleza Orc',         nivelReq:16, nivelMon:19, salas:4, cor:'#a855f7', pesoLoot:1.6, ouro:[170,300] },
-  { rank:'A', nome:'Covil do Dragão Gélido',nivelReq:24, nivelMon:28, salas:5, cor:'#f59e0b', pesoLoot:2.3, ouro:[300,520] },
-  { rank:'S', nome:'Templo do Monarca',     nivelReq:34, nivelMon:40, salas:5, cor:'#ef4444', pesoLoot:3.2, ouro:[520,900] },
+  { rank:'E', nome:'Bosque Profanado',    nivelReq:1,  nivelMon:1,  salas:3, cor:'#9aa3ad', luz:'#4a6a3a', pesoLoot:0,   ouro:[20,45],
+    tema:'Onde a primeira brecha se abriu. A mata apodrece e os diabretes escavam.' },
+  { rank:'D', nome:'Túneis do Enxame',    nivelReq:5,  nivelMon:6,  salas:3, cor:'#22c55e', luz:'#6a5a2a', pesoLoot:.5,  ouro:[45,90],
+    tema:'Galerias vivas roídas pelo Enxame — a legião rastejante da Fenda.' },
+  { rank:'C', nome:'Cripta dos Renegados',nivelReq:10, nivelMon:12, salas:4, cor:'#3b82f6', luz:'#3a5a7a', pesoLoot:1,   ouro:[90,170],
+    tema:'Os mortos erguidos pela Fenda guardam a cripta dos que a serviram primeiro.' },
+  { rank:'B', nome:'Fortaleza da Legião', nivelReq:16, nivelMon:19, salas:4, cor:'#a855f7', luz:'#5a3a6a', pesoLoot:1.6, ouro:[170,300],
+    tema:'O quartel dos brutos da Legião. Daqui partem as incursões ao mundo.' },
+  { rank:'A', nome:'Garganta Gélida',     nivelReq:24, nivelMon:28, salas:5, cor:'#f59e0b', luz:'#3a5a6a', pesoLoot:2.3, ouro:[300,520],
+    tema:'O frio antinatural que precede a Fenda. Os demónios puros começam aqui.' },
+  { rank:'S', nome:'A Fenda',             nivelReq:34, nivelMon:40, salas:5, cor:'#ef4444', luz:'#6a2a3a', pesoLoot:3.2, ouro:[520,900],
+    tema:'O portal-mãe. Entra, fecha-a — e que o mundo se lembre do teu nome.' },
 ];
 
 /* mHp/mDano: multiplicadores sobre BAL.inimigosRank (balance.js)
    sprite: desenho vetorial em js/art.js */
+/* servos das legiões demoníacas (D017) — sprites reaproveitados, identidade nova */
 const MONSTROS = {
-  E:[{nome:'Goblin',sprite:'goblin',mHp:1.0,mDano:1.0,vel:55},{nome:'Lobo Cinzento',sprite:'lobo',mHp:0.8,mDano:1.2,vel:75},{nome:'Goblin Arqueiro',sprite:'goblin',mHp:0.7,mDano:0.9,vel:50,ranged:true}],
-  D:[{nome:'Formiga Soldado',sprite:'formiga',mHp:1.0,mDano:1.0,vel:65},{nome:'Aranha Venenosa',sprite:'aranha',mHp:0.8,mDano:1.2,vel:80,ranged:true}],
-  C:[{nome:'Esqueleto Guerreiro',sprite:'esqueleto',mHp:1.0,mDano:0.9,vel:60},{nome:'Espectro',sprite:'espectro',mHp:0.75,mDano:1.1,vel:90},{nome:'Arqueiro Esquelético',sprite:'esqueleto',mHp:0.75,mDano:1.0,vel:52,ranged:true}],
-  B:[{nome:'Orc Berserker',sprite:'orc',mHp:1.0,mDano:0.85,vel:65},{nome:'Mago Orc',sprite:'orcmago',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
-  A:[{nome:'Draconiano',sprite:'draconiano',mHp:0.85,mDano:0.85,vel:70},{nome:'Golem de Gelo',sprite:'golem',mHp:1.2,mDano:0.7,vel:45},{nome:'Draconiano Cuspidor',sprite:'draconiano',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
-  S:[{nome:'Cavaleiro do Vazio',sprite:'cavaleiro',mHp:0.8,mDano:0.7,vel:75},{nome:'Sacerdote Sombrio',sprite:'sacerdote',mHp:0.65,mDano:0.85,vel:60,ranged:true}],
+  E:[{nome:'Diabrete',sprite:'goblin',mHp:1.0,mDano:1.0,vel:55},{nome:'Cão da Fenda',sprite:'lobo',mHp:0.8,mDano:1.2,vel:75},{nome:'Diabrete Fundeiro',sprite:'goblin',mHp:0.7,mDano:0.9,vel:50,ranged:true}],
+  D:[{nome:'Carraça do Enxame',sprite:'formiga',mHp:1.0,mDano:1.0,vel:65},{nome:'Tecelã Venenosa',sprite:'aranha',mHp:0.8,mDano:1.2,vel:80,ranged:true}],
+  C:[{nome:'Renegado Erguido',sprite:'esqueleto',mHp:1.0,mDano:0.9,vel:60},{nome:'Alma Cativa',sprite:'espectro',mHp:0.75,mDano:1.1,vel:90},{nome:'Arqueiro Erguido',sprite:'esqueleto',mHp:0.75,mDano:1.0,vel:52,ranged:true}],
+  B:[{nome:'Bruto da Legião',sprite:'orc',mHp:1.0,mDano:0.85,vel:65},{nome:'Feiticeiro da Legião',sprite:'orcmago',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
+  A:[{nome:'Dracónida',sprite:'draconiano',mHp:0.85,mDano:0.85,vel:70},{nome:'Golem do Degelo',sprite:'golem',mHp:1.2,mDano:0.7,vel:45},{nome:'Dracónida Cuspidor',sprite:'draconiano',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
+  S:[{nome:'Cavaleiro do Vazio',sprite:'cavaleiro',mHp:0.8,mDano:0.7,vel:75},{nome:'Sacerdote da Fenda',sprite:'sacerdote',mHp:0.65,mDano:0.85,vel:60,ranged:true}],
 };
 
 /* Bosses: stats de BAL.inimigosRank × BAL.inimigoClasse.boss
@@ -60,12 +68,12 @@ const MONSTROS = {
    sopro    — cone de gelo que congela o Watcher
    aneis    — anéis de destruição em série + teleporte      */
 const BOSSES = {
-  E:{nome:'Rei Goblin',           sprite:'goblin',     adornos:['coroa'],        hab:'invocar',   vel:50},
-  D:{nome:'Rainha do Formigueiro',sprite:'formiga',    adornos:['asas','coroa'], hab:'acido',     vel:55},
-  C:{nome:'Lich Menor',           sprite:'esqueleto',  adornos:['coroa','aura'], hab:'orbes',     vel:60},
-  B:{nome:'Senhor da Guerra Orc', sprite:'orc',        adornos:['capa'],         hab:'investida', vel:62},
+  E:{nome:'Rei dos Diabretes',    sprite:'goblin',     adornos:['coroa'],        hab:'invocar',   vel:50},
+  D:{nome:'Rainha do Enxame',     sprite:'formiga',    adornos:['asas','coroa'], hab:'acido',     vel:55},
+  C:{nome:'Lich Renegado',        sprite:'esqueleto',  adornos:['coroa','aura'], hab:'orbes',     vel:60},
+  B:{nome:'Senhor da Guerra',     sprite:'orc',        adornos:['capa'],         hab:'investida', vel:62},
   A:{nome:'Dragão Gélido',        sprite:'draconiano', adornos:['asas'],         hab:'sopro',     vel:58},
-  S:{nome:'Monarca da Destruição',sprite:'cavaleiro',  adornos:['capa','aura'],  hab:'aneis',     vel:70},
+  S:{nome:'Senhor da Fenda',      sprite:'cavaleiro',  adornos:['capa','aura'],  hab:'aneis',     vel:70},
 };
 
 /* Sombras extraíveis (derrotar o boss dá hipótese de extração)
@@ -105,18 +113,34 @@ const MISSOES = [
   { id:'m_sombra',nome:'A Primeira Vigília',  desc:'Extrai a tua primeira sombra.',         tipo:'sombras', alvo:1,   rec:{cristais:8},           tut:'Sombras extraem-se ao derrotar bosses — a Sorte ajuda.' },
   { id:'m_poder', nome:'Eco do Dom',          desc:'Aprende ou evolui 2 poderes.',          tipo:'poderes', alvo:2,   rec:{ouro:300,cristais:5} },
   { id:'m_fusao', nome:'Três em Um',          desc:'Faz uma fusão de itens.',               tipo:'fusoes',  alvo:1,   rec:{ouro:200,cristais:4} },
+  { id:'m_clear_c',nome:'Selar a Cripta',     desc:'Encerra um portal de rank C.',          tipo:'clearRank', rank:'C', alvo:1, rec:{ouro:400,cristais:6} },
   { id:'m_clear_b',nome:'Mais Fundo na Fenda',desc:'Encerra um portal de rank B.',          tipo:'clearRank', rank:'B', alvo:1, rec:{ouro:600,cristais:8} },
   { id:'m_mortes2',nome:'Centurião',          desc:'Derrota 100 monstros.',                 tipo:'mortes',  alvo:100, rec:{ouro:800,cristais:10} },
   { id:'m_despertar',nome:'O Primeiro Despertar', desc:'Completa a Provação do Despertar.', tipo:'despertar', alvo:1, rec:{ouro:1000,cristais:15} },
 ];
 
-/* ---------- NPC: Mestre Aldric ---------- */
+/* ---------- NPC: Mestre Aldric (D008 — diálogos por rank, sempre saltáveis) ---------- */
 const NPC = {
   nome:'Mestre Aldric', emoji:'🧙', icone:'npc',
   saudacoes:[
     'A Fenda não descansa, Watcher. Tu também não devias.',
     'Cada portal selado é uma aldeia que dorme em paz.',
-    'O teu dom é raro — as sombras respondem-te. Usa-o bem.',
-    'Há rumores de um portal S a formar-se a norte. Prepara-te.',
+    'O dom escolhe poucos. A ti, escolheu-te inteiro.',
+    'As legiões testam-nos primeiro com os servos. Os demónios vêm depois.',
   ],
+  porRank: {   // fala à entrada do 1.º portal de cada rank
+    E:'O Bosque foi o primeiro a cair quando a Fenda abriu. Os diabretes parecem pouco — mas foi por subestimarmos o pouco que perdemos tanto. Vai, e volta inteiro.',
+    D:'Debaixo dos nossos pés, o Enxame escava há doze anos. Se as galerias chegarem à cidade, não haverá muralha que nos valha. Corta o mal pela raiz.',
+    C:'Esta cripta guarda os primeiros que se venderam à Fenda. O Lich ergue os mortos mais depressa do que os enterramos. Sela a cripta — e cuidado com as almas: já foram gente.',
+    B:'A Fortaleza é onde a Legião se organiza. Cada incursão que sofremos partiu daqui. Derruba o Senhor da Guerra e ganhamos meses.',
+    A:'Sentes o frio? Não é inverno — é a Fenda a respirar. A partir daqui já não enfrentas servos. Enfrentas demónios.',
+    S:'É agora, Watcher. Entra na Fenda e fecha-a. Se falhares, ninguém se lembrará de nós. Se venceres… que o mundo se lembre de ti.',
+  },
+  aposRank: {  // fala após o 1.º selo de cada rank
+    E:'Selaste a brecha do Bosque. A mata vai levar anos a sarar — mas vai sarar. Há esperança em ti.',
+    D:'O Enxame recuou. Ouve-me: a Rainha não era a cabeça, era um dedo. O corpo está mais fundo.',
+    C:'O Lich caiu e os mortos dormem de novo. O que vem a seguir já não é obra de servos, Watcher. Prepara-te a sério.',
+    B:'Sem o Senhor da Guerra, a Legião é um animal sem cabeça. Aproveita — a Fenda vai tentar substituí-lo.',
+    A:'Atravessaste o frio e voltaste. Resta um portal. O último. O primeiro.',
+  },
 };

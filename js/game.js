@@ -347,7 +347,7 @@ function verificarDiario(){
 
 /* Masmorra diária: rank baseado no nível, recompensas x2 (1x por dia) */
 function masmorraDiaria(){
-  const elegiveis = MASMORRAS.filter(m=>m.nivelReq <= G.nivel);
+  const elegiveis = MASMORRAS.filter(m=> m.nivelReq <= G.nivel && rankNaBeta(m.rank));
   const m = elegiveis[elegiveis.length-1] || MASMORRAS[0];
   // seed simples pelo dia para variar o nome
   const dia = parseInt(hojeStr().replace(/-/g,''),10);
@@ -454,10 +454,17 @@ function rankPermitido(rank){
   return !req || G.despertar >= req;
 }
 
+/* o rank está dentro do corte da beta? (D007) */
+function rankNaBeta(rank){
+  return !BAL.beta.ativa || IDX_RARIDADE_RANK(rank) <= IDX_RARIDADE_RANK(BAL.beta.rankMax);
+}
+
 /* ---------- Missões ---------- */
-/* a missão de sombras só existe para o Assassino (D010) */
+/* missões visíveis: sombras só para o Assassino (D010); ranks fora da beta escondem-se (D007) */
 function missoesVisiveis(){
-  return MISSOES.filter(m=> m.tipo!=='sombras' || G.classe==='assassino');
+  return MISSOES.filter(m=>
+    (m.tipo!=='sombras' || G.classe==='assassino') &&
+    (m.tipo!=='clearRank' || rankNaBeta(m.rank)));
 }
 function progressoMissao(m){
   if(m.tipo === 'clearRank') return Math.min(G.clears[m.rank]||0, m.alvo);

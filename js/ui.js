@@ -218,6 +218,8 @@ function htmlPortais(){
     <span class="pilula">${ic('stamina',15)} ${st}/${stMax}${st<stMax?` · +1 em ${minutosProximaStamina()} min`:''}</span>
     <span class="pilula">${ic('portal',15)} custo ${BAL.stamina.custoPortal} · diária grátis</span>
   </div>`;
+  if(BAL.beta.ativa) h += `<div class="cartao nota">🧪 <b>BETA</b> — a campanha vai até ao rank ${BAL.beta.rankMax}.
+    Os ranks seguintes e a Fenda chegam na versão completa.</div>`;
   h += sec('despertar','Evento diário');
   h += cartaoPortal(diaria, G.diario.feitoDiaria, true);
   h += sec('portal','Portais ativos');
@@ -228,10 +230,12 @@ function htmlPortais(){
 function cartaoPortal(m, feito, diaria){
   const bloqNivel = G.nivel < m.nivelReq;
   const bloqDespertar = !rankPermitido(m.rank);
-  const bloq = bloqNivel || bloqDespertar;
+  const bloqBeta = !rankNaBeta(m.rank);
+  const bloq = bloqNivel || bloqDespertar || bloqBeta;
   const clears = G.clears[m.rank]||0;
   let info;
-  if(bloqNivel) info = `Requer nível ${m.nivelReq}`;
+  if(bloqBeta) info = `Disponível na versão completa`;
+  else if(bloqNivel) info = `Requer nível ${m.nivelReq}`;
   else if(bloqDespertar) info = `Requer Despertar ${BAL.despertar.rankExige[m.rank]} ★`;
   else info = `Monstros nv.${m.nivelMon} · ${m.salas} salas${clears?` · ${clears}×`:''}`;
   return `
@@ -248,9 +252,14 @@ function cartaoPortal(m, feito, diaria){
 
 function modalEntrarPortal(m){
   const custo = m.diaria||m.despertar ? 0 : BAL.stamina.custoPortal;
+  // 1.ª visita ao rank: o Aldric contextualiza o bioma (D008 — saltável, é só ler ou não)
+  const fala = (!m.diaria && !m.despertar && !(G.clears[m.rank]) && NPC.porRank[m.rank])
+    ? `<div class="npc-fala">${ic('npc',14)} «${NPC.porRank[m.rank]}»</div>` : '';
   abrirModal(`
     <div class="modal-titulo" style="color:${m.cor}">${ic('portal',20)} Portal Rank ${m.rank}</div>
     <div class="modal-sub">${m.nome} · ${m.salas} sala${m.salas>1?'s':''} · monstros nv.${m.nivelMon}${m.diaria?' · recompensas ×2':''}</div>
+    ${m.tema?`<div class="nota" style="margin-bottom:8px">${m.tema}</div>`:''}
+    ${fala}
     <div class="cartao">
       <div class="stat-linha"><span class="stat-nome">O teu poder</span><span class="stat-valor">${ic('ponto',14)} ${poderTotal()}</span></div>
       <div class="stat-linha"><span class="stat-nome">Dificuldade estimada</span><span class="stat-valor">${avaliarDificuldade(m)}</span></div>
@@ -954,6 +963,7 @@ function fimCombateUI(r){
       ${r.runa?`<div class="loot-linha">${ic(r.runa.icone,18)} Runa obtida: <b>${r.runa.nome}</b>!</div>`:''}
       ${r.sombra?`<div class="loot-linha" style="border-color:var(--sombra-cor)">${sombraImg(r.sombra.rank,26)} <b>«LEVANTA-TE!»</b> — extraíste a sombra <b>${r.sombra.nome}</b>!</div>`:''}
     </div>
+    ${r.primeiroClear && NPC.aposRank[r.masmorra.rank] ? `<div class="npc-fala">${ic('npc',14)} «${NPC.aposRank[r.masmorra.rank]}»</div>` : ''}
     <div class="modal-acoes"><button class="btn btn-primario" id="r-ok">Continuar</button></div>`;
   } else {
     h = `<div class="recompensa-grande">

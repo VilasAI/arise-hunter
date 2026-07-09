@@ -173,6 +173,9 @@ const BAL = {
     minutosPorPonto: 6,  // regenera 1 ponto a cada X minutos reais
   },
 
+  /* ---------- Beta (D007): a campanha corta no rank C ---------- */
+  beta: { ativa: true, rankMax: 'C' },
+
   /* ---------- Despertar (rank E→S do caçador) ---------- */
   despertar: {
     niveis: [15, 30],    // níveis em que cada Despertar fica disponível

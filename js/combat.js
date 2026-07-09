@@ -57,7 +57,7 @@ function iniciarCombate(masmorra){
   document.getElementById('hud-boss').hidden = true;
   document.getElementById('hud-escudo').hidden = true;
   mostrarEcra('ecra-combate');
-  AUDIO.musica('combate');
+  AUDIO.musica('combate', masmorra.rank);
   ultimoT = performance.now();
   cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
@@ -1656,6 +1656,16 @@ function desenharCenario(){
   const {W,H}=C, t=C.tempo;
   if(cenarioCache) ctx.drawImage(cenarioCache, 0, 0, W, H);
 
+  // tinte ambiente do bioma (D017): dá identidade a cada rank sem arte nova
+  if(C.masmorra.luz){
+    ctx.save();
+    ctx.globalCompositeOperation='soft-light';
+    ctx.globalAlpha=0.5;
+    ctx.fillStyle=C.masmorra.luz;
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+
   const tochaSprite = SPR.ok('torch_1');
   for(let i=0;i<2;i++){
     const tx = W*(0.32+i*0.36), ty = C.chaoTopo-92;
@@ -1925,6 +1935,7 @@ function terminarCombate(vitoria, fuga=false){
     G.inventario.push(...resultado.itens);
     resultado.subiu = darXP(resultado.xp);
     G.clears[m.rank] = (G.clears[m.rank]||0)+1;
+    resultado.primeiroClear = G.clears[m.rank]===1 && !m.diaria && !m.despertar;  // fala do Aldric (D008)
     if(m.diaria) G.diario.feitoDiaria = true;
     resultado.sombra = tentarExtrairSombra(m.rank);
     // runa: drop dos bosses de rank C+
