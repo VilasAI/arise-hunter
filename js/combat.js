@@ -42,6 +42,7 @@ function iniciarCombate(masmorra){
     pocas:[], orbes:[], aneisBoss:[],  // efeitos das habilidades dos bosses
     rastos:[], tiros:[],               // rasto da esquiva · projéteis inimigos
     hitstop:0, danoFlash:0,            // micro-pausa nos críticos · flash ao levar dano
+    ult:{ carga:0, t:0, tick:0 },      // ultimate: carga, tempo ativo, ritmo interno
     mortes:0, lootPend:[],
     auto:G.auto,
     regenClasse: (typeof passivaClasse==='function' ? passivaClasse().regenHp : 0),
@@ -52,6 +53,7 @@ function iniciarCombate(masmorra){
   povoarSala();
   montarSlotsPoder();
   document.getElementById('btn-auto').classList.toggle('ligado', C.auto);
+  document.getElementById('btn-ult').hidden = !temUltimate();
   document.getElementById('hud-boss').hidden = true;
   document.getElementById('hud-escudo').hidden = true;
   mostrarEcra('ecra-combate');
@@ -353,6 +355,8 @@ function golpeConecta(alvo){
     cadeiaRelampago(alvo, atqAtual()*BAL.runas.trovaoDano, 2, 0.7);
   }
   for(let i=0;i<10;i++) particula(alvo.x, alvo.y, '#d8c9a8', 3.5, 0.35);
+  // Baluarte de Ferro: os golpes atordoam
+  if(C.ult.t>0 && G.classe==='guerreiro') alvo.congelado = Math.max(alvo.congelado, BAL.ultimates.guerreiro.stunGolpe);
   C.shake = Math.max(C.shake, g.crit?8:4);
 }
 
@@ -377,6 +381,58 @@ function esquivar(nx,ny){
   C.shake = Math.max(C.shake, 2.5);
   for(let i=0;i<8;i++) particula(j.x, j.y, '#a3937a', 3, 0.4);
 }
+
+/* ---------- ultimate da classe (D011/D018 — desbloqueia no 1.º Despertar) ---------- */
+function usarUltimate(){
+  if(!C || C.fase!=='luta' || !temUltimate()) return;
+  const U = BAL.ultimates, u = C.ult;
+  if(u.t>0 || u.carga < U.cargaMax) return;
+  const j=C.jogador, t=C.stats, cfg=U[G.classe], mult=multAltarUlt();
+  u.carga = 0;
+  AUDIO.sfx('ultimate');
+  C.shake = Math.max(C.shake, 10);
+  numero(j.x, j.y-92, ultimateClasse().nome+'!', ultimateClasse().cor, 20);
+  switch(G.classe){
+    case 'guerreiro':                       // Baluarte: efeitos lidos em ferirJogador/golpeConecta
+    case 'mago':                            // Tempestade: meteoros no atualizar
+    case 'batedor':                         // Tempo de Caça: disparos no atualizar
+      u.t = cfg.dur * mult; u.tick = 0;
+      break;
+    case 'assassino': {                     // Chamada: a coleção inteira entra em campo
+      u.t = cfg.dur;                        // (o Altar já reforça as sombras)
+      for(const s of G.sombras){
+        const st = statsSombra(s);
+        C.aliados.push({
+          tipo:'sombra', nome:s.nome, sprite:SOMBRAS_BASE[s.rank].sprite,
+          x:clamp(j.x+rnd(-80,80), 24, C.W-24), y:clamp(j.y+rnd(-60,60), C.chaoTopo, C.chaoFundo),
+          hp:st.hp, hpMax:st.hp, atq:st.atq, vel:110, cd:0, raio:16, temp:u.t,
+        });
+      }
+      for(let i=0;i<24;i++) particula(j.x+rnd(-60,60), j.y-10+rnd(-40,10), '#8a6fc8', 4.5, 0.6);
+      break;
+    }
+    case 'paladino': {                      // Aurora: explosão instantânea
+      const cura = t.hpMax * cfg.cura * mult;
+      j.hp = Math.min(t.hpMax, j.hp + cura);
+      numero(j.x, j.y-74, '+'+Math.round(cura), '#f0d272', 18);
+      C.lentoJog = null;                    // purga
+      for(const e of [...C.inimigos]){
+        if(Math.hypot(e.x-j.x, e.y-j.y) <= cfg.raio + e.raio){
+          const g = calcularGolpe(atqAtual()*cfg.dano*mult, t.crit, t.critDano, t.pen, e.def);
+          ferirInimigo(e, g.dano, g.crit, '#f0d272');
+          e.congelado = Math.max(e.congelado, cfg.cegar);   // cegos
+        }
+      }
+      C.anelSkill = { x:j.x, y:j.y, t:0.6, cor:'#f0e0a0' };
+      for(let i=0;i<30;i++){ const a=(i/30)*Math.PI*2; particula(j.x+Math.cos(a)*36, j.y-18+Math.sin(a)*20, '#f0e0a0', 5, 0.6, Math.cos(a)*240, Math.sin(a)*150); }
+      break;
+    }
+  }
+}
+document.getElementById('btn-ult').addEventListener('pointerdown', e=>{
+  e.preventDefault();
+  if(C && !C.auto) usarUltimate();
+});
 
 /* ---------- estados nos inimigos ---------- */
 function aplicarQueimadura(e, dps, dur){
@@ -526,6 +582,24 @@ function usarPoder(slot, dir){
       numero(j.x, j.y-80, 'FÚRIA!', p.cor, 18);
       break;
     }
+    case 'execucao': {
+      // golpe brutal no inimigo enfraquecido mais próximo (abaixo do limiar de vida)
+      const limiar = (tal && tal.mod.limiar) || p.base.limiar;
+      let fraco = null, md = 170;
+      for(const e of C.inimigos){
+        if(e.hp/e.hpMax > limiar) continue;
+        const d = Math.hypot(e.x-j.x, e.y-j.y);
+        if(d < md){ md = d; fraco = e; }
+      }
+      if(!fraco){ j.mp += p.mp||0; C.cdPoder[id] = 0; numero(j.x, j.y-50, 'Ninguém enfraquecido', '#a3937a', 13); return; }
+      j.dirAtq = fraco.x>=j.x ? 1 : -1;
+      const g = calcularGolpe(atqAtual()*p.base.dano*ef, t.crit, t.critDano, t.pen, fraco.def);
+      ferirInimigo(fraco, g.dano, g.crit, p.cor);
+      aplicarRoubo(g.dano);
+      C.shake = Math.max(C.shake, 8);
+      for(let i=0;i<14;i++) particula(fraco.x, fraco.y-16, p.cor, 4.5, 0.5);
+      break;
+    }
     case 'passo': {
       const atras = alvo.x + (alvo.x>=j.x?1:-1)*(alvo.raio+30);
       for(let i=0;i<8;i++) particula(j.x, j.y-20, p.cor, 3.5, 0.4);
@@ -615,6 +689,11 @@ function ferirInimigo(e, dano, crit, cor){
   // hit-stop universal leve; nos críticos, dramático
   C.hitstop = Math.max(C.hitstop, crit ? BAL.feel.hitstopCrit : BAL.feel.hitstop);
   AUDIO.sfx(crit ? 'crit' : 'golpe');
+  // carga da ultimate: proporcional ao dano causado (relativo ao ataque)
+  if(temUltimate() && C.ult.t<=0){
+    C.ult.carga = Math.min(BAL.ultimates.cargaMax,
+      C.ult.carga + dano/atqAtual()*BAL.ultimates.cargaPorGolpe + (e.hp<=0 ? BAL.ultimates.cargaPorAbate : 0));
+  }
   numero(e.x, e.y - e.raio - 14, crit ? dano+'!' : dano, crit?'#e8c84a':cor, crit?24:15);
   if(e.hp<=0){
     C.mortes++;
@@ -639,6 +718,8 @@ function autoIA(dt){
   const d = Math.hypot(alvo.x-j.x, alvo.y-j.y);
   const perigo = C.inimigos.find(e=> e.windup>0 && e.windup<0.3 && Math.hypot(e.x-j.x,e.y-j.y)<70);
   if(perigo && j.cdEsq<=0){ const a=rnd(0,Math.PI*2); esquivar(Math.cos(a),Math.sin(a)); return; }
+  // ultimate carregada dispara logo
+  if(temUltimate() && C.ult.t<=0 && C.ult.carga>=BAL.ultimates.cargaMax) usarUltimate();
   // usa poderes prontos com critério simples
   for(let i=0;i<G.equipadosPoder.length;i++){
     const id = G.equipadosPoder[i];
@@ -704,6 +785,29 @@ function atualizar(dt){
   if(C.buffBencao){ j.hp = Math.min(t.hpMax, j.hp + t.hpMax*C.buffBencao.regen*dt); C.buffBencao.t -= dt; if(C.buffBencao.t<=0) C.buffBencao=null; }
   if(C.regenClasse>0 && j.hp>0) j.hp = Math.min(t.hpMax, j.hp + t.hpMax*C.regenClasse*dt);
 
+  // ultimate ativa: temporizador + efeitos periódicos (Tempestade / Tempo de Caça)
+  if(C.ult.t > 0){
+    C.ult.t = Math.max(0, C.ult.t - dt);
+    const U = BAL.ultimates, mult = multAltarUlt();
+    C.ult.tick -= dt;
+    if(G.classe==='mago' && C.ult.tick<=0 && C.inimigos.length){
+      C.ult.tick = U.mago.ritmo;
+      const e = escolher(C.inimigos);
+      const g = calcularGolpe(atqAtual()*U.mago.dano*mult, t.crit, t.critDano, t.pen, e.def);
+      ferirInimigo(e, g.dano, g.crit, '#b89ae8');
+      for(let i=0;i<10;i++) particula(e.x+rnd(-14,14), e.y-40-rnd(0,30), '#b89ae8', 4, 0.4, rnd(-30,30), 220);
+      C.shake = Math.max(C.shake, 3);
+    } else if(G.classe==='batedor' && C.ult.tick<=0 && C.inimigos.length){
+      C.ult.tick = U.batedor.ritmo;
+      const alvos = [...C.inimigos]
+        .sort((a,b)=> Math.hypot(a.x-j.x,a.y-j.y) - Math.hypot(b.x-j.x,b.y-j.y)).slice(0,3);
+      for(const e of alvos){
+        C.projeteis.push({ tipo:'lamina', x:j.x, y:j.y-26, alvo:e, critG:true,
+                           dano: atqAtual()*U.batedor.dano*mult, vel:700, cor:'#cfe0a0' });
+      }
+    }
+  }
+
   // esquiva em curso (dash curto até ao ponto, com rasto fantasma)
   if(j.alvoX!==null){
     const dx=j.alvoX-j.x, dy=j.alvoY-j.y, d=Math.hypot(dx,dy);
@@ -761,6 +865,9 @@ function atualizar(dt){
       if(d>70){ a.x+=dx/d*a.vel*dt; a.y+=dy/d*a.vel*dt; }
     }
   }
+  // sombras temporárias da Chamada das Sombras dissipam-se no fim
+  for(const a of C.aliados) if(a.temp!==undefined) a.temp -= dt;
+  C.aliados = C.aliados.filter(a=> a.temp===undefined || a.temp>0);
 
   // Aura de Terror (passiva): calcula efeitos por frame
   const terrorOn = poderTier('terror')>0;
@@ -807,7 +914,7 @@ function atualizar(dt){
       e.x = clamp(e.x + e.investe.vx*dt, 20, C.W-20);
       e.y = clamp(e.y + e.investe.vy*dt, C.chaoTopo, C.chaoFundo);
       if(!e.investe.feriu && Math.hypot(j.x-e.x,j.y-e.y) < e.raio+36 && j.invul<=0){
-        e.investe.feriu = true; ferirJogador(e.atq*1.5);
+        e.investe.feriu = true; ferirJogador(e.atq*1.5, e);
       }
       if(Math.random()<dt*30) particula(e.x, e.y-12, '#d05c4e', 4, 0.3);
       if(e.investe.t<=0){ e.investe=null; e.cd=rnd(1.2,2.0); }
@@ -829,7 +936,7 @@ function atualizar(dt){
                : e.sprite==='draconiano' ? '#e2762d' : e.sprite==='aranha' ? '#9ad06a' : '#d8c38a',
           });
         }
-        else if(d < e.raio+52 && j.invul<=0) ferirJogador(dano);
+        else if(d < e.raio+52 && j.invul<=0) ferirJogador(dano, e);
         e.cd = rnd(1.0,1.9);
         e.recupera = BAL.combate.recuperar;   // pausa pós-golpe: não cola
       }
@@ -957,6 +1064,7 @@ function atualizar(dt){
     if(d < p.alvo.raio+10){
       const t2=C.stats;
       const g = calcularGolpe(p.dano, t2.crit, t2.critDano, t2.pen, p.alvo.def);
+      if(p.critG && !g.crit){ g.dano = Math.round(g.dano * t2.critDano/100); g.crit = true; }  // Tempo de Caça
       ferirInimigo(p.alvo, g.dano, g.crit, p.cor);
       aplicarRoubo(g.dano);
       for(let i=0;i<8;i++) particula(p.x,p.y,p.cor,3.5,0.35);
@@ -993,6 +1101,14 @@ function atualizar(dt){
   const cdMaxE = BAL.combate.dashCd * (1 - t.cdr/100);
   beq.querySelector('.cd-sweep').style.setProperty('--cd', Math.round(clamp(j.cdEsq/cdMaxE,0,1)*100));
   beq.classList.toggle('pronto', j.cdEsq<=0);
+  // botão da ultimate: barra de carga + estados
+  const bu = document.getElementById('btn-ult');
+  if(!bu.hidden){
+    bu.querySelector('.ult-carga-fill').style.width =
+      (C.ult.t>0 ? 100 : Math.round(C.ult.carga/BAL.ultimates.cargaMax*100)) + '%';
+    bu.classList.toggle('pronto', C.ult.t<=0 && C.ult.carga>=BAL.ultimates.cargaMax);
+    bu.classList.toggle('ativa', C.ult.t>0);
+  }
   atualizarSlotsPoder();
 
   // sala limpa?
@@ -1089,10 +1205,18 @@ function inimigoMaisProximoDe(ent){
   return melhor;
 }
 
-function ferirJogador(bruto){
+function ferirJogador(bruto, atacante){
   const j=C.jogador;
   const dm = (typeof passivaClasse==='function') ? passivaClasse().danoMult : 1;
   let dano = Math.max(1, Math.round(bruto*dm - defAtual()*0.6));
+  // Baluarte de Ferro: -60% dano sofrido e reflete 30% (corpo-a-corpo)
+  if(C.ult.t>0 && G.classe==='guerreiro'){
+    const cfg = BAL.ultimates.guerreiro;
+    dano = Math.max(1, Math.round(dano * (1-cfg.reducaoDano)));
+    if(atacante && atacante.hp>0){
+      ferirInimigo(atacante, Math.max(1, Math.round(bruto*cfg.reflete)), false, '#c0664a');
+    }
+  }
   // Escudo Rúnico absorve primeiro
   if(C.escudo>0){
     const abs = Math.min(C.escudo, dano);

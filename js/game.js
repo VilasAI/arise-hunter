@@ -62,6 +62,20 @@ function migrarSave(obj){
     if(obj[k] === undefined) obj[k] = novo[k];
   }
   if(obj.pontosHabUsados === undefined) obj.pontosHabUsados = 0;
+  // D010/D011: «Exército de Sombras» virou ultimate — devolve os pontos gastos
+  if(obj.poderes && obj.poderes.sombras){
+    let devolvidos = 0;
+    for(let i=0;i<(obj.poderes.sombras.tier||1);i++) devolvidos += Math.max(1, BAL.tiersPoder[i].custoPts);
+    obj.pontosHabUsados = Math.max(0, obj.pontosHabUsados - devolvidos);
+    delete obj.poderes.sombras;
+    obj._sombrasMigradas = true;
+  }
+  // D010: sombras exclusivas do Assassino — compensa as outras classes em cristais
+  if(obj.classe && obj.classe !== 'assassino' && obj.sombras && obj.sombras.length){
+    obj.cristais = (obj.cristais||0) + obj.sombras.reduce((a,s)=> a + 4 + (s.nivel-1)*4, 0);
+    obj.sombras = [];
+    obj._sombrasMigradas = true;
+  }
   return obj;
 }
 
@@ -133,8 +147,7 @@ function statsTotais(){
     pen:      Math.min(50, valorAvancada('pen', G.avancadas.pen) + pas.pen),
     cdr:      valorAvancada('cdr',      G.avancadas.cdr),
     danoSkill: atq * BAL.skill.multDano,
-    maxSombras: clamp(BAL.sombras.maxBase + Math.floor(G.nivel / BAL.sombras.nivelPorSombra) + G.despertar
-                      + ((talentoDe('sombras')||{mod:{}}).mod.sombrasExtra || 0),
+    maxSombras: clamp(BAL.sombras.maxBase + Math.floor(G.nivel / BAL.sombras.nivelPorSombra) + G.despertar,
                       1, BAL.sombras.maxAbsoluto),
   };
 }
@@ -264,8 +277,9 @@ function fundir(ids){
   return {ok:true, item:novo};
 }
 
-/* ---------- Sombras ---------- */
+/* ---------- Sombras (exclusivas do Assassino — D010) ---------- */
 function tentarExtrairSombra(rank){
+  if(G.classe !== 'assassino') return null;                // só o Assassino extrai
   if(G.sombras.some(s=>s.rank===rank)) return null;        // já tem esta sombra
   const t = statsTotais();
   const chance = clamp(BAL.sombras.chanceExtracao + t.sorte * BAL.sombras.chancePorSorte, 0, 0.95);
@@ -280,9 +294,7 @@ function tentarExtrairSombra(rank){
 
 function statsSombra(s){
   const base = SOMBRAS_BASE[s.rank], c = BAL.sombras.crescimentoPorNivel;
-  // bónus do poder Exército de Sombras + Altar da base
-  const mult = (1 + (poderTier('sombras') ? PODERES.sombras.base.bonus * efeitoPoder('sombras') : 0))
-             * (1 + G.base.altar * BAL.base.altarBonusPorNivel);
+  const mult = 1 + G.base.altar * BAL.base.altarBonusPorNivel;   // Altar do Dom
   return {
     atq: Math.round(base.atq*(1+s.nivel*c)*mult),
     hp:  Math.round(base.hp *(1+s.nivel*c)*mult),
@@ -301,8 +313,14 @@ function subirSombra(s){
 }
 
 function sombrasAtivas(){
+  if(G.classe !== 'assassino') return [];
   const max = statsTotais().maxSombras;
   return G.sombras.filter(s=>s.ativa).slice(0, max);
+}
+
+/* multiplicador do Altar do Dom sobre a ultimate (classes sem sombras) */
+function multAltarUlt(){
+  return G.classe === 'assassino' ? 1 : 1 + G.base.altar * BAL.base.altarUltPorNivel;
 }
 
 /* ---------- Diário / eventos ---------- */
@@ -367,9 +385,11 @@ function minutosProximaStamina(){
 
 /* ---------- Base do jogador ---------- */
 const BASE_DEFS = {
-  forja:        { nome:'Forja da Base',     emoji:'⚒️', desc:n=>`-${Math.round(n*BAL.base.forjaDescontoPorNivel*100)}% custo de forja` },
-  altar:        { nome:'Altar das Sombras', emoji:'🕯️', desc:n=>`+${Math.round(n*BAL.base.altarBonusPorNivel*100)}% stats das sombras` },
-  reservatorio: { nome:'Reservatório',      emoji:'⚡', desc:n=>`+${n*BAL.base.reservatorioPorNivel} stamina máxima` },
+  forja:        { nome:'Forja da Base', emoji:'⚒️', desc:n=>`-${Math.round(n*BAL.base.forjaDescontoPorNivel*100)}% custo de forja` },
+  altar:        { nome:'Altar do Dom',  emoji:'🕯️', desc:n=> G.classe==='assassino'
+                    ? `+${Math.round(n*BAL.base.altarBonusPorNivel*100)}% stats das sombras`
+                    : `+${Math.round(n*BAL.base.altarUltPorNivel*100)}% efeito da ultimate` },
+  reservatorio: { nome:'Reservatório',  emoji:'⚡', desc:n=>`+${n*BAL.base.reservatorioPorNivel} stamina máxima` },
 };
 
 function custoMelhoriaBase(tipo){
@@ -431,6 +451,10 @@ function rankPermitido(rank){
 }
 
 /* ---------- Missões ---------- */
+/* a missão de sombras só existe para o Assassino (D010) */
+function missoesVisiveis(){
+  return MISSOES.filter(m=> m.tipo!=='sombras' || G.classe==='assassino');
+}
 function progressoMissao(m){
   if(m.tipo === 'clearRank') return Math.min(G.clears[m.rank]||0, m.alvo);
   return Math.min(G.contadores[m.tipo]||0, m.alvo);

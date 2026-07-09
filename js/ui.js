@@ -71,6 +71,7 @@ function modalEscolherClasse(aoConcluir){
         <div class="classe-lema">«${cl.lema}»</div>
         <div class="classe-passiva"><b>${cl.passiva.nome}:</b> ${cl.passiva.desc}</div>
         <div class="classe-poderes">${ic('arma',11)} ${pod}</div>
+        <div class="classe-poderes" style="color:${cl.cor}">${ic(cl.ult.icone,11)} Ultimate: ${cl.ult.nome}</div>
       </div>
     </button>`;
   }).join('');
@@ -497,7 +498,7 @@ function htmlLoja(){
 /* ============ QUADRO (missões + ranking) ============ */
 function htmlQuadro(){
   let h = sec('missao','Missões da Ordem');
-  for(const m of MISSOES){
+  for(const m of missoesVisiveis()){
     const prog = progressoMissao(m), feita = missaoCumprida(m), recl = missaoReclamada(m);
     const pct = Math.round(prog/m.alvo*100);
     h += `<div class="cartao ${recl?'btn-bloq':''}">
@@ -528,7 +529,7 @@ function htmlQuadro(){
 /* ============ BASE ============ */
 function htmlBase(){
   let h = sec('base','Melhorias da base');
-  const ICONES_BASE = { forja:'forja', altar:'sombra', reservatorio:'stamina' };
+  const ICONES_BASE = { forja:'forja', altar: G.classe==='assassino'?'sombra':'despertar', reservatorio:'stamina' };
   for(const tipo of Object.keys(BASE_DEFS)){
     const d = BASE_DEFS[tipo], n = G.base[tipo], c = custoMelhoriaBase(tipo);
     h += `<div class="cartao linha">
@@ -541,23 +542,26 @@ function htmlBase(){
     </div>`;
   }
 
-  const max = statsTotais().maxSombras, ativas = sombrasAtivas().length;
-  h += sec('sombra',`Altar das Sombras (${ativas}/${max} ativas)`);
-  if(!G.sombras.length){
-    h += `<div class="cartao vazio">Ainda não tens sombras.<br>Derrota bosses para as extraíres.</div>`;
-  }
-  for(const s of G.sombras){
-    const st = statsSombra(s);
-    h += `
-    <div class="cartao linha">
-      <div class="avatar" style="overflow:hidden">${sombraImg(s.rank, 38)}</div>
-      <div class="crescer">
-        <div class="portal-nome">${s.nome} <span class="nota">Rank ${s.rank} · Nv.${s.nivel}</span></div>
-        <div class="portal-info">${ic('arma',12)} ${st.atq} · ${ic('hp',12)} ${st.hp}</div>
-      </div>
-      <button class="btn btn-sec" data-sombra-toggle="${s.nome}" style="font-size:12px">${s.ativa?'Ativa ✓':'Inativa'}</button>
-      <button class="btn-mais" data-sombra-up="${s.nome}" title="Subir nível — ${custoSombra(s)} cristais">+</button>
-    </div>`;
+  // coleção de sombras: identidade exclusiva do Assassino (D010)
+  if(G.classe === 'assassino'){
+    const max = statsTotais().maxSombras, ativas = sombrasAtivas().length;
+    h += sec('sombra',`Sombras (${ativas}/${max} ativas)`);
+    if(!G.sombras.length){
+      h += `<div class="cartao vazio">Ainda não tens sombras.<br>Derrota bosses para as extraíres.</div>`;
+    }
+    for(const s of G.sombras){
+      const st = statsSombra(s);
+      h += `
+      <div class="cartao linha">
+        <div class="avatar" style="overflow:hidden">${sombraImg(s.rank, 38)}</div>
+        <div class="crescer">
+          <div class="portal-nome">${s.nome} <span class="nota">Rank ${s.rank} · Nv.${s.nivel}</span></div>
+          <div class="portal-info">${ic('arma',12)} ${st.atq} · ${ic('hp',12)} ${st.hp}</div>
+        </div>
+        <button class="btn btn-sec" data-sombra-toggle="${s.nome}" style="font-size:12px">${s.ativa?'Ativa ✓':'Inativa'}</button>
+        <button class="btn-mais" data-sombra-up="${s.nome}" title="Subir nível — ${custoSombra(s)} cristais">+</button>
+      </div>`;
+    }
   }
 
   h += sec('quadro','Progresso') + `
@@ -589,11 +593,24 @@ function htmlHeroi(){
   if(despertarDisponivel()){
     h += `<div class="cartao" style="border-color:var(--bronze)">
       <div class="portal-nome" style="color:var(--bronze)">${ic('despertar',18)} Despertar ${G.despertar+1} disponível!</div>
-      <div class="portal-info">Supera a Provação para desbloqueares tiers superiores${G.despertar===0?' e portais rank A':' e portais rank S'}.</div>
+      <div class="portal-info">Supera a Provação para desbloqueares tiers superiores${G.despertar===0?', a tua ultimate':''}${G.despertar===0?' e portais rank A':' e portais rank S'}.</div>
       <button class="btn btn-primario" id="h-despertar" style="width:100%;margin-top:10px">INICIAR PROVAÇÃO</button>
     </div>`;
   } else if(G.despertar < BAL.despertar.niveis.length){
     h += `<div class="cartao nota">${ic('despertar',14)} Próximo Despertar ao nível ${BAL.despertar.niveis[G.despertar]}.</div>`;
+  }
+
+  // ultimate da classe (D011/D012)
+  const ult = ultimateClasse();
+  if(ult){
+    const bloq = G.despertar < 1;
+    h += `<div class="cartao ${bloq?'btn-bloq':''}" style="border-color:${ult.cor}">
+      <div class="portal-nome" style="color:${ult.cor}">${ic(ult.icone,18)} ${ult.nome} <span class="nota">ULTIMATE</span></div>
+      <div class="portal-info">${ult.desc}</div>
+      <div class="nota" style="margin-top:6px">${bloq
+        ? '🔒 O dom manifesta-se no 1.º Despertar (nível '+BAL.despertar.niveis[0]+').'
+        : 'Carrega em combate com dano e abates; o Altar do Dom fortalece-a.'}</div>
+    </div>`;
   }
 
   const pts = pontosHabDisponiveis();
@@ -665,8 +682,8 @@ function modalEquiparPoder(id){
 
 /* ============ NPC ============ */
 function modalNPC(){
-  const pendente = MISSOES.find(m=>!missaoReclamada(m) && !missaoCumprida(m));
-  const reclamavel = MISSOES.find(m=>missaoCumprida(m) && !missaoReclamada(m));
+  const pendente = missoesVisiveis().find(m=>!missaoReclamada(m) && !missaoCumprida(m));
+  const reclamavel = missoesVisiveis().find(m=>missaoCumprida(m) && !missaoReclamada(m));
   abrirModal(`
     <div class="modal-titulo">${ic('npc',22)} ${NPC.nome}</div>
     <div class="npc-fala">«${escolher(NPC.saudacoes)}»</div>
@@ -830,6 +847,7 @@ function fimCombateUI(r){
       <div class="loot-linha">${ic('ponto',16)} +${r.xp} XP${r.subiu?' · subiste de nível!':''}</div>
       <div class="loot-linha">${ic('cristal',16)} +${r.cristais} cristais</div>
       <div class="loot-linha">${ic('despertar',16)} Tiers superiores${G.despertar===1?' e portais rank A':' e portais rank S'} desbloqueados!</div>
+      ${G.despertar===1 && ultimateClasse() ? `<div class="loot-linha" style="border-color:${ultimateClasse().cor}">${ic(ultimateClasse().icone,18)} O teu dom manifesta-se: <b>${ultimateClasse().nome}</b> desbloqueada!</div>` : ''}
     </div>
     <div class="modal-acoes"><button class="btn btn-primario" id="r-ok">Continuar</button></div>`;
   } else if(r.vitoria){
@@ -915,7 +933,7 @@ function modalStats(){
     </div>
     <div class="cartao nota">
       ${ic('arma',12)} ${Math.round(t.atq)} · ${ic('armadura',12)} ${t.def} · ${ic('hp',12)} ${t.hpMax} · ${ic('mana',12)} ${t.mpMax} ·
-      ${ic('crit',12)} ${t.crit}% × ${t.critDano}% · ${ic('agi',12)} ${Math.round((t.velAtq-1)*100)}% · ${ic('sombra',12)} ${t.maxSombras}
+      ${ic('crit',12)} ${t.crit}% × ${t.critDano}% · ${ic('agi',12)} ${Math.round((t.velAtq-1)*100)}%${G.classe==='assassino'?` · ${ic('sombra',12)} ${t.maxSombras}`:''}
     </div>
     <div class="modal-acoes"><button class="btn btn-primario" id="s-fechar">Fechar</button></div>`);
   $('#s-fechar').addEventListener('click', ()=>{ fecharModal(); refrescar(); });
@@ -1037,6 +1055,10 @@ function entrarNoJogo(){
   const premio = verificarDiario();
   irParaHub();
   if(premio) toast(`Prémio diário: +${50+G.nivel*5} ${ic('ouro',13)}, +2 ${ic('cristal',13)}!`);
+  if(G._sombrasMigradas){
+    delete G._sombrasMigradas; guardar();
+    toast('As sombras agora respondem só ao Assassino — foste compensado. O dom de cada classe é a sua ultimate.');
+  }
   if(G._migrado){
     delete G._migrado; guardar();
     toast('Sistema de atributos renovado — pontos devolvidos!');

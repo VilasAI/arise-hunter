@@ -95,7 +95,34 @@ for(const m of MASMORRAS){
     <td>${cls(Math.ceil(xpNivel(L)/xpClear), 4, 7, true)}</td></tr>`;
 }
 html += `</table>
-<p><b>Alvo:</b> 1–4 clears por nível no rank adequado (sessões de 2–4 min).</p>`;
+<p><b>Alvo:</b> 1–4 clears por nível no rank adequado (sessões de 2–4 min).</p>
+<h2>Ultimates (nível 15, rank C — onde desbloqueiam)</h2>`;
+
+{
+  // perfil do jogador ao nível 15 (mesmo modelo do simulador de ranks)
+  const mC = MASMORRAS.find(m=>m.rank==='C');
+  const sC = simularRank(mC);
+  const U = BAL.ultimates;
+  const ataquesPorSeg = BAL.jogador.velAtqBase / 0.55;
+  // carga/s: golpes (dano≈ataque → dano/atq≈1) + ~1 abate a cada 5 s
+  const cargaPorSeg = ataquesPorSeg * U.cargaPorGolpe + U.cargaPorAbate/5;
+  const tCarga = U.cargaMax / cargaPorSeg;
+  const efeito = {
+    guerreiro: `${U.guerreiro.dur} s quase imortal (-${U.guerreiro.reducaoDano*100}% dano) + reflexo`,
+    mago:      `${Math.floor(U.mago.dur/U.mago.ritmo)} meteoros ≈ ${Math.round(U.mago.dur/U.mago.ritmo * sC.atq * U.mago.dano)} dano total`,
+    batedor:   `${Math.floor(U.batedor.dur/U.batedor.ritmo)*3} tiros críticos ≈ ${Math.round(U.batedor.dur/U.batedor.ritmo*3 * sC.atq * U.batedor.dano * 1.5)} dano total`,
+    assassino: `coleção inteira em campo durante ${U.assassino.dur} s`,
+    paladino:  `cura ${Math.round(sC.hp*U.paladino.cura)} HP + ${Math.round(sC.atq*U.paladino.dano)} dano em área + cega ${U.paladino.cegar} s`,
+  };
+  html += `<table><tr><th>Classe</th><th>Efeito estimado</th></tr>`;
+  for(const c of Object.keys(efeito)){
+    html += `<tr><td><b>${c}</b></td><td style="text-align:left">${efeito[c]}</td></tr>`;
+  }
+  html += `</table>
+  <p><b>Carga:</b> a barra enche em ≈ ${cls(tCarga, 30, 50, true)} s de combate contínuo
+  (alvo: 30–45 s — 1 a 2 usos por masmorra). O boss de rank C morre em ~${sC.segBoss.toFixed(0)} s
+  de ataque básico; a ultimate deve valer 20–35% desse trabalho para ser um momento, não uma muleta.</p>`;
+}
 
 document.getElementById('saida').innerHTML = html;
 </script>

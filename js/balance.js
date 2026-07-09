@@ -118,6 +118,19 @@ const BAL = {
     { efeito: 2.70, cd: 0.70, custoPts: 4, despertar: 2 }, // Tier 5 — exige Despertar 2
   ],
 
+  /* ---------- Ultimates (D011/D018 — desbloqueiam no 1.º Despertar) ----------
+     A barra carrega com o dano causado (relativo ao ataque) e com abates. */
+  ultimates: {
+    cargaMax: 100,        // pontos para encher a barra
+    cargaPorGolpe: 1.6,   // carga = (dano do golpe ÷ ataque do jogador) × isto
+    cargaPorAbate: 6,     // bónus por inimigo abatido
+    guerreiro: { dur:8,  reducaoDano:0.60, reflete:0.30, stunGolpe:1.0 },
+    mago:      { dur:5,  ritmo:0.22, dano:1.2 },   // 1 meteoro a cada X s, dano × ataque
+    batedor:   { dur:6,  ritmo:0.28, dano:0.75 },  // disparo auto multi-alvo, crítico garantido
+    assassino: { dur:10 },                         // a coleção inteira de sombras luta contigo
+    paladino:  { cura:0.45, dano:1.6, raio:220, cegar:2.5 }, // explosão instantânea
+  },
+
   /* ---------- Sombras ---------- */
   sombras: {
     maxBase: 1,          // sombras ativas no início
@@ -165,7 +178,8 @@ const BAL = {
     custoOuro: n => 300 * Math.pow(2, n),   // custo do nível n→n+1
     custoCristais: n => 5 * (n+1),
     forjaDescontoPorNivel: 0.06,   // -6% custo de forja por nível
-    altarBonusPorNivel: 0.10,      // +10% stats das sombras por nível
+    altarBonusPorNivel: 0.10,      // Altar do Dom: +10% stats das sombras/nível (Assassino)
+    altarUltPorNivel: 0.08,        // Altar do Dom: +8% efeito da ultimate/nível (outras classes)
     reservatorioPorNivel: 2,       // +2 stamina máxima por nível
   },
 

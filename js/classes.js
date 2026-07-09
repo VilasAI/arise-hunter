@@ -13,6 +13,8 @@ const CLASSES = {
     poderes:['investida','escudo','furia'], inicial:'investida',
     passiva:{ nome:'Pele de Ferro', desc:'+30% Defesa e sofre menos dano físico.',
               def:1.30, danoMult:0.86, ataque:'corpo' },
+    ult:{ nome:'Baluarte de Ferro', icone:'p_escudo', cor:'#c0664a',
+          desc:'8 s: sofres -60% de dano, refletes 30% e os teus golpes atordoam.' },
   },
   mago: {
     nome:'Mago', icone:'p_brasas', cor:'#8a6fc8', tinta:'#7c6ad0',
@@ -22,6 +24,8 @@ const CLASSES = {
     poderes:['corrente','brasas','gelo'], inicial:'corrente',
     passiva:{ nome:'Sabedoria Arcana', desc:'Ignora 20 de armadura, +60% mana, mas -18% vida.',
               pen:20, mp:1.6, hp:0.82, ataque:'distancia' },
+    ult:{ nome:'Tempestade Arcana', icone:'p_corrente', cor:'#8a6fc8',
+          desc:'5 s de meteoros arcanos a cair por toda a arena.' },
   },
   batedor: {
     nome:'Batedor', icone:'p_lamina', cor:'#5d9e4a', tinta:'#5fae5a',
@@ -31,15 +35,19 @@ const CLASSES = {
     poderes:['lamina','tiro','terror'], inicial:'lamina',
     passiva:{ nome:'Reflexos Felinos', desc:'+12% Crítico, esquiva mais rápida e mais movimento.',
               crit:12, dashMult:0.7, velMov:0.12, ataque:'distancia' },
+    ult:{ nome:'Tempo de Caça', icone:'p_lamina', cor:'#5d9e4a',
+          desc:'6 s de disparo automático multi-alvo com críticos garantidos.' },
   },
   assassino: {
     nome:'Assassino', icone:'p_passo', cor:'#6b4a8a', tinta:'#8a6fc8',
     lema:'Das sombras vem a morte certeira.',
     estilo:'Furtivo · crítico devastador',
     basicas:{ for:3, vit:1, agi:2 },
-    poderes:['passo','sede','sombras'], inicial:'passo',
+    poderes:['passo','execucao','sede'], inicial:'passo',
     passiva:{ nome:'Marca Mortal', desc:'+8% Crítico e +60% de Dano Crítico.',
               crit:8, critDano:60, ataque:'corpo' },
+    ult:{ nome:'Chamada das Sombras', icone:'sombra', cor:'#6b4a8a',
+          desc:'10 s: a tua coleção inteira de sombras luta ao teu lado.' },
   },
   paladino: {
     nome:'Paladino', icone:'p_escudo', cor:'#d8b34a', tinta:'#e8cf7a',
@@ -49,6 +57,8 @@ const CLASSES = {
     poderes:['luz','martelo','bencao'], inicial:'luz',
     passiva:{ nome:'Bênção Eterna', desc:'+25% vida, +10% Defesa e regenera vida em combate.',
               hp:1.25, def:1.10, regenHp:0.012, ataque:'corpo' },
+    ult:{ nome:'Aurora', icone:'p_furia', cor:'#d8b34a',
+          desc:'Explosão de luz: cura forte, purga, dano sagrado e cega os inimigos.' },
   },
 };
 const ORDEM_CLASSES = ['guerreiro','mago','batedor','assassino','paladino'];
@@ -61,6 +71,12 @@ function passivaClasse(){
 }
 /* a classe ataca à distância? (Mago / Batedor) */
 function classeDistancia(){ return passivaClasse().ataque === 'distancia'; }
+
+/* ultimate da classe atual (D011); desbloqueia no 1.º Despertar (D012) */
+function ultimateClasse(){
+  return (typeof G!=='undefined' && G && G.classe && CLASSES[G.classe]) ? CLASSES[G.classe].ult : null;
+}
+function temUltimate(){ return G.despertar >= 1 && !!ultimateClasse(); }
 
 /* poderes que a classe atual pode aprender/ver (exclusivos) */
 function poderesDaClasse(){

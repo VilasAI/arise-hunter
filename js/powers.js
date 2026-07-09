@@ -4,16 +4,8 @@
 'use strict';
 
 /* mod dos talentos: efeito → multiplica a força do poder · cd → multiplica o cooldown */
+/* «Exército de Sombras» foi promovido a ultimate do Assassino (D010/D011) */
 const PODERES = {
-  sombras: {
-    nome:'Exército de Sombras', icone:'p_sombras', cor:'#8a6fc8', tipo:'passivo',
-    desc:'As tuas sombras lutam contigo. Cada tier torna-as mais fortes.',
-    base:{ bonus:0.25 },  // +25% stats das sombras × efeito do tier
-    talentos:[
-      { nome:'Legião',   desc:'+1 sombra ativa',            mod:{sombrasExtra:1} },
-      { nome:'Voracidade', desc:'Sombras +35% mais fortes',  mod:{efeito:1.35} },
-    ],
-  },
   lamina: {
     nome:'Lâmina Fantasma', icone:'p_lamina', cor:'#8a6fc8', tipo:'ativo', cd:2.5, mp:8,
     desc:'Dispara uma lâmina espectral contra o inimigo mais próximo.',
@@ -104,6 +96,15 @@ const PODERES = {
       { nome:'Évasão',    desc:'-30% cooldown',              mod:{cd:0.7} },
     ],
   },
+  execucao: {
+    nome:'Execução', icone:'p_sede', cor:'#c04438', tipo:'ativo', cd:8, mp:16,
+    desc:'Golpe brutal num inimigo enfraquecido (abaixo de 30% de vida).',
+    base:{ dano:2.6, limiar:0.30 },
+    talentos:[
+      { nome:'Ceifeiro',    desc:'Executa abaixo de 40% de vida', mod:{limiar:0.40} },
+      { nome:'Carnificina', desc:'+35% dano',                     mod:{efeito:1.35} },
+    ],
+  },
   /* ---- poderes de classe (Batedor / Paladino) ---- */
   tiro: {
     nome:'Chuva de Flechas', icone:'p_lamina', cor:'#7da33c', tipo:'ativo', cd:5, mp:14,
@@ -143,7 +144,7 @@ const PODERES = {
   },
 };
 
-const ORDEM_PODERES = ['lamina','sombras','investida','sede','escudo','brasas','corrente','gelo','terror','furia','passo','tiro','luz','martelo','bencao'];
+const ORDEM_PODERES = ['lamina','investida','sede','escudo','brasas','corrente','gelo','terror','furia','passo','execucao','tiro','luz','martelo','bencao'];
 
 /* ---------- estado / progressão ---------- */
 function poderAprendido(id){ return G.poderes[id] || null; }
