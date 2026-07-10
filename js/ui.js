@@ -573,6 +573,23 @@ function htmlBase(){
     }
   }
 
+  // skins por paleta (D023): recolor do Watcher em combate; cristais ganhos a jogar
+  h += sec('heroi','Skins do Watcher');
+  for(const s of SKINS){
+    const tem = G.skins.includes(s.id), ativa = G.skinAtiva===s.id;
+    const cor = s.cor || corClasse() || '#8a96a0';
+    h += `<div class="cartao linha">
+      <div class="avatar"><span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${cor};border:2px solid rgba(255,255,255,.35)"></span></div>
+      <div class="crescer">
+        <div class="portal-nome">${s.nome}</div>
+        <div class="portal-info">${s.cor?'Tinge o Watcher em combate.':'A cor natural da tua classe.'}</div>
+      </div>
+      ${ativa ? `<span class="etiqueta">ATIVA</span>`
+        : tem ? `<button class="btn btn-sec" data-skin-usar="${s.id}">Vestir</button>`
+        : `<button class="btn btn-sec" data-skin-comprar="${s.id}">${ic('cristal',13)} ${s.preco}</button>`}
+    </div>`;
+  }
+
   h += sec('quadro','Progresso') + `
   <div class="cartao">
     <div class="nota" style="margin-bottom:10px">
@@ -861,6 +878,18 @@ function ligarEventosPainel(tab, corpo){
         const r = subirSombra(s);
         toast(r.ok ? `${s.nome} subiu para Nv.${s.nivel}!` : r.msg);
         refrescar();
+      });
+    });
+    corpo.querySelectorAll('[data-skin-comprar]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const r = comprarSkin(b.dataset.skinComprar);
+        toast(r.ok ? `${r.skin.nome} é tua — já está vestida!` : r.msg);
+        refrescar();
+      });
+    });
+    corpo.querySelectorAll('[data-skin-usar]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        if(ativarSkin(b.dataset.skinUsar)){ toast('Skin vestida!'); refrescar(); }
       });
     });
     corpo.querySelector('#btn-exportar')?.addEventListener('click', async ()=>{

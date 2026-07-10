@@ -119,6 +119,16 @@ const MISSOES = [
   { id:'m_despertar',nome:'O Primeiro Despertar', desc:'Completa a Provação do Despertar.', tipo:'despertar', alvo:1, rec:{ouro:1000,cristais:15} },
 ];
 
+/* ---------- Skins por paleta (D023 — beta: recolor do Watcher; preço em cristais) ---------- */
+const SKINS = [
+  { id:'padrao',    nome:'Cores da Ordem', cor:null,      preco:0 },
+  { id:'carmesim',  nome:'Carmesim',       cor:'#c04438', preco:120 },
+  { id:'abissal',   nome:'Abissal',        cor:'#6b4a8a', preco:120 },
+  { id:'esmeralda', nome:'Esmeralda',      cor:'#5d9e4a', preco:120 },
+  { id:'aurora',    nome:'Aurora',         cor:'#e8cf7a', preco:150 },
+  { id:'gelo',      nome:'Gelo Eterno',    cor:'#9ad8f0', preco:150 },
+];
+
 /* ---------- NPC: Mestre Aldric (D008 — diálogos por rank, sempre saltáveis) ---------- */
 const NPC = {
   nome:'Mestre Aldric', emoji:'🧙', icone:'npc',

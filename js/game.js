@@ -28,6 +28,7 @@ function novoJogo(){
     equipadosPoder:['lamina', null, null],
     pontosHabUsados:0,
     arvore:{ nos:{}, respecs:0 },
+    skins:['padrao'], skinAtiva:'padrao',
     // runas / stamina / base
     runas:{}, runasEq:[null, null],
     stamina:{ v:BAL.stamina.max, ts:Date.now() },
@@ -59,7 +60,7 @@ function migrarSave(obj){
   }
   // saves anteriores ao sistema de poderes/vila
   const novo = novoJogo();
-  for(const k of ['poderes','equipadosPoder','runas','runasEq','stamina','base','contadores','missoesFeitas','arvore']){
+  for(const k of ['poderes','equipadosPoder','runas','runasEq','stamina','base','contadores','missoesFeitas','arvore','skins','skinAtiva']){
     if(obj[k] === undefined) obj[k] = novo[k];
   }
   if(obj.pontosHabUsados === undefined) obj.pontosHabUsados = 0;
@@ -325,6 +326,27 @@ function sombrasAtivas(){
 /* multiplicador do Altar do Dom sobre a ultimate (classes sem sombras) */
 function multAltarUlt(){
   return G.classe === 'assassino' ? 1 : 1 + G.base.altar * BAL.base.altarUltPorNivel;
+}
+
+/* ---------- Skins por paleta (D023) ---------- */
+function comprarSkin(id){
+  const s = SKINS.find(x=>x.id===id);
+  if(!s || G.skins.includes(id)) return {ok:false, msg:'Já tens esta skin.'};
+  if(G.cristais < s.preco) return {ok:false, msg:'Cristais insuficientes.'};
+  G.cristais -= s.preco;
+  G.skins.push(id);
+  G.skinAtiva = id;
+  guardar();
+  return {ok:true, skin:s};
+}
+function ativarSkin(id){
+  if(!G.skins.includes(id)) return false;
+  G.skinAtiva = id; guardar(); return true;
+}
+/* tinta do sprite do Watcher: skin ativa, senão a cor da classe */
+function corHeroi(){
+  const s = SKINS.find(x=>x.id===G.skinAtiva);
+  return (s && s.cor) ? s.cor : (typeof corClasse==='function' ? corClasse() : null);
 }
 
 /* ---------- Diário / eventos ---------- */

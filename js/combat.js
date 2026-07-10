@@ -316,7 +316,7 @@ function atacar(){
   if(typeof classeDistancia==='function' && classeDistancia()){
     let dx, dy;
     if(alvo){ dx=alvo.x-j.x; dy=(alvo.y-20)-(j.y-26); } else { dx=j.dirAtq; dy=0; }
-    const d=Math.hypot(dx,dy)||1, cor=corClasse()||'#cfe0a0';
+    const d=Math.hypot(dx,dy)||1, cor=corHeroi()||'#cfe0a0';
     C.projeteis.push({ tipo:'lamina', x:j.x+j.dirAtq*10, y:j.y-26, vx:dx/d*640, vy:dy/d*640, t:1.0, dano: atqAtual(), cor });
     for(let i=0;i<3;i++) particula(j.x+j.dirAtq*20, j.y-26, cor, 2.2, 0.2);
     return;
@@ -1754,7 +1754,7 @@ function desenharJogador(){
     else { nome='soldier_idle'; idx=Math.floor(C.tempo*6); }
     ctx.save(); ctx.translate(j.x, j.y);
     if(j.invul>0 && Math.floor(C.tempo*20)%2) ctx.globalAlpha=0.45;
-    SPR.frameH(ctx, nome, idx, SPR.n(nome), 210*s, (j.dirAtq||1)<0, corClasse(), 0.74);
+    SPR.frameH(ctx, nome, idx, SPR.n(nome), 210*s, (j.dirAtq||1)<0, corHeroi(), 0.74);
     ctx.restore();
   } else {
     ctx.save(); ctx.translate(j.x,j.y); ctx.scale(s*1.5, s*1.5);
