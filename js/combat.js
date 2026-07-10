@@ -1500,7 +1500,8 @@ function prerenderCenario(){
   c.setTransform(dpr,0,0,dpr,0,0);
   const rng = (function(seed){ let s2=seed; return ()=>{ s2=(s2*9301+49297)%233280; return s2/233280; }; })(C.sala*977+IDX_RARIDADE_RANK(C.masmorra.rank)*131+7);
 
-  // ---- caminho com TILES reais (Dungeon_Tileset). Fallback vetorial em baixo. ----
+  // ---- 1.º: cenário pintado (pack Hig); 2.º: tiles pixel; por fim, vetorial. ----
+  if(SPR.ok('hig_parede') && SPR.ok('hig_chao_pedra')){ prerenderCenarioHig(c, rng); return; }
   if(SPR.ok('dungeon_tileset')){ prerenderDungeonTiles(c, rng); return; }
 
   // parede de pedra com tijolos de tom variado
@@ -1562,23 +1563,6 @@ function prerenderCenario(){
     }
   }
 
-  // estandartes do rank pendurados
-  for(const bx of [W*0.22, W*0.78]){
-    c.fillStyle='#2a1d10'; c.fillRect(bx-20, 8, 40, 5);
-    c.fillStyle = C.masmorra.cor;
-    c.globalAlpha = 0.55;
-    c.beginPath();
-    c.moveTo(bx-16, 13); c.lineTo(bx+16, 13);
-    c.lineTo(bx+16, 86); c.lineTo(bx, 72); c.lineTo(bx-16, 86);
-    c.closePath(); c.fill();
-    c.globalAlpha = 1;
-    c.fillStyle='rgba(0,0,0,0.3)';
-    c.beginPath(); c.moveTo(bx+6,13); c.lineTo(bx+16,13); c.lineTo(bx+16,86); c.lineTo(bx+6,76); c.closePath(); c.fill();
-    c.fillStyle='rgba(232,220,195,0.85)';
-    c.font='bold 17px Georgia,serif'; c.textAlign='center';
-    c.fillText(C.masmorra.rank, bx, 48);
-  }
-
   // suportes das tochas (a chama é animada por frame)
   for(const tx of [W*0.32, W*0.68]){
     c.fillStyle='#2a1d10'; c.fillRect(tx-3, C.chaoTopo-86, 6, 24);
@@ -1613,11 +1597,7 @@ function prerenderCenario(){
     c.beginPath(); c.ellipse(ex, ey, 4+rng()*7, 2+rng()*3, rng()*3, 0, Math.PI*2); c.fill();
   }
 
-  // tinta do rank + escurecer topo
-  c.fillStyle = C.masmorra.cor; c.globalAlpha = 0.05; c.fillRect(0,0,W,H); c.globalAlpha = 1;
-  const topo = c.createLinearGradient(0,0,0,70);
-  topo.addColorStop(0,'rgba(0,0,0,0.55)'); topo.addColorStop(1,'transparent');
-  c.fillStyle=topo; c.fillRect(0,0,W,70);
+  rematarCenario(c);
 }
 
 /* cenário das masmorras com TILES do Dungeon_Tileset (16px → 48px) */
@@ -1637,6 +1617,44 @@ function prerenderDungeonTiles(c, rng){
   const sg = c.createLinearGradient(0,topo-TD,0,topo+TD*1.4);
   sg.addColorStop(0,'rgba(0,0,0,0.45)'); sg.addColorStop(1,'rgba(0,0,0,0)');
   c.fillStyle=sg; c.fillRect(0,topo-TD,W,TD*2.4);
+  rematarCenario(c);
+}
+
+/* cenário pintado (pack Hig): parede e chão em texturas de alta resolução,
+   barris como adereço variável por sala. Preferido quando as imagens existem. */
+function prerenderCenarioHig(c, rng){
+  const {W,H} = C, topo = C.chaoTopo;
+  // parede: banda quadrada repetida na horizontal
+  const par = SPR.reg.hig_parede.img;
+  for(let x=0; x<W; x+=topo) c.drawImage(par, x, 0, topo, topo);
+  // chão: pedra, ou madeira onde o bioma manda (data.js: piso)
+  const nome = (C.masmorra.piso==='madeira' && SPR.ok('hig_chao_madeira')) ? 'hig_chao_madeira' : 'hig_chao_pedra';
+  const chao = SPR.reg[nome].img, TD = Math.round(Math.max(220, Math.min(W,H)*0.6));
+  for(let y=topo; y<H; y+=TD)
+    for(let x=0; x<W; x+=TD) c.drawImage(chao, x, y, TD, TD);
+  // junção parede→chão na sombra
+  const sg = c.createLinearGradient(0,topo-6,0,topo+74);
+  sg.addColorStop(0,'rgba(0,0,0,0.45)'); sg.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=sg; c.fillRect(0,topo-6,W,80);
+  // barris no chão junto à parede, fora das colunas das tochas (varia por sala)
+  if(SPR.ok('hig_barril')){
+    const b = SPR.reg.hig_barril, nB = 1+Math.floor(rng()*2);
+    const zonas = [[0.06,0.20],[0.42,0.56],[0.78,0.88]], z0 = Math.floor(rng()*3);
+    for(let i=0;i<nB;i++){
+      const z = zonas[(z0+i)%3];
+      const alt = 46+rng()*18, lB = alt*b.w/b.h;
+      const bx = W*(z[0]+rng()*(z[1]-z[0])), by = topo+30+rng()*26;
+      c.fillStyle='rgba(0,0,0,0.4)';
+      c.beginPath(); c.ellipse(bx, by+2, lB*0.52, lB*0.18, 0, 0, Math.PI*2); c.fill();
+      c.drawImage(b.img, bx-lB/2, by-alt+4, lB, alt);
+    }
+  }
+  rematarCenario(c);
+}
+
+/* remate comum dos cenários: estandartes do rank, tinta do rank, sombra do topo */
+function rematarCenario(c){
+  const {W,H} = C;
   for(const bx of [W*0.22, W*0.78]){
     c.fillStyle='#2a1d10'; c.fillRect(bx-20, 8, 40, 5);
     c.fillStyle = C.masmorra.cor; c.globalAlpha = 0.6;
@@ -1666,11 +1684,18 @@ function desenharCenario(){
     ctx.restore();
   }
 
-  const tochaSprite = SPR.ok('torch_1');
+  const tochaHig = SPR.ok('hig_tocha'), tochaSprite = SPR.ok('torch_1');
   for(let i=0;i<2;i++){
     const tx = W*(0.32+i*0.36), ty = C.chaoTopo-92;
     const fl = 0.7+Math.sin(t*9+i*2.4)*0.3;
-    if(tochaSprite){
+    if(tochaHig){
+      // tocha pintada (pack Hig), espelhada à direita; o pulso é subtil — a vida vem da luz e das faúlhas
+      const o = SPR.reg.hig_tocha, alt = 92*(1+0.025*Math.sin(t*9+i*2.4)), lT = alt*o.w/o.h;
+      ctx.save(); ctx.translate(tx, ty);
+      if(i===1) ctx.scale(-1,1);
+      ctx.drawImage(o.img, -lT/2, -alt*0.35, lT, alt);
+      ctx.restore();
+    } else if(tochaSprite){
       // tocha pixel animada (4 frames)
       const fr = 1 + (Math.floor(t*10+i*2)%4);
       ctx.save(); ctx.translate(tx, ty+6); ctx.imageSmoothingEnabled=false;

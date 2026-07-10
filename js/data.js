@@ -31,7 +31,8 @@ const ENCANTAMENTOS = [
 ];
 
 /* Masmorras/biomas por rank (D017: um bioma por rank, servos das legiões).
-   pesoLoot desloca a tabela de raridade para cima · luz = tinte ambiente do bioma. */
+   pesoLoot desloca a tabela de raridade para cima · luz = tinte ambiente do bioma ·
+   piso:'madeira' troca a textura do chão no cenário pintado (por defeito: pedra). */
 const MASMORRAS = [
   { rank:'E', nome:'Bosque Profanado',    nivelReq:1,  nivelMon:1,  salas:3, cor:'#9aa3ad', luz:'#4a6a3a', pesoLoot:0,   ouro:[20,45],
     tema:'Onde a primeira brecha se abriu. A mata apodrece e os diabretes escavam.' },
@@ -40,7 +41,7 @@ const MASMORRAS = [
   { rank:'C', nome:'Cripta dos Renegados',nivelReq:10, nivelMon:12, salas:4, cor:'#3b82f6', luz:'#3a5a7a', pesoLoot:1,   ouro:[90,170],
     tema:'Os mortos erguidos pela Fenda guardam a cripta dos que a serviram primeiro.' },
   { rank:'B', nome:'Fortaleza da Legião', nivelReq:16, nivelMon:19, salas:4, cor:'#a855f7', luz:'#5a3a6a', pesoLoot:1.6, ouro:[170,300],
-    tema:'O quartel dos brutos da Legião. Daqui partem as incursões ao mundo.' },
+    piso:'madeira', tema:'O quartel dos brutos da Legião. Daqui partem as incursões ao mundo.' },
   { rank:'A', nome:'Garganta Gélida',     nivelReq:24, nivelMon:28, salas:5, cor:'#f59e0b', luz:'#3a5a6a', pesoLoot:2.3, ouro:[300,520],
     tema:'O frio antinatural que precede a Fenda. Os demónios puros começam aqui.' },
   { rank:'S', nome:'A Fenda',             nivelReq:34, nivelMon:40, salas:5, cor:'#ef4444', luz:'#6a2a3a', pesoLoot:3.2, ouro:[520,900],

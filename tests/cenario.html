@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<base href="../"><!-- para o sprites.js achar assets/2d/ a partir de tests/ -->
+<title>Teste — cenário das masmorras</title>
+<style>
+  html,body{margin:0;height:100%;background:#0c0a10;overflow:hidden}
+  canvas{display:block}
+  #dica{position:fixed;top:8px;left:10px;color:#cbb;font:12px monospace;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="dica">toque/clique: bioma seguinte · ?bioma=0..5 escolhe à partida</div>
+<script>
+window.onerror = (m,f,l)=>{ document.title += ' || ERRO: '+m+' @ '+(f||'').split('/').pop()+':'+l; };
+</script>
+<script src="js/balance.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/data.js"></script>
+<script src="js/art.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/powers.js"></script>
+<script src="js/classes.js"></script>
+<script src="js/arvore.js"></script>
+<script src="js/game.js"></script>
+<script>
+/* o combat.js liga botões do HUD (index.html) no arranque; aqui não existem — devolve mudos */
+const _gEBI = document.getElementById.bind(document);
+document.getElementById = id => _gEBI(id) || {
+  addEventListener(){}, style:{}, textContent:'', innerHTML:'',
+  classList:{ add(){}, remove(){}, toggle(){}, contains(){ return false; } },
+  querySelector(){ return null; }, querySelectorAll(){ return []; },
+};
+</script>
+<script src="js/combat.js"></script>
+<script>
+/* Pré-visualiza o cenário real (prerenderCenario + desenharCenario) por bioma,
+   sem entrar no jogo. Usa as mesmas funções do combate. */
+let bioma = Math.max(0, Math.min(5, +(new URLSearchParams(location.search).get('bioma')||0)));
+
+function montar(){
+  const w = window.innerWidth, h = window.innerHeight;
+  canvas.width = w; canvas.height = h;
+  ctx.setTransform(1,0,0,1,0,0);
+  C = { W:w, H:h, chaoTopo:h*0.36, chaoFundo:h*0.90,
+        sala:1+bioma, masmorra:MASMORRAS[bioma], tempo:0 };
+  prerenderCenario();
+}
+
+function frame(t){
+  C.tempo = t/1000;
+  desenharCenario();
+  ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.font='13px monospace'; ctx.textAlign='left';
+  ctx.fillText(C.masmorra.rank+' — '+C.masmorra.nome+(C.masmorra.piso?' (piso: '+C.masmorra.piso+')':''), 10, C.H-10);
+  requestAnimationFrame(frame);
+}
+
+canvas.addEventListener('pointerdown', ()=>{ bioma=(bioma+1)%MASMORRAS.length; montar(); });
+window.addEventListener('resize', montar);
+window.addEventListener('load', ()=> setTimeout(()=>{ montar(); requestAnimationFrame(frame); }, 600));
+</script>
+</body>
+</html>

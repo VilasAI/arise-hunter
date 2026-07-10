@@ -89,6 +89,12 @@ const SPR = (function(){
   // dungeon
   carregar('dungeon_tileset','dungeon_tileset.png');
   for(let i=1;i<=4;i++) carregar('torch_'+i,'torch_'+i+'.png');
+  // cenário pintado (pack Hig): texturas opacas em jpg, adereços recortados em png
+  carregar('hig_chao_pedra','hig_chao_pedra.jpg');
+  carregar('hig_chao_madeira','hig_chao_madeira.jpg');
+  carregar('hig_parede','hig_parede.jpg');
+  carregar('hig_barril','hig_barril.png');
+  carregar('hig_tocha','hig_tocha.png');
   // vila (Cute Fantasy)
   for(const t of ['grass','water','path','water_tile','path_tile','cliff_tile','house','tree','tree_small','decor','chest','fences','bridge']) carregar('cf_'+t,'cf_'+t+'.png');
 

@@ -1,7 +1,7 @@
 /* Service worker — Vigília
    Código (HTML/CSS/JS): network-first → atualizações aplicam-se logo.
    Assets (spritesheets, ícones): cache-first → offline rápido. */
-const CACHE = 'vigilia-v19';
+const CACHE = 'vigilia-v20';
 const NUCLEO = [
   './', './index.html', './css/style.css',
   './js/balance.js', './js/audio.js', './js/data.js', './js/art.js', './js/sprites.js', './js/powers.js',
