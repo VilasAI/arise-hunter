@@ -51,6 +51,7 @@ const codigo = FICHEIROS.map(f => fs.readFileSync(path.join(RAIZ,f),'utf8')).joi
   get C(){ return C; }, set C(v){ C = v; },
   novoJogo, migrarSave, normalizarSave, prepararSave, carregar, importarSave, exportarSave,
   guardar, escolherClasse, staminaMax, multAltarUlt, ferirInimigo, pontosInvestidos,
+  comprarSkin, baseHeroi,
   BAL, PODERES, CLASSES, SOMBRAS_BASE, SAVE_KEY,
 };`;
 vm.runInContext(codigo, sandbox, { filename:'jogo-concatenado.js' });
@@ -143,6 +144,22 @@ t('P2.12: falha de gravação não crasha o jogo', () => {
   sandbox.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
   jogo.guardar();
   sandbox.localStorage.setItem = setOK;
+});
+
+t('schema 3: paletas antigas reembolsadas em cristais', () => {
+  jogo.G = jogo.prepararSave({ nivel:6, cristais:10, skins:['padrao','carmesim','gelo'], skinAtiva:'carmesim' });
+  assert.equal(jogo.G.cristais, 10 + 120 + 150);
+  assert.deepEqual(jogo.G.skins, ['padrao']);
+  assert.equal(jogo.G.skinAtiva, 'padrao');
+});
+
+t('skins v2: comprar exige a classe certa', () => {
+  jogo.G = jogo.prepararSave({ nivel:6, cristais:999 });
+  jogo.escolherClasse('mago');
+  assert.equal(jogo.comprarSkin('guerreiro2').ok, false);
+  assert.equal(jogo.comprarSkin('mago2').ok, true);
+  assert.equal(jogo.G.skinAtiva, 'mago2');
+  assert.equal(jogo.baseHeroi(), 'soldier');   // sem SPR no teste, cai no fallback
 });
 
 t('exportar → importar preserva o essencial', () => {

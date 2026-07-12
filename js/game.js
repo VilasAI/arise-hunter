@@ -2,7 +2,7 @@
 'use strict';
 
 const SAVE_KEY = 'arise-hunter-save-v1';
-const SCHEMA_VERSAO = 2;   // versão da forma do save (migrações correm por comparação)
+const SCHEMA_VERSAO = 3;   // versão da forma do save (migrações correm por comparação)
 
 /* Modo de teste: abrir o link com ?teste (ou ?test) dá energia ilimitada,
    para poder jogar em contínuo à caça de bugs. Não afeta jogadores normais. */
@@ -82,6 +82,12 @@ function migrarSave(obj){
     obj.cristais = (obj.cristais||0) + obj.sombras.reduce((a,s)=> a + 4 + ((s.nivel||1)-1)*4, 0);
     obj.sombras = [];
     obj._sombrasMigradas = true;
+  }
+  // schema 3 (D023 v2): as skins por paleta deram lugar às aparências por sprite — reembolsa
+  if((obj.schema||1) < 3 && Array.isArray(obj.skins)){
+    const PALETAS = { carmesim:120, abissal:120, esmeralda:120, aurora:150, gelo:150 };
+    for(const id of obj.skins) if(PALETAS[id]) obj.cristais = (obj.cristais||0) + PALETAS[id];
+    obj.skins = obj.skins.filter(id => !PALETAS[id]);
   }
   return obj;
 }
@@ -480,10 +486,11 @@ function multAltarUlt(){
   return G.classe === 'assassino' ? 1 : 1 + G.base.altar * BAL.base.altarUltPorNivel;
 }
 
-/* ---------- Skins por paleta (D023) ---------- */
+/* ---------- Skins do Watcher (D023 v2: sprites por classe) ---------- */
 function comprarSkin(id){
   const s = SKINS.find(x=>x.id===id);
   if(!s || G.skins.includes(id)) return {ok:false, msg:'Já tens esta skin.'};
+  if(s.classe && s.classe !== G.classe) return {ok:false, msg:'Essa aparência é de outra classe.'};
   if(G.cristais < s.preco) return {ok:false, msg:'Cristais insuficientes.'};
   G.cristais -= s.preco;
   G.skins.push(id);
@@ -495,10 +502,11 @@ function ativarSkin(id){
   if(!G.skins.includes(id)) return false;
   G.skinAtiva = id; guardar(); return true;
 }
-/* tinta do sprite do Watcher: skin ativa, senão a cor da classe */
-function corHeroi(){
-  const s = SKINS.find(x=>x.id===G.skinAtiva);
-  return (s && s.cor) ? s.cor : (typeof corClasse==='function' ? corClasse() : null);
+/* spritesheet do Watcher em combate: classe + aparência vestida (fallback: antigo) */
+function baseHeroi(){
+  const cl = G.classe || 'guerreiro';
+  const nome = (G.skinAtiva === cl+'2') ? 'heroi_'+cl+'2' : 'heroi_'+cl;
+  return (typeof SPR !== 'undefined' && SPR.ok(nome+'_idle')) ? nome : 'soldier';
 }
 
 /* ---------- Diário / eventos ---------- */

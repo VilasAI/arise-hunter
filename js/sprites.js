@@ -82,7 +82,18 @@ const SPR = (function(){
   }
 
   /* ---------- pré-carregamento ---------- */
-  // personagens
+  // pack do dono (2026-07-12): heróis por classe (2 skins) e inimigos, 4 frames/ação
+  for(const a of ['idle','walk','attack','hurt','death']){
+    for(const cl of ['guerreiro','mago','batedor','assassino','paladino']){
+      for(const s of ['','2']){ carregar('heroi_'+cl+s+'_'+a, 'heroi_'+cl+s+'_'+a+'.png'); META['heroi_'+cl+s+'_'+a] = 4; }
+    }
+    for(const e of ['goblin','orcbrute','necro','warlock','bone','plague','stalker','venom','corrupted','templar']){
+      carregar('en_'+e+'_'+a, 'en_'+e+'_'+a+'.png'); META['en_'+e+'_'+a] = 4;
+    }
+  }
+  // texturas de masmorra do pack (opacas; usadas por bioma no cenário pintado)
+  for(let i=1;i<=16;i++){ const t='tex_'+String(i).padStart(2,'0'); carregar(t, t+'.jpg'); }
+  // personagens antigos (fallback)
   for(const m of ['idle','walk','attack','hurt','death']){ carregar('soldier_'+m,'soldier_'+m+'.png'); carregar('orc_'+m,'orc_'+m+'.png'); }
   // inimigos pixel (32x32)
   for(const e of ['skeleton1','skeleton2','vampire']) for(const a of ['idle','walk','attack','death','take_damage']) carregar('enemy_'+e+'_'+a,'enemy_'+e+'_'+a+'.png');

@@ -573,16 +573,17 @@ function htmlBase(){
     }
   }
 
-  // skins por paleta (D023): recolor do Watcher em combate; cristais ganhos a jogar
+  // skins do Watcher (D023 v2): aparências por sprite da classe; cristais ganhos a jogar
   h += sec('heroi','Skins do Watcher');
   for(const s of SKINS){
+    if(s.classe && s.classe !== G.classe) continue;   // só as da tua classe
     const tem = G.skins.includes(s.id), ativa = G.skinAtiva===s.id;
-    const cor = s.cor || corClasse() || '#8a96a0';
+    const sheet = 'heroi_' + (G.classe||'guerreiro') + (s.classe ? '2' : '');
     h += `<div class="cartao linha">
-      <div class="avatar"><span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${cor};border:2px solid rgba(255,255,255,.35)"></span></div>
+      <div class="avatar" style="overflow:hidden"><span style="display:inline-block;width:38px;height:38px;background:url(assets/2d/${sheet}_idle.png) 0 0/auto 38px no-repeat;image-rendering:pixelated"></span></div>
       <div class="crescer">
         <div class="portal-nome">${s.nome}</div>
-        <div class="portal-info">${s.cor?'Tinge o Watcher em combate.':'A cor natural da tua classe.'}</div>
+        <div class="portal-info">${s.desc||''}</div>
       </div>
       ${ativa ? `<span class="etiqueta">ATIVA</span>`
         : tem ? `<button class="btn btn-sec" data-skin-usar="${s.id}">Vestir</button>`

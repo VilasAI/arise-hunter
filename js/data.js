@@ -35,16 +35,22 @@ const ENCANTAMENTOS = [
    piso:'madeira' troca a textura do chão no cenário pintado (por defeito: pedra). */
 const MASMORRAS = [
   { rank:'E', nome:'Bosque Profanado',    nivelReq:1,  nivelMon:1,  salas:3, cor:'#9aa3ad', luz:'#4a6a3a', pesoLoot:0,   ouro:[20,45],
+    tex:{ chao:'tex_04', parede:'tex_01' },
     tema:'Onde a primeira brecha se abriu. A mata apodrece e os diabretes escavam.' },
   { rank:'D', nome:'Túneis do Enxame',    nivelReq:5,  nivelMon:6,  salas:3, cor:'#22c55e', luz:'#6a5a2a', pesoLoot:.5,  ouro:[45,90],
+    tex:{ chao:'tex_05', parede:'tex_06' },
     tema:'Galerias vivas roídas pelo Enxame — a legião rastejante da Fenda.' },
   { rank:'C', nome:'Cripta dos Renegados',nivelReq:10, nivelMon:12, salas:4, cor:'#3b82f6', luz:'#3a5a7a', pesoLoot:1,   ouro:[90,170],
+    tex:{ chao:'tex_13', parede:'tex_02' },
     tema:'Os mortos erguidos pela Fenda guardam a cripta dos que a serviram primeiro.' },
   { rank:'B', nome:'Fortaleza da Legião', nivelReq:16, nivelMon:19, salas:4, cor:'#a855f7', luz:'#5a3a6a', pesoLoot:1.6, ouro:[170,300],
-    piso:'madeira', tema:'O quartel dos brutos da Legião. Daqui partem as incursões ao mundo.' },
+    piso:'madeira', tex:{ parede:'tex_10' },
+    tema:'O quartel dos brutos da Legião. Daqui partem as incursões ao mundo.' },
   { rank:'A', nome:'Garganta Gélida',     nivelReq:24, nivelMon:28, salas:5, cor:'#f59e0b', luz:'#3a5a6a', pesoLoot:2.3, ouro:[300,520],
+    tex:{ chao:'tex_16', parede:'tex_03' },
     tema:'O frio antinatural que precede a Fenda. Os demónios puros começam aqui.' },
   { rank:'S', nome:'A Fenda',             nivelReq:34, nivelMon:40, salas:5, cor:'#ef4444', luz:'#6a2a3a', pesoLoot:3.2, ouro:[520,900],
+    tex:{ chao:'tex_15', parede:'tex_11' },
     tema:'O portal-mãe. Entra, fecha-a — e que o mundo se lembre do teu nome.' },
 ];
 
@@ -121,13 +127,22 @@ const MISSOES = [
 ];
 
 /* ---------- Skins por paleta (D023 — beta: recolor do Watcher; preço em cristais) ---------- */
+/* Skins do Watcher (D023 v2): aparências por sprite, por classe.
+   A 1.ª vem com a classe; a 2.ª compra-se com cristais ganhos a jogar.
+   (As paletas antigas foram reembolsadas na migração para o schema 3.) */
 const SKINS = [
-  { id:'padrao',    nome:'Cores da Ordem', cor:null,      preco:0 },
-  { id:'carmesim',  nome:'Carmesim',       cor:'#c04438', preco:120 },
-  { id:'abissal',   nome:'Abissal',        cor:'#6b4a8a', preco:120 },
-  { id:'esmeralda', nome:'Esmeralda',      cor:'#5d9e4a', preco:120 },
-  { id:'aurora',    nome:'Aurora',         cor:'#e8cf7a', preco:150 },
-  { id:'gelo',      nome:'Gelo Eterno',    cor:'#9ad8f0', preco:150 },
+  { id:'padrao',     nome:'Aparência da Ordem', preco:0,
+    desc:'O uniforme clássico da tua classe.' },
+  { id:'guerreiro2', nome:'Bárbaro',            classe:'guerreiro', preco:300,
+    desc:'Peles, ferro cravado e um machadão sem paciência.' },
+  { id:'mago2',      nome:'Mago de Batalha',    classe:'mago',      preco:300,
+    desc:'Vestes carmesim e um cajado com sede de guerra.' },
+  { id:'batedor2',   nome:'Caçador do Deserto', classe:'batedor',   preco:300,
+    desc:'Capa de areia e besta de precisão.' },
+  { id:'assassino2', nome:'Assassino Carmesim', classe:'assassino', preco:300,
+    desc:'O capuz vermelho que as lendas evitam nomear.' },
+  { id:'paladino2',  nome:'Cruzado',            classe:'paladino',  preco:300,
+    desc:'Elmo fechado, tabardo da cruzada e um martelo de fé.' },
 ];
 
 /* ---------- NPC: Mestre Aldric (D008 — diálogos por rank, sempre saltáveis) ---------- */

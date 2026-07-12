@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<base href="../"><!-- para o sprites.js achar assets/2d/ a partir de tests/ -->
+<title>Teste — sprites do pack (heróis, inimigos, ícones)</title>
+<style>
+  html,body{margin:0;height:100%;background:#221c14;overflow:auto}
+  canvas{display:block}
+</style>
+</head>
+<body>
+<canvas id="canvas" width="1280" height="980"></canvas>
+<script>
+window.onerror = (m,f,l)=>{ document.title += ' || ERRO: '+m+' @ '+(f||'').split('/').pop()+':'+l; };
+</script>
+<script src="js/balance.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/data.js"></script>
+<script src="js/art.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/powers.js"></script>
+<script src="js/classes.js"></script>
+<script src="js/arvore.js"></script>
+<script src="js/game.js"></script>
+<script>
+/* Desenha com o SPR real: heróis (skin 1 e 2, a andar) e os 10 inimigos novos.
+   Anima para se ver o ciclo de frames como no jogo. */
+const cv = document.getElementById('canvas'), c2 = cv.getContext('2d');
+const CLASSES_L = ['guerreiro','mago','batedor','assassino','paladino'];
+const INIMIGOS_L = ['goblin','orcbrute','necro','warlock','bone','plague','stalker','venom','corrupted','templar'];
+
+function frame(t){
+  const tempo = t/1000;
+  c2.setTransform(1,0,0,1,0,0);
+  c2.fillStyle='#2b241a'; c2.fillRect(0,0,cv.width,cv.height);
+  c2.fillStyle='#e8dcc0'; c2.font='14px monospace'; c2.textAlign='left';
+
+  c2.fillText('HERÓIS — skin 1 (walk) e skin 2 (idle)', 16, 24);
+  CLASSES_L.forEach((cl,i)=>{
+    const x = 90 + i*250;
+    c2.save(); c2.translate(x, 210);
+    SPR.frameH(c2, 'heroi_'+cl+'_walk', Math.floor(tempo*8), 4, 176, false, null, 0.92);
+    c2.restore();
+    c2.save(); c2.translate(x+120, 210);
+    SPR.frameH(c2, 'heroi_'+cl+'2_idle', Math.floor(tempo*6), 4, 176, false, null, 0.92);
+    c2.restore();
+    c2.fillText(cl, x-30, 236);
+  });
+
+  c2.fillText('INIMIGOS — idle / attack', 16, 290);
+  INIMIGOS_L.forEach((e,i)=>{
+    const x = 80 + (i%5)*250, y = 470 + Math.floor(i/5)*230;
+    c2.save(); c2.translate(x, y);
+    SPR.frameH(c2, 'en_'+e+'_idle', Math.floor(tempo*6), 4, 170, false, null, 0.92);
+    c2.restore();
+    c2.save(); c2.translate(x+120, y);
+    SPR.frameH(c2, 'en_'+e+'_attack', Math.floor(tempo*6), 4, 170, true, null, 0.92);
+    c2.restore();
+    c2.fillText('en_'+e, x-30, y+26);
+  });
+
+  c2.fillText('ÍCONES — arma/armadura por classe (skins 1·2·3)', 16, 750);
+  CLASSES_L.forEach((cl,i)=>{
+    const cat = { guerreiro:'espada', mago:'cajado', batedor:'arco', assassino:'adaga', paladino:'espada' }[cl];
+    for(let s=1; s<=3; s++){
+      const img = new Image(); // ícones não estão no SPR: são <img> na UI real
+      // desenha via cache global para não recriar a cada frame
+      const k = 'icon_'+cl+'_'+cat+s;
+      if(!frame.cache) frame.cache = {};
+      if(!frame.cache[k]){ frame.cache[k] = new Image(); frame.cache[k].src = 'assets/2d/icon_'+cl+'_'+cat+s+'.png'; }
+      const ic2 = frame.cache[k];
+      if(ic2.complete && ic2.naturalWidth) c2.drawImage(ic2, 40+i*250+(s-1)*72, 770, 64, 64);
+      const k2 = 'icon_'+cl+'_armadura'+s;
+      if(!frame.cache[k2]){ frame.cache[k2] = new Image(); frame.cache[k2].src = 'assets/2d/icon_'+cl+'_armadura'+s+'.png'; }
+      const a2 = frame.cache[k2];
+      if(a2.complete && a2.naturalWidth) c2.drawImage(a2, 40+i*250+(s-1)*72, 848, 64, 64);
+    }
+    c2.fillText(cl, 40+i*250, 936);
+  });
+
+  requestAnimationFrame(frame);
+}
+window.addEventListener('load', ()=> setTimeout(()=> requestAnimationFrame(frame), 700));
+</script>
+</body>
+</html>

@@ -316,7 +316,7 @@ function atacar(){
   if(typeof classeDistancia==='function' && classeDistancia()){
     let dx, dy;
     if(alvo){ dx=alvo.x-j.x; dy=(alvo.y-20)-(j.y-26); } else { dx=j.dirAtq; dy=0; }
-    const d=Math.hypot(dx,dy)||1, cor=corHeroi()||'#cfe0a0';
+    const d=Math.hypot(dx,dy)||1, cor=(typeof corClasse==='function' && corClasse())||'#cfe0a0';
     C.projeteis.push({ tipo:'lamina', x:j.x+j.dirAtq*10, y:j.y-26, vx:dx/d*640, vy:dy/d*640, t:1.0, dano: atqAtual(), cor });
     for(let i=0;i<3;i++) particula(j.x+j.dirAtq*20, j.y-26, cor, 2.2, 0.2);
     return;
@@ -1626,11 +1626,13 @@ function prerenderDungeonTiles(c, rng){
    barris como adereço variável por sala. Preferido quando as imagens existem. */
 function prerenderCenarioHig(c, rng){
   const {W,H} = C, topo = C.chaoTopo;
+  const tx = C.masmorra.tex || {};        // texturas próprias do bioma (pack do dono)
   // parede: banda quadrada repetida na horizontal
-  const par = SPR.reg.hig_parede.img;
+  const par = (tx.parede && SPR.ok(tx.parede)) ? SPR.reg[tx.parede].img : SPR.reg.hig_parede.img;
   for(let x=0; x<W; x+=topo) c.drawImage(par, x, 0, topo, topo);
-  // chão: pedra, ou madeira onde o bioma manda (data.js: piso)
-  const nome = (C.masmorra.piso==='madeira' && SPR.ok('hig_chao_madeira')) ? 'hig_chao_madeira' : 'hig_chao_pedra';
+  // chão: madeira onde o bioma manda, senão a textura do bioma, senão pedra
+  const nome = (C.masmorra.piso==='madeira' && SPR.ok('hig_chao_madeira')) ? 'hig_chao_madeira'
+             : (tx.chao && SPR.ok(tx.chao)) ? tx.chao : 'hig_chao_pedra';
   const chao = SPR.reg[nome].img, TD = Math.round(Math.max(220, Math.min(W,H)*0.6));
   for(let y=topo; y<H; y+=TD)
     for(let x=0; x<W; x+=TD) c.drawImage(chao, x, y, TD, TD);
@@ -1739,8 +1741,24 @@ function corClasse(){
   if(typeof CLASSES!=='undefined' && G && G.classe && CLASSES[G.classe]) return CLASSES[G.classe].tinta || null;
   return null;
 }
-/* sprite (vetorial) -> base de animação 2D pixel + tamanho/tinta */
+/* sprite (vetorial) -> base de animação 2D pixel + tamanho/tinta
+   kind: novo (pack do dono, base 92%) · big/pix (sheets antigos, fallback) */
 const MODELO2D = {
+  goblin:    { base:'en_goblin',    kind:'novo', esc:0.85 },
+  lobo:      { base:'en_stalker',   kind:'novo', cor:'#9aa4b0', esc:0.85 },
+  formiga:   { base:'en_venom',     kind:'novo', cor:'#c87a3a', esc:0.85 },
+  aranha:    { base:'en_plague',    kind:'novo', cor:'#6a5a8a', esc:0.90 },
+  esqueleto: { base:'en_bone',      kind:'novo', esc:1.0  },
+  espectro:  { base:'en_stalker',   kind:'novo', esc:0.95, alpha:0.75 },
+  orc:       { base:'en_orcbrute',  kind:'novo', esc:1.10 },
+  orcmago:   { base:'en_warlock',   kind:'novo', esc:1.0  },
+  draconiano:{ base:'en_templar',   kind:'novo', cor:'#3fa89a', esc:1.10 },
+  golem:     { base:'en_templar',   kind:'novo', cor:'#9ecfe6', esc:1.20 },
+  cavaleiro: { base:'en_corrupted', kind:'novo', esc:1.05 },
+  sacerdote: { base:'en_necro',     kind:'novo', esc:1.0  },
+};
+/* fallback para os sheets antigos quando os novos não carregam */
+const MODELO2D_ANTIGO = {
   goblin:    { base:'orc',             kind:'big', cor:'#8fbf5a', esc:0.82 },
   lobo:      { base:'orc',             kind:'big', cor:'#9aa4b0', esc:0.80 },
   formiga:   { base:'enemy_skeleton1', kind:'pix', cor:'#c87a3a', esc:1.0  },
@@ -1754,7 +1772,11 @@ const MODELO2D = {
   cavaleiro: { base:'soldier',         kind:'big', cor:'#5a4a78', esc:1.06 },
   sacerdote: { base:'enemy_vampire',   kind:'pix', cor:'#c0504e', esc:1.0  },
 };
-const modelo2dDe = sprite => MODELO2D[sprite] || MODELO2D.goblin;
+function modelo2dDe(sprite){
+  const m = MODELO2D[sprite] || MODELO2D.goblin;
+  if(SPR.ok(m.base+'_idle')) return m;
+  return MODELO2D_ANTIGO[sprite] || MODELO2D_ANTIGO.goblin;
+}
 /* resolve o nome do sheet para o estado pedido (pix usa take_damage como hurt) */
 function anim2d(m, estado){
   if(estado==='hurt' && m.kind==='pix') return m.base+'_take_damage';
@@ -1774,14 +1796,17 @@ function desenharJogador(){
     ctx.restore();
   }
 
-  if(SPR.ok('soldier_idle')){
+  const bh = baseHeroi();          // sprite da classe/skin vestida, ou 'soldier' antigo
+  if(SPR.ok(bh+'_idle')){
+    const novo = bh !== 'soldier';
     let nome, idx;
-    if(j.atacando>0){ nome='soldier_attack'; idx=Math.floor((1-(j.atacando/0.18))*SPR.n(nome)); }
-    else if(j.andando || j.alvoX!==null){ nome='soldier_walk'; idx=Math.floor(C.tempo*12); }
-    else { nome='soldier_idle'; idx=Math.floor(C.tempo*6); }
+    if(j.atacando>0){ nome=bh+'_attack'; idx=Math.floor((1-(j.atacando/0.18))*SPR.n(nome)); }
+    else if(j.andando || j.alvoX!==null){ nome=bh+'_walk'; idx=Math.floor(C.tempo*12); }
+    else { nome=bh+'_idle'; idx=Math.floor(C.tempo*6); }
     ctx.save(); ctx.translate(j.x, j.y);
     if(j.invul>0 && Math.floor(C.tempo*20)%2) ctx.globalAlpha=0.45;
-    SPR.frameH(ctx, nome, idx, SPR.n(nome), 210*s, (j.dirAtq||1)<0, corHeroi(), 0.74);
+    // sheets novos: já coloridos (sem tinta), corpo até 92% da altura do frame
+    SPR.frameH(ctx, nome, idx, SPR.n(nome), (novo?176:210)*s, (j.dirAtq||1)<0, null, novo?0.92:0.74);
     ctx.restore();
   } else {
     ctx.save(); ctx.translate(j.x,j.y); ctx.scale(s*1.5, s*1.5);
@@ -1848,14 +1873,14 @@ function desenharInimigo(e){
     if(est==='attack')    idx = Math.floor(clamp(1 - e.windup/(e.ranged?0.6:0.55),0,1)*nf);
     else if(est==='hurt') idx = Math.floor(clamp(1 - e.flash/0.12,0,1)*nf);
     else                  idx = Math.floor(C.tempo*(est==='walk'?11:6) + e.x*0.05);
-    const alt = (m2.kind==='big'?200:112) * s * (m2.esc||1);
+    const alt = (m2.kind==='novo'?170:m2.kind==='big'?200:112) * s * (m2.esc||1);
     ctx.save();
     if(e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));
     if(e.flash>0){ const q=BAL.feel.squash*(e.flash/0.12); ctx.scale(1+q, 1-q); }  // squash & stretch
     if(m2.alpha) ctx.globalAlpha=m2.alpha;
     if(e.flash>0) ctx.filter='brightness(2.4)';
     else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
-    SPR.frameH(ctx, nome, idx, nf, alt, C.jogador.x < e.x, m2.cor, m2.kind==='big'?0.74:0.86);
+    SPR.frameH(ctx, nome, idx, nf, alt, C.jogador.x < e.x, m2.cor, m2.kind==='novo'?0.92:m2.kind==='big'?0.74:0.86);
     ctx.filter='none'; ctx.globalAlpha=1;
     ctx.restore();
   } else {
