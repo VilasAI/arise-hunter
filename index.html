@@ -24,7 +24,7 @@
     <button id="btn-comecar" class="btn btn-primario btn-grande">⚔ COMEÇAR A VIGÍLIA</button>
     <button id="btn-apagar-save" class="btn btn-fantasma">Apagar progresso</button>
     <button id="btn-som" class="btn btn-fantasma">Som: ligado</button>
-    <p class="versao">v3.3 BETA · guardado automático · campanha até ao rank C</p>
+    <p class="versao">v3.4 BETA · guardado automático · campanha até ao rank C</p>
   </div>
 </section>
 
@@ -157,7 +157,9 @@
 /* service worker com auto-atualização: expulsa versões antigas em cache.
    Se já existia um SW a controlar a página, recarrega uma vez quando o novo assume. */
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').then(function(reg){ reg.update(); }).catch(function(){});
+  navigator.serviceWorker.register('sw.js')
+    .then(function(reg){ return reg.update(); })   // encadeado: uma falha do update cai no catch
+    .catch(function(){});
   if (navigator.serviceWorker.controller) {
     var recarregou = false;
     navigator.serviceWorker.addEventListener('controllerchange', function(){

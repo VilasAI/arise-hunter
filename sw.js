@@ -1,7 +1,8 @@
 /* Service worker — Vigília
    Código (HTML/CSS/JS): network-first → atualizações aplicam-se logo.
    Assets (spritesheets, ícones): cache-first → offline rápido. */
-const CACHE = 'vigilia-v20';
+const CACHE = 'vigilia-v21';
+const PREFIXO = 'vigilia-';   // só limpamos as NOSSAS caches antigas
 const NUCLEO = [
   './', './index.html', './css/style.css',
   './js/balance.js', './js/audio.js', './js/data.js', './js/art.js', './js/sprites.js', './js/powers.js',
@@ -10,14 +11,18 @@ const NUCLEO = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(NUCLEO)).catch(()=>{}));
-  self.skipWaiting();
+  // transacional: se um único ficheiro falhar, esta versão NÃO instala
+  // e a versão anterior (funcional) continua a servir o offline
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(NUCLEO)).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(()=> self.clients.claim())
+    caches.keys().then(ks => Promise.all(
+      ks.filter(k => k.startsWith(PREFIXO) && k !== CACHE).map(k => caches.delete(k))
+    )).then(()=> self.clients.claim())
   );
 });
 
@@ -34,7 +39,8 @@ self.addEventListener('fetch', e => {
         const hit = await c.match(e.request);
         if(hit) return hit;
         const resp = await fetch(e.request);
-        if(resp.ok) c.put(e.request, resp.clone());
+        // waitUntil: a escrita termina mesmo que o worker vá dormir entretanto
+        if(resp.ok) e.waitUntil(c.put(e.request, resp.clone()));
         return resp;
       })
     );
@@ -42,7 +48,7 @@ self.addEventListener('fetch', e => {
     // network-first (código e navegação) com fallback à cache offline
     e.respondWith(
       fetch(e.request).then(resp => {
-        if(resp.ok) caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
+        if(resp.ok) e.waitUntil(caches.open(CACHE).then(c => c.put(e.request, resp.clone())));
         return resp;
       }).catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
     );

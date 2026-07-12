@@ -695,6 +695,7 @@ function distSegmento(px,py, ax,ay, bx,by){
 }
 
 function ferirInimigo(e, dano, crit, cor){
+  if(e.morto) return;   // abate já processado — procs em cadeia não contam a morte duas vezes
   // keystones: Pânico (na Aura de Terror) · Marca do Ceifeiro (alvos enfraquecidos)
   if(arvKeystone('b_ks_ter') && poderTier('terror') &&
      Math.hypot(e.x-C.jogador.x, e.y-C.jogador.y) < PODERES.terror.base.raio) dano = Math.round(dano*1.10);
@@ -716,6 +717,7 @@ function ferirInimigo(e, dano, crit, cor){
   }
   numero(e.x, e.y - e.raio - 14, crit ? dano+'!' : dano, crit?'#e8c84a':cor, crit?24:15);
   if(e.hp<=0){
+    e.morto = true;
     C.mortes++;
     G.contadores.mortes++;
     // Sede de Sangue: cura ao abater

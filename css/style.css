@@ -543,7 +543,9 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
   .painel-caixa{top:calc(50px + var(--safe-top));left:10%;right:10%;border-radius:18px 18px 0 0}
   .painel-corpo{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;align-content:start}
   .painel-corpo>.seccao-titulo,.painel-corpo>.equipado-fila,.painel-corpo>.grelha-itens,.painel-corpo>button{grid-column:1/-1}
-  .slots-poder{bottom:calc(12px + var(--safe-bottom));flex-direction:row}
+  /* em ecrãs baixos não há altura para o arco: os poderes ficam ao lado
+     da esquiva/ataque (right:190px evita a sobreposição com os botões) */
+  .slots-poder{right:190px;bottom:calc(20px + var(--safe-bottom));flex-direction:row}
   .dica-controlo{bottom:8px;left:80px;right:240px}
 }
 
