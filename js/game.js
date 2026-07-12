@@ -2,6 +2,7 @@
 'use strict';
 
 const SAVE_KEY = 'arise-hunter-save-v1';
+const SCHEMA_VERSAO = 2;   // versão da forma do save (migrações correm por comparação)
 
 /* Modo de teste: abrir o link com ?teste (ou ?test) dá energia ilimitada,
    para poder jogar em contínuo à caça de bugs. Não afeta jogadores normais. */
@@ -11,6 +12,7 @@ let G = null; // estado global do jogador
 
 function novoJogo(){
   return {
+    schema:SCHEMA_VERSAO,
     nome:'Caçador', classe:null, nivel:1, xp:0, pontos:0,
     // básicas: 1 ponto = +1 · avançadas: pontos INVESTIDOS (2 = 1 unidade)
     basicas:{ for:0, vit:0, agi:0 },
@@ -41,11 +43,23 @@ function novoJogo(){
 }
 
 /* ---------- Gravação (local + exportável) ---------- */
-function guardar(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(G)); }catch(e){} }
+let avisoGuardarTs = 0;
+function guardar(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(G)); }
+  catch(e){
+    // sem quota/armazenamento: avisa (no máx. 1×/min) em vez de fingir que guardou
+    if(Date.now() - avisoGuardarTs > 60000){
+      avisoGuardarTs = Date.now();
+      if(typeof toast === 'function') toast('⚠️ Não deu para guardar o progresso — liberta armazenamento do site.');
+    }
+  }
+}
 
-/* Migra saves do sistema antigo (FOR/AGI/VIT/INT) para o novo:
-   devolve todos os pontos ganhos por nível para redistribuição. */
+/* Migra saves de sistemas antigos. Corre sobre o objeto BRUTO do JSON,
+   antes de qualquer default — com defaults já aplicados, as verificações
+   de «campo em falta» nunca disparavam e a migração era saltada. */
 function migrarSave(obj){
+  // sistema antigo FOR/AGI/VIT/INT → devolve os pontos para redistribuição
   if(obj.stats && obj.stats.for !== undefined && !obj.basicas){
     obj.basicas  = { for:0, vit:0, agi:0 };
     obj.avancadas= { crit:0, critDano:0, sorte:0, roubo:0, pen:0, cdr:0 };
@@ -53,39 +67,179 @@ function migrarSave(obj){
     delete obj.stats;
     obj._migrado = true;
   }
-  if(obj.despertar === undefined) obj.despertar = 0;
-  if(obj.classe === undefined) obj.classe = null;
-  for(const it of obj.inventario || []){
-    if(it.encante && it.encante.stat === 'int') it.encante.stat = 'sorte';
+  if(typeof obj.pontosHabUsados !== 'number') obj.pontosHabUsados = 0;
+  for(const it of (Array.isArray(obj.inventario) ? obj.inventario : [])){
+    if(it && it.encante && it.encante.stat === 'int') it.encante.stat = 'sorte';
   }
-  // saves anteriores ao sistema de poderes/vila
-  const novo = novoJogo();
-  for(const k of ['poderes','equipadosPoder','runas','runasEq','stamina','base','contadores','missoesFeitas','arvore','skins','skinAtiva']){
-    if(obj[k] === undefined) obj[k] = novo[k];
-  }
-  if(obj.pontosHabUsados === undefined) obj.pontosHabUsados = 0;
   // D010/D011: «Exército de Sombras» virou ultimate — devolve os pontos gastos
   if(obj.poderes && obj.poderes.sombras){
-    let devolvidos = 0;
-    for(let i=0;i<(obj.poderes.sombras.tier||1);i++) devolvidos += Math.max(1, BAL.tiersPoder[i].custoPts);
-    obj.pontosHabUsados = Math.max(0, obj.pontosHabUsados - devolvidos);
+    obj.pontosHabUsados = Math.max(0, obj.pontosHabUsados - pontosInvestidos(obj.poderes.sombras.tier));
     delete obj.poderes.sombras;
     obj._sombrasMigradas = true;
   }
   // D010: sombras exclusivas do Assassino — compensa as outras classes em cristais
-  if(obj.classe && obj.classe !== 'assassino' && obj.sombras && obj.sombras.length){
-    obj.cristais = (obj.cristais||0) + obj.sombras.reduce((a,s)=> a + 4 + (s.nivel-1)*4, 0);
+  if(obj.classe && obj.classe !== 'assassino' && Array.isArray(obj.sombras) && obj.sombras.length){
+    obj.cristais = (obj.cristais||0) + obj.sombras.reduce((a,s)=> a + 4 + ((s.nivel||1)-1)*4, 0);
     obj.sombras = [];
     obj._sombrasMigradas = true;
   }
   return obj;
 }
 
+/* ---------- Validação profunda do save ----------
+   Reconstrói o estado campo a campo sobre o modelo de novoJogo():
+   tipos errados voltam ao default, referências (itens, poderes, runas,
+   skins…) têm de existir no jogo, e o texto livre perde os caracteres
+   de HTML — um código de save importado não pode injetar código na UI. */
+function ehObjeto(v){ return !!v && typeof v==='object' && !Array.isArray(v); }
+function vNum(v, def, min, max){
+  if(typeof v!=='number' || !isFinite(v)) v = def;
+  if(min!==undefined) v = Math.max(min, v);
+  if(max!==undefined) v = Math.min(max, v);
+  return v;
+}
+function vInt(v, def, min, max){ return Math.round(vNum(v, def, min, max)); }
+function vTexto(v, def, max){
+  if(typeof v!=='string') return def;
+  return v.replace(/[<>&"']/g,'').slice(0, max||60) || def;
+}
+function vNums(v, def){   // objeto de números com as chaves fixas do modelo
+  const o = {};
+  for(const k of Object.keys(def)) o[k] = vNum(ehObjeto(v) ? v[k] : undefined, def[k], 0);
+  return o;
+}
+const ID_SIMPLES = /^[a-z0-9_]{1,32}$/;
+
+function normalizarSave(o){
+  const g = novoJogo();
+  g.nome      = vTexto(o.nome, g.nome, 24);
+  g.classe    = (typeof o.classe==='string' && CLASSES[o.classe]) ? o.classe : null;
+  g.nivel     = vInt(o.nivel, 1, 1, 999);
+  g.xp        = vNum(o.xp, 0, 0);
+  g.pontos    = vInt(o.pontos, 0, 0);
+  g.despertar = vInt(o.despertar, 0, 0, BAL.despertar.niveis.length);
+  g.ouro      = vNum(o.ouro, g.ouro, 0);
+  g.cristais  = vNum(o.cristais, g.cristais, 0);
+  g.basicas    = vNums(o.basicas, g.basicas);
+  g.avancadas  = vNums(o.avancadas, g.avancadas);
+  g.base       = vNums(o.base, g.base);
+  g.contadores = vNums(o.contadores, g.contadores);
+  g.auto = !!o.auto;
+
+  // inventário: só itens com tipo e raridade reconhecidos
+  for(const it of (Array.isArray(o.inventario) ? o.inventario : [])){
+    if(!ehObjeto(it) || !NOMES_ITEM[it.tipo] || IDX_RARIDADE[it.raridade]===undefined) continue;
+    g.inventario.push({
+      id: vInt(it.id, 0, 0),
+      tipo: it.tipo,
+      nome: vTexto(it.nome, NOMES_ITEM[it.tipo][0], 40),
+      raridade: it.raridade,
+      base: vNum(it.base, 6, 1, 9999),
+      nivel: vInt(it.nivel, 0, 0, 99),
+      encante: ehObjeto(it.encante) ? {
+        stat: vTexto(it.encante.stat, 'sorte', 12),
+        nome: vTexto(it.encante.nome, '', 30),
+        valor: vNum(it.encante.valor, 0, 0, 999),
+      } : null,
+    });
+  }
+  g.proxId = Math.max(vInt(o.proxId, 1, 1), ...g.inventario.map(i=>i.id+1));
+  for(const slot of Object.keys(g.equipado)){
+    const id = ehObjeto(o.equipado) ? o.equipado[slot] : null;
+    const it = g.inventario.find(i=>i.id===id);
+    g.equipado[slot] = (it && it.tipo===slot) ? id : null;
+  }
+
+  // sombras: uma por rank, nome e sprite sempre os canónicos
+  for(const s of (Array.isArray(o.sombras) ? o.sombras : [])){
+    if(!ehObjeto(s) || !SOMBRAS_BASE[s.rank] || g.sombras.some(x=>x.rank===s.rank)) continue;
+    g.sombras.push({ rank:s.rank, nome:SOMBRAS_BASE[s.rank].nome, sprite:SOMBRAS_BASE[s.rank].sprite,
+                     nivel:vInt(s.nivel, 1, 1, 99), ativa:!!s.ativa });
+  }
+
+  if(ehObjeto(o.clears)) for(const r of Object.keys(o.clears)){
+    if(IDX_RARIDADE_RANK(r) >= 0) g.clears[r] = vInt(o.clears[r], 0, 0);
+  }
+
+  const dia = ehObjeto(o.diario) ? o.diario : {};
+  g.diario = { data:vTexto(dia.data, '', 10), feitoDiaria:!!dia.feitoDiaria, loginDado:!!dia.loginDado };
+  if(Array.isArray(dia.comprados)) g.diario.comprados = dia.comprados.filter(x=>typeof x==='string' && ID_SIMPLES.test(x));
+
+  // poderes: só os que existem, tier e talento dentro dos limites
+  g.poderes = {};
+  if(ehObjeto(o.poderes)) for(const id of Object.keys(o.poderes)){
+    const p = o.poderes[id];
+    if(!PODERES[id] || !ehObjeto(p)) continue;
+    g.poderes[id] = {
+      tier: vInt(p.tier, 1, 1, BAL.tiersPoder.length),
+      talento: (Number.isInteger(p.talento) && PODERES[id].talentos && PODERES[id].talentos[p.talento]) ? p.talento : null,
+    };
+  }
+  if(!Object.keys(g.poderes).length){
+    const ini = g.classe ? CLASSES[g.classe].inicial : 'lamina';
+    g.poderes[ini] = { tier:1, talento:null };
+  }
+  g.equipadosPoder = [null, null, null];
+  const eq = Array.isArray(o.equipadosPoder) ? o.equipadosPoder : [];
+  for(let i=0;i<3;i++){
+    const id = eq[i];
+    if(typeof id==='string' && g.poderes[id] && PODERES[id].tipo==='ativo' && !g.equipadosPoder.includes(id)) g.equipadosPoder[i] = id;
+  }
+  g.pontosHabUsados = vInt(o.pontosHabUsados, 0, 0, Math.floor(g.nivel / BAL.poderes.nivelPorPonto));
+
+  if(ehObjeto(o.arvore) && ehObjeto(o.arvore.nos)) for(const k of Object.keys(o.arvore.nos)){
+    if(ID_SIMPLES.test(k) && o.arvore.nos[k]) g.arvore.nos[k] = true;
+  }
+  g.arvore.respecs = vInt(ehObjeto(o.arvore) ? o.arvore.respecs : 0, 0, 0);
+
+  for(const id of (Array.isArray(o.skins) ? o.skins : [])){
+    if(typeof id==='string' && SKINS.some(s=>s.id===id) && !g.skins.includes(id)) g.skins.push(id);
+  }
+  g.skinAtiva = (typeof o.skinAtiva==='string' && g.skins.includes(o.skinAtiva)) ? o.skinAtiva : 'padrao';
+
+  if(ehObjeto(o.runas)) for(const r of RUNAS){
+    if(o.runas[r.id] !== undefined) g.runas[r.id] = vInt(o.runas[r.id], 0, 0, 999);
+  }
+  g.runasEq = [null, null];
+  const rEq = Array.isArray(o.runasEq) ? o.runasEq : [];
+  for(let i=0;i<2;i++){
+    const id = rEq[i];
+    if(typeof id==='string' && (g.runas[id]||0) > 0 && !g.runasEq.includes(id)) g.runasEq[i] = id;
+  }
+
+  const st = ehObjeto(o.stamina) ? o.stamina : {};
+  g.stamina = { v: vNum(st.v, g.stamina.v, 0, 999), ts: vNum(st.ts, Date.now(), 0) };
+
+  g.missoesFeitas = (Array.isArray(o.missoesFeitas) ? o.missoesFeitas : []).filter(id => MISSOES.some(m=>m.id===id));
+  g.criadoEm = vNum(o.criadoEm, Date.now(), 0);
+
+  // avisos de migração pendentes (a UI mostra-os e apaga-os)
+  if(o._migrado) g._migrado = true;
+  if(o._sombrasMigradas) g._sombrasMigradas = true;
+  return g;
+}
+
+/* migra o objeto bruto e valida em profundidade; lança se não for um save */
+function prepararSave(obj){
+  if(!ehObjeto(obj) || typeof obj.nivel !== 'number' || !isFinite(obj.nivel)) throw new Error('save inválido');
+  return normalizarSave(migrarSave(obj));
+}
+
+/* save ilegível: guarda uma cópia intacta em vez de o perder em silêncio */
+function quarentenarSave(raw){
+  try{ localStorage.setItem(SAVE_KEY+'-quarentena', raw); }catch(e){}
+}
+
 function carregar(){
-  try{
-    const raw = localStorage.getItem(SAVE_KEY);
-    if(raw){ G = migrarSave(Object.assign(novoJogo(), JSON.parse(raw))); guardar(); return true; }
-  }catch(e){}
+  let raw = null;
+  try{ raw = localStorage.getItem(SAVE_KEY); }catch(e){}
+  if(raw){
+    try{
+      G = prepararSave(JSON.parse(raw));
+      guardar();
+      return true;
+    }catch(e){ quarentenarSave(raw); }
+  }
   G = novoJogo();
   return false;
 }
@@ -93,9 +247,7 @@ function apagarSave(){ localStorage.removeItem(SAVE_KEY); G = novoJogo(); }
 function exportarSave(){ return btoa(unescape(encodeURIComponent(JSON.stringify(G)))); }
 function importarSave(codigo){
   try{
-    const obj = JSON.parse(decodeURIComponent(escape(atob(codigo.trim()))));
-    if(typeof obj.nivel !== 'number') return false;
-    G = migrarSave(Object.assign(novoJogo(), obj));
+    G = prepararSave(JSON.parse(decodeURIComponent(escape(atob(codigo.trim())))));
     guardar();
     return true;
   }catch(e){ return false; }

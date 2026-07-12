@@ -95,9 +95,24 @@ function escolherClasse(id){
     G.poderes = {}; G.poderes[cl.inicial] = { tier:1, talento:null };
     G.equipadosPoder = [ (PODERES[cl.inicial].tipo==='ativo' ? cl.inicial : null), null, null ];
     G.pontosHabUsados = 0;
-  } else if(!poderAprendido(cl.inicial)){
-    G.poderes[cl.inicial] = { tier:1, talento:null };
+  } else {
+    // save pré-classe já progredido: recebe os stats iniciais da classe,
+    // e os poderes de outras classes saem e devolvem os pontos investidos
+    for(const k of Object.keys(cl.basicas||{})) G.basicas[k] = (G.basicas[k]||0) + cl.basicas[k];
+    for(const pid of Object.keys(G.poderes)){
+      if(cl.poderes.includes(pid)) continue;
+      G.pontosHabUsados = Math.max(0, G.pontosHabUsados - pontosInvestidos(G.poderes[pid].tier));
+      delete G.poderes[pid];
+    }
+    G.equipadosPoder = G.equipadosPoder.map(p => (p && G.poderes[p]) ? p : null);
+    if(!poderAprendido(cl.inicial)) G.poderes[cl.inicial] = { tier:1, talento:null };
     if(PODERES[cl.inicial].tipo==='ativo' && !G.equipadosPoder.some(Boolean)) G.equipadosPoder[0] = cl.inicial;
+    // sombras fora do Assassino: compensa em cristais (D010)
+    if(id !== 'assassino' && G.sombras.length){
+      G.cristais += G.sombras.reduce((a,s)=> a + 4 + (s.nivel-1)*4, 0);
+      G.sombras = [];
+      G._sombrasMigradas = true;
+    }
   }
   guardar();
   return true;

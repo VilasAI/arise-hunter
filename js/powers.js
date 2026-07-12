@@ -194,6 +194,13 @@ function custoPoder(id){
   };
 }
 
+/* pontos gastos para chegar a um tier (para devoluções nas migrações) */
+function pontosInvestidos(tier){
+  let n = 0;
+  for(let i=0;i<(tier||1);i++) n += Math.max(1, BAL.tiersPoder[i].custoPts);
+  return n;
+}
+
 function podeEvoluirPoder(id){
   const c = custoPoder(id);
   if(!c) return {ok:false, msg:'Tier máximo atingido.'};
