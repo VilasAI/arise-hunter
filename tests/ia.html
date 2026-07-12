@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<base href="../"><!-- para os assets relativos, como no cenario.html -->
+<title>Teste — IA dos monstros</title>
+<style>
+  html,body{margin:0;height:100%;background:#0c0a10;color:#cbc4b4;font:13px/1.5 monospace}
+  #resultado{white-space:pre-wrap;padding:12px;margin:0}
+  canvas{position:fixed;inset:0;visibility:hidden}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<pre id="resultado">A correr os testes de IA…</pre>
+<script>
+/* P1.8 — teste determinístico da IA, com assertions e PASS/FAIL.
+   ?seed=123 muda a semente · ?ver=1&bioma=0..5 assiste a uma luta real no fim. */
+const ERROS = [];
+window.addEventListener('error', e=> ERROS.push(e.message||'erro'), true);
+window.addEventListener('unhandledrejection', e=> ERROS.push(String((e.reason&&e.reason.message)||e.reason)));
+
+/* semente determinística ANTES de qualquer script do jogo (mulberry32) */
+const PARAMS = new URLSearchParams(location.search);
+let _rng = (+(PARAMS.get('seed')||123))>>>0;
+Math.random = function(){
+  _rng = _rng + 0x6D2B79F5 | 0;
+  let t = Math.imul(_rng ^ _rng>>>15, 1|_rng);
+  t = t + Math.imul(t ^ t>>>7, 61|t) ^ t;
+  return ((t ^ t>>>14)>>>0)/4294967296;
+};
+
+/* o teste conduz o tempo à mão: o rAF do jogo fica mudo (repõe-se no modo ?ver=1) */
+const RAF_REAL = window.requestAnimationFrame.bind(window);
+window.requestAnimationFrame = ()=>0;
+window.cancelAnimationFrame = ()=>{};
+</script>
+<script src="js/balance.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/data.js"></script>
+<script src="js/art.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/powers.js"></script>
+<script src="js/classes.js"></script>
+<script src="js/arvore.js"></script>
+<script src="js/game.js"></script>
+<script>
+/* HUD do index.html não existe aqui: devolve um elemento mudo auto-referente,
+   com um contexto 2D real fora de cena para o hub e o título pintarem sem erros (P1.8) */
+const _gEBI = document.getElementById.bind(document);
+const mudo = {
+  addEventListener(){}, appendChild(){}, style:{ setProperty(){} },
+  textContent:'', innerHTML:'', hidden:true, width:64, height:64,
+  classList:{ add(){}, remove(){}, toggle(){}, contains(){ return false; } },
+  getContext(){ return document.createElement('canvas').getContext('2d'); },
+};
+mudo.querySelector = ()=> mudo; mudo.querySelectorAll = ()=> [];
+document.getElementById = id => _gEBI(id) || mudo;
+const _qs = document.querySelector.bind(document);
+document.querySelector = s => _qs(s) || mudo;
+</script>
+<script src="js/combat.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/ui.js"></script>
+<script>
+'use strict';
+const R = [];
+function afirmar(nome, cond, detalhe){ R.push({ nome, ok:!!cond, detalhe: detalhe===undefined?'':String(detalhe) }); }
+function passos(n, dt){ for(let i=0;i<n;i++) atualizar(dt); }
+
+/* combate limpo e parado: sem inimigos, sem efeitos, auto desligado */
+function novoCombate(bioma=0){
+  iniciarCombate(MASMORRAS[bioma]);
+  C.auto = false; G.auto = false;
+  C.inimigos.length = 0; C.aliados.length = 0;
+  C.pocas.length = 0; C.tiros.length = 0; C.aneisBoss.length = 0; C.orbes.length = 0;
+  return C.jogador;
+}
+
+/* inimigo de laboratório: parado (vel 0) e sem iniciativa (cd 99), salvo o que o teste pedir */
+function inimigoTeste(campos){
+  const e = criarInimigo(MONSTROS.E[0], C.masmorra.rank, 'normal');
+  Object.assign(e, { vel:0, cd:99, recupera:0, entrou:true, hab:null, ranged:false }, campos);
+  C.inimigos.push(e);
+  return e;
+}
+
+function correr(){
+  guardar = ()=> true;               // o teste NUNCA escreve no save real do browser
+  G = novoJogo(); G.nome = 'Teste';
+  escolherClasse('guerreiro');       // classe verdadeira, criada pelo caminho real (P1.8)
+
+  /* ---- IA.1: taxa de habilidade independente dos FPS (30/60/120 Hz) ---- */
+  function tentativasHab(fps){
+    const j = novoCombate();
+    const e = inimigoTeste({ hab:'rajada', ranged:true, cd:0 });
+    e.x = j.x+300; e.y = j.y;        // em alcance de habilidade, fora do alcance de disparo
+    let n = 0;
+    const original = prepararHab;
+    prepararHab = ()=>{ n++; };      // conta a decisão sem a executar: cada frame volta a sortear
+    passos(Math.round(40*fps), 1/fps);
+    prepararHab = original;
+    return n;
+  }
+  const porFps = [30,60,120].map(fps=>({ fps, n:tentativasHab(fps) }));
+  const ns = porFps.map(t=>t.n), esperado = Math.round(40*BAL.combate.habPorSeg);
+  afirmar('IA.1 — taxa de habilidade estável a 30/60/120 Hz',
+    Math.max(...ns) <= Math.min(...ns)*1.5 && ns.every(n=> n>esperado*0.55 && n<esperado*1.45),
+    JSON.stringify(porFps)+' esperado≈'+esperado);
+
+  /* ---- matriz de biomas: luta real em auto-combate, 8 s a 60 Hz ---- */
+  let habsUsadas = 0, mortesTotal = 0, fora = 0;
+  const prepararReal = prepararHab;
+  prepararHab = e=>{ habsUsadas++; prepararReal(e); };
+  for(let b=0;b<MASMORRAS.length;b++){
+    novoCombate(b);
+    povoarSala();                    // monstros verdadeiros do bioma
+    C.auto = true; G.auto = true;
+    C.stats.hpMax = 1e9; C.jogador.hp = 1e9;   // não morre; os impactos contam na mesma
+    for(let i=0;i<8*60;i++){
+      atualizar(1/60);
+      if(i%10===0) for(const e of C.inimigos)
+        if(e.entrou && (e.x<23 || e.x>C.W-23 || e.y<C.chaoTopo-1 || e.y>C.chaoFundo+1)) fora++;
+    }
+    mortesTotal += C.mortes;
+  }
+  prepararHab = prepararReal;
+  afirmar('Barreira — nenhum inimigo fora do ecrã nos 6 biomas', fora===0, 'fora='+fora);
+  afirmar('Matriz — habilidades e abates acontecem nas lutas reais',
+    habsUsadas>0 && mortesTotal>0, 'habs='+habsUsadas+' abates='+mortesTotal);
+
+  /* ---- IA.2: o auto-combate esquiva a investida telegrafada ---- */
+  {
+    const j = novoCombate(); C.auto = true;
+    j.cdEsq = 0; j.invul = 0;
+    const e = inimigoTeste({ hab:'investida' });
+    e.x = j.x+200; e.y = j.y;
+    e.habAtiva = { tipo:'investida', alvoX:j.x, alvoY:j.y, ang:Math.PI, dur:0.9 };
+    e.windup = 0.3;
+    atualizar(1/60);
+    afirmar('IA.2 — auto-combate esquiva a investida telegrafada', j.invul>0, 'invul='+j.invul.toFixed(2));
+  }
+
+  /* ---- IA.2: sem dash pronto, sai da poça a andar ---- */
+  {
+    const j = novoCombate(); C.auto = true;
+    j.cdEsq = 5;
+    const e = inimigoTeste({}); e.x = j.x+340; e.y = j.y;
+    const p = { x:j.x, y:j.y, r:60, t:9, dano:1, tick:9 };
+    C.pocas.push(p);
+    passos(60, 1/60);
+    afirmar('IA.2 — sem dash, o auto-combate sai da poça a andar',
+      !dentroElipse(j.x, j.y, p.x, p.y, p.r, p.r*0.45), 'j=('+j.x.toFixed(0)+','+j.y.toFixed(0)+')');
+  }
+
+  /* ---- IA.3: a poça avisa antes de morder ---- */
+  {
+    const j = novoCombate();
+    j.invul = 0;
+    inimigoTeste({ x:j.x+340, y:j.y });
+    let impactos = 0;
+    const ferirReal = ferirJogador;
+    ferirJogador = ()=>{ impactos++; };
+    resolverHab({ habAtiva:{ tipo:'poca', alvoX:j.x, alvoY:j.y, dur:0.8 }, classe:'normal', x:j.x+340, y:j.y }, 100);
+    atualizar(1/60);
+    const nasceuAMorder = impactos;
+    passos(40, 1/60);                // ~0,67 s parado dentro da poça
+    ferirJogador = ferirReal;
+    afirmar('IA.3 — a poça não fere no frame em que nasce', nasceuAMorder===0 && C.pocas.length===1, 'impactos='+nasceuAMorder);
+    afirmar('IA.3 — a poça morde depois da tolerância', impactos>=1, 'impactos='+impactos);
+  }
+
+  /* ---- IA.4: colisão elíptica igual ao desenho (poças e anéis) ---- */
+  {
+    const j = novoCombate();
+    j.invul = 0;
+    inimigoTeste({ x:j.x+340, y:j.y });
+    let impactos = 0;
+    const ferirReal = ferirJogador;
+    ferirJogador = ()=>{ impactos++; };
+    C.pocas.push({ x:j.x, y:j.y+30, r:44, t:9, dano:1, tick:0 });   // dentro do círculo, fora da elipse
+    atualizar(1/60);
+    const foraDaElipse = impactos;
+    C.pocas.length = 0;
+    C.pocas.push({ x:j.x+30, y:j.y, r:44, t:9, dano:1, tick:0 });   // dentro da elipse
+    atualizar(1/60);
+    const dentroDaElipse = impactos - foraDaElipse;
+    C.pocas.length = 0;
+    C.aneisBoss.push({ x:j.x, y:j.y+35, r:60, t:0.001, dano:5, feito:false });  // anel: fora da elipse
+    atualizar(1/60);
+    ferirJogador = ferirReal;
+    afirmar('IA.4 — poça: dentro do círculo mas fora da elipse não fere', foraDaElipse===0, 'impactos='+foraDaElipse);
+    afirmar('IA.4 — poça: dentro da elipse fere', dentroDaElipse===1, 'impactos='+dentroDaElipse);
+    afirmar('IA.4 — anel: fora da elipse achatada não fere', impactos===foraDaElipse+dentroDaElipse, 'impactos='+impactos);
+  }
+
+  /* ---- IA.5: separação só depois de pisar o ecrã ---- */
+  {
+    const j = novoCombate();
+    const A = inimigoTeste({ entrou:false }); A.x = -40; A.y = j.y;
+    const B = inimigoTeste({ entrou:false }); B.x = -70; B.y = j.y;
+    atualizar(1/60);
+    afirmar('IA.5 — separação não teletransporta quem ainda não entrou', A.x===-40 && B.x===-70, 'A='+A.x+' B='+B.x);
+    A.entrou = B.entrou = true; A.x = 200; B.x = 201; A.y = B.y = j.y+40;
+    atualizar(1/60);
+    afirmar('IA.5 — depois de entrar, separam-se', Math.abs(A.x-B.x)>20, 'dist='+Math.abs(A.x-B.x).toFixed(1));
+  }
+
+  /* ---- IA.6: congelado trava a investida ---- */
+  {
+    const j = novoCombate();
+    const e = inimigoTeste({}); e.x = j.x+200; e.y = j.y;
+    e.investe = { t:0.55, vx:-520, vy:0, feriu:false, dano:15 };
+    e.congelado = 1;
+    atualizar(1/60);
+    const travado = (e.x===j.x+200 && e.investe && e.investe.t===0.55);
+    e.congelado = 0;
+    atualizar(1/60);
+    afirmar('IA.6 — congelado trava a investida por completo', travado, 'x='+e.x.toFixed(1));
+    afirmar('IA.6 — descongelado, a investida continua', e.x < j.x+200, 'x='+e.x.toFixed(1));
+  }
+
+  /* ---- IA.7: a investida usa o dano fixado no windup (fraqueza do Terror) ---- */
+  {
+    const j = novoCombate();
+    j.invul = 0;
+    const e = inimigoTeste({}); e.x = j.x+30; e.y = j.y; e.atq = 999;
+    e.investe = { t:0.55, vx:0, vy:0, feriu:false, dano:15 };
+    let bruto = -1;
+    const ferirReal = ferirJogador;
+    ferirJogador = b=>{ bruto = b; };
+    atualizar(1/60);
+    ferirJogador = ferirReal;
+    afirmar('IA.7 — a investida fere com o dano fixado, não com e.atq', bruto===15, 'bruto='+bruto);
+  }
+
+  /* ---- rajada e tremor resolvem nos efeitos certos ---- */
+  {
+    novoCombate();
+    resolverHab({ habAtiva:{ tipo:'rajada', ang:0, alvoX:500, alvoY:300, dur:0.7 }, sprite:'esqueleto', classe:'normal', x:400, y:300 }, 100);
+    afirmar('rajada — cria 3 projéteis a 80% do dano',
+      C.tiros.length===3 && C.tiros.every(t=>t.dano===80), 'tiros='+C.tiros.length);
+    resolverHab({ habAtiva:{ tipo:'tremor' }, classe:'normal', x:400, y:300 }, 100);
+    afirmar('tremor — cria o anel de choque a 110% do dano',
+      C.aneisBoss.length===1 && C.aneisBoss[0].dano===110, 'aneis='+C.aneisBoss.length);
+  }
+}
+
+function terminar(){
+  const falhas = R.filter(r=>!r.ok);
+  const ok = !falhas.length && !ERROS.length;
+  const linhas = R.map(r=> (r.ok?'✔':'✘')+' '+r.nome+(r.detalhe?'  ['+r.detalhe+']':''));
+  if(ERROS.length) linhas.push('ERROS: '+ERROS.join(' | '));
+  linhas.push('', ok ? 'PASS — '+R.length+' testes verdes'
+                     : 'FAIL — '+falhas.length+' falhas, '+ERROS.length+' erros');
+  document.getElementById('resultado').textContent = linhas.join('\n');
+  document.title = (ok?'IA PASS':'IA FAIL')+' · '+R.length+' testes';
+  document.documentElement.dataset.iaStatus = ok ? 'pass' : 'fail';
+  return ok;
+}
+
+window.addEventListener('load', ()=>{
+  try { correr(); } catch(err){ ERROS.push(String((err && err.stack) || err)); }
+  const ok = terminar();
+  if(PARAMS.get('ver')==='1' && ok){
+    // modo de observação manual: luta real em auto-combate no bioma pedido
+    window.requestAnimationFrame = RAF_REAL;
+    document.getElementById('canvas').style.visibility = 'visible';
+    const bioma = Math.max(0, Math.min(MASMORRAS.length-1, +(PARAMS.get('bioma')||0)));
+    iniciarCombate(MASMORRAS[bioma]);
+    C.auto = true; G.auto = true;
+  }
+});
+</script>
+</body>
+</html>

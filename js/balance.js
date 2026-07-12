@@ -66,11 +66,16 @@ const BAL = {
     dashVel: 950,        // px/s durante a esquiva
     dashCd: 0.9,         // cooldown da esquiva (reduzido pela Vel. de Cooldown)
     dashInvul: 0.45,     // i-frames da esquiva
-    leash: 420,          // distância a partir da qual os inimigos desistem
-    recuperar: 0.8,      // pausa do inimigo depois de cada golpe
+    recuperar: 0.55,     // pausa do inimigo depois de cada golpe
     separacao: 34,       // distância mínima entre inimigos (não se empilham)
     alcanceRanged: 270,  // distância de disparo dos inimigos à distância
     velProjInimigo: 240, // px/s dos projéteis inimigos
+    // agressividade: visão total (sem leash), recargas curtas, habilidades e fúria
+    cdAtq: [0.75, 1.4],  // recarga entre ações de cada inimigo (min, max)
+    habPorSeg: 1.5,      // tentativas de habilidade por segundo, independente dos FPS (cd pronto e à distância)
+    habPorSegBoss: 3.0,  // idem para bosses
+    alcanceHab: 320,     // distância máxima para usar habilidade (tremor exige ~140)
+    furia: { hp:0.35, vel:1.3, dano:1.25 }, // corpo-a-corpo enfurece abaixo de 35% de vida
   },
 
   /* ---------- Game feel (D025 — combate suave) ---------- */
