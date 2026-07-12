@@ -8,6 +8,7 @@ const SPR = (function(){
   const BASE = 'assets/2d/';
   const reg = {};            // nome -> {img, ok, w, h}
   const tintCache = {};      // "nome|cor" -> canvas tingido
+  const ouvintes = new Set();// callbacks de assets concluídos (cenário pode repintar)
 
   /* nº de frames por sheet (layout horizontal) */
   const META = {
@@ -20,15 +21,34 @@ const SPR = (function(){
   };
 
   function carregar(nome, ficheiro){
-    const o = { img:new Image(), ok:false, w:0, h:0 };
-    o.img.onload = ()=>{ o.ok=true; o.w=o.img.naturalWidth; o.h=o.img.naturalHeight; };
-    o.img.onerror = ()=>{ o.ok=false; };
+    const o = { img:new Image(), ok:false, w:0, h:0, promessa:null };
+    o.promessa = new Promise(resolve=>{
+      o.img.onload = ()=>{
+        o.ok=true; o.w=o.img.naturalWidth; o.h=o.img.naturalHeight;
+        for(const fn of ouvintes){ try{ fn(nome, true); }catch(e){} }
+        resolve(true);
+      };
+      o.img.onerror = ()=>{
+        o.ok=false;
+        for(const fn of ouvintes){ try{ fn(nome, false); }catch(e){} }
+        resolve(false);
+      };
+    });
     o.img.src = BASE + ficheiro;
     reg[nome] = o;
+    return o.promessa;
   }
 
   const ok  = nome => { const o=reg[nome]; return !!(o && o.ok); };
   const n   = nome => META[nome] || 1;
+  const aoCarregar = fn => { ouvintes.add(fn); return ()=>ouvintes.delete(fn); };
+  function esperar(nomes, timeout=5000){
+    const lista = [...new Set((nomes||[]).filter(Boolean))];
+    const todas = Promise.all(lista.map(nome=> reg[nome] ? reg[nome].promessa : Promise.resolve(false)));
+    if(!timeout) return todas.then(()=>lista.every(ok));
+    return Promise.race([todas, new Promise(resolve=>setTimeout(resolve, timeout))])
+      .then(()=>lista.every(ok));
+  }
 
   /* baga uma cópia tingida do sheet inteiro (mantém o sombreado pixel) */
   function tingir(nome, cor){
@@ -82,6 +102,17 @@ const SPR = (function(){
   }
 
   /* ---------- pré-carregamento ---------- */
+  // CRÍTICO: cenário primeiro. Antes, mais de 100 sheets grandes ficavam à
+  // frente destas imagens e o primeiro combate era pré-renderizado no fallback.
+  for(let i=1;i<=16;i++){ const t='tex_'+String(i).padStart(2,'0'); carregar(t, t+'.jpg'); }
+  carregar('hig_chao_pedra','hig_chao_pedra.jpg');
+  carregar('hig_chao_madeira','hig_chao_madeira.jpg');
+  carregar('hig_parede','hig_parede.jpg');
+  carregar('hig_barril','hig_barril.png');
+  carregar('hig_tocha','hig_tocha.png');
+  carregar('dungeon_tileset','dungeon_tileset.png');
+  for(let i=1;i<=4;i++) carregar('torch_'+i,'torch_'+i+'.png');
+
   // pack do dono (2026-07-12): heróis por classe (2 skins) e inimigos, 4 frames/ação
   for(const a of ['idle','walk','attack','hurt','death']){
     for(const cl of ['guerreiro','mago','batedor','assassino','paladino']){
@@ -91,23 +122,12 @@ const SPR = (function(){
       carregar('en_'+e+'_'+a, 'en_'+e+'_'+a+'.png'); META['en_'+e+'_'+a] = 4;
     }
   }
-  // texturas de masmorra do pack (opacas; usadas por bioma no cenário pintado)
-  for(let i=1;i<=16;i++){ const t='tex_'+String(i).padStart(2,'0'); carregar(t, t+'.jpg'); }
   // personagens antigos (fallback)
   for(const m of ['idle','walk','attack','hurt','death']){ carregar('soldier_'+m,'soldier_'+m+'.png'); carregar('orc_'+m,'orc_'+m+'.png'); }
   // inimigos pixel (32x32)
   for(const e of ['skeleton1','skeleton2','vampire']) for(const a of ['idle','walk','attack','death','take_damage']) carregar('enemy_'+e+'_'+a,'enemy_'+e+'_'+a+'.png');
-  // dungeon
-  carregar('dungeon_tileset','dungeon_tileset.png');
-  for(let i=1;i<=4;i++) carregar('torch_'+i,'torch_'+i+'.png');
-  // cenário pintado (pack Hig): texturas opacas em jpg, adereços recortados em png
-  carregar('hig_chao_pedra','hig_chao_pedra.jpg');
-  carregar('hig_chao_madeira','hig_chao_madeira.jpg');
-  carregar('hig_parede','hig_parede.jpg');
-  carregar('hig_barril','hig_barril.png');
-  carregar('hig_tocha','hig_tocha.png');
   // vila (Cute Fantasy)
   for(const t of ['grass','water','path','water_tile','path_tile','cliff_tile','house','tree','tree_small','decor','chest','fences','bridge']) carregar('cf_'+t,'cf_'+t+'.png');
 
-  return { carregar, ok, n, tingir, frameH, tile, imagem, reg };
+  return { carregar, esperar, aoCarregar, ok, n, tingir, frameH, tile, imagem, reg };
 })();

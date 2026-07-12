@@ -25,38 +25,43 @@ window.onerror = (m,f,l)=>{ document.title += ' || ERRO: '+m+' @ '+(f||'').split
 <script src="js/arvore.js"></script>
 <script src="js/game.js"></script>
 <script>
-/* Desenha com o SPR real: heróis (skin 1 e 2, a andar) e os 10 inimigos novos.
-   Anima para se ver o ciclo de frames como no jogo. */
+/* Desenha com o SPR real e percorre idle/walk/attack/hurt/death.
+   Cada estado fica 1,2 s no ecrã para validar todos os sheets do jogo. */
 const cv = document.getElementById('canvas'), c2 = cv.getContext('2d');
 const CLASSES_L = ['guerreiro','mago','batedor','assassino','paladino'];
 const INIMIGOS_L = ['goblin','orcbrute','necro','warlock','bone','plague','stalker','venom','corrupted','templar'];
+const ANIMACOES = ['idle','walk','attack','hurt','death'];
 
 function frame(t){
   const tempo = t/1000;
+  const acao = ANIMACOES[Math.floor(tempo/1.2)%ANIMACOES.length];
+  cv.dataset.animation = acao;
+  const progresso = (tempo%1.2)/1.2;
+  const fr = Math.min(3, Math.floor(progresso*4));
   c2.setTransform(1,0,0,1,0,0);
   c2.fillStyle='#2b241a'; c2.fillRect(0,0,cv.width,cv.height);
   c2.fillStyle='#e8dcc0'; c2.font='14px monospace'; c2.textAlign='left';
 
-  c2.fillText('HERÓIS — skin 1 (walk) e skin 2 (idle)', 16, 24);
+  c2.fillText('HERÓIS — skin 1 e 2 · animação: '+acao.toUpperCase(), 16, 24);
   CLASSES_L.forEach((cl,i)=>{
     const x = 90 + i*250;
     c2.save(); c2.translate(x, 210);
-    SPR.frameH(c2, 'heroi_'+cl+'_walk', Math.floor(tempo*8), 4, 176, false, null, 0.92);
+    SPR.frameH(c2, 'heroi_'+cl+'_'+acao, fr, 4, 176, false, null, 0.92);
     c2.restore();
     c2.save(); c2.translate(x+120, 210);
-    SPR.frameH(c2, 'heroi_'+cl+'2_idle', Math.floor(tempo*6), 4, 176, false, null, 0.92);
+    SPR.frameH(c2, 'heroi_'+cl+'2_'+acao, fr, 4, 176, false, null, 0.92);
     c2.restore();
     c2.fillText(cl, x-30, 236);
   });
 
-  c2.fillText('INIMIGOS — idle / attack', 16, 290);
+  c2.fillText('INIMIGOS — animação: '+acao.toUpperCase(), 16, 290);
   INIMIGOS_L.forEach((e,i)=>{
     const x = 80 + (i%5)*250, y = 470 + Math.floor(i/5)*230;
     c2.save(); c2.translate(x, y);
-    SPR.frameH(c2, 'en_'+e+'_idle', Math.floor(tempo*6), 4, 170, false, null, 0.92);
+    SPR.frameH(c2, 'en_'+e+'_'+acao, fr, 4, 170, false, null, 0.92);
     c2.restore();
     c2.save(); c2.translate(x+120, y);
-    SPR.frameH(c2, 'en_'+e+'_attack', Math.floor(tempo*6), 4, 170, true, null, 0.92);
+    SPR.frameH(c2, 'en_'+e+'_'+acao, fr, 4, 170, true, null, 0.92);
     c2.restore();
     c2.fillText('en_'+e, x-30, y+26);
   });
@@ -82,7 +87,15 @@ function frame(t){
 
   requestAnimationFrame(frame);
 }
-window.addEventListener('load', ()=> setTimeout(()=> requestAnimationFrame(frame), 700));
+window.addEventListener('load', async ()=>{
+  const nomes=[];
+  for(const a of ANIMACOES){
+    for(const cl of CLASSES_L) nomes.push('heroi_'+cl+'_'+a, 'heroi_'+cl+'2_'+a);
+    for(const e of INIMIGOS_L) nomes.push('en_'+e+'_'+a);
+  }
+  await SPR.esperar(nomes, 10000);
+  requestAnimationFrame(frame);
+});
 </script>
 </body>
 </html>

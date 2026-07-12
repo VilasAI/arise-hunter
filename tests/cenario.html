@@ -46,7 +46,8 @@ function montar(){
   canvas.width = w; canvas.height = h;
   ctx.setTransform(1,0,0,1,0,0);
   C = { W:w, H:h, chaoTopo:h*0.36, chaoFundo:h*0.90,
-        sala:1+bioma, masmorra:MASMORRAS[bioma], tempo:0 };
+        sala:1+bioma, masmorra:MASMORRAS[bioma], tempo:0,
+        particulas:[] };
   prerenderCenario();
 }
 
@@ -60,7 +61,11 @@ function frame(t){
 
 canvas.addEventListener('pointerdown', ()=>{ bioma=(bioma+1)%MASMORRAS.length; montar(); });
 window.addEventListener('resize', montar);
-window.addEventListener('load', ()=> setTimeout(()=>{ montar(); requestAnimationFrame(frame); }, 600));
+window.addEventListener('load', async ()=>{
+  const tx = MASMORRAS[bioma].tex || {};
+  await SPR.esperar([tx.parede, tx.chao, 'hig_parede', 'hig_chao_pedra', 'hig_chao_madeira'], 5000);
+  montar(); requestAnimationFrame(frame);
+});
 </script>
 </body>
 </html>

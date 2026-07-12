@@ -118,12 +118,14 @@ t('P1.5: a mesma morte não conta duas vezes', () => {
   jogo.G = jogo.novoJogo();
   const e = { hp:5, hpMax:5, def:0, x:50, y:50, raio:12, classe:'normal', flash:0, congelado:0 };
   jogo.C = { jogador:{ x:0, y:0, hp:100 }, stats:{ hpMax:100 }, inimigos:[e], aliados:[],
-             mortes:0, lootPend:[], hitstop:0, shake:0, ult:{ t:0, carga:0 },
+             mortes:0, tempo:3, caidos:[], lootPend:[], hitstop:0, shake:0, ult:{ t:0, carga:0 },
              particulas:[], numeros:[], projeteis:[], tiros:[] };
   jogo.ferirInimigo(e, 10, false, '#fff');
   jogo.ferirInimigo(e, 10, false, '#fff');   // proc em cadeia sobre o mesmo alvo
   assert.equal(jogo.C.mortes, 1);
   assert.equal(jogo.G.contadores.mortes, 1);
+  assert.equal(e.morteInicio, 3);
+  assert.deepEqual(jogo.C.caidos, [e]);       // fica no palco para a animação death
 });
 
 t('P1.2: proxId fica acima dos ids importados', () => {

@@ -1,13 +1,19 @@
 /* Service worker — Vigília
    Código (HTML/CSS/JS): network-first → atualizações aplicam-se logo.
    Assets (spritesheets, ícones): cache-first → offline rápido. */
-const CACHE = 'vigilia-v22';
+const CACHE = 'vigilia-v23';
 const PREFIXO = 'vigilia-';   // só limpamos as NOSSAS caches antigas
 const NUCLEO = [
   './', './index.html', './css/style.css',
   './js/balance.js', './js/audio.js', './js/data.js', './js/art.js', './js/sprites.js', './js/powers.js',
   './js/classes.js', './js/arvore.js', './js/game.js', './js/combat.js', './js/hub.js', './js/ui.js',
   './manifest.json', './icon.svg',
+  './assets/2d/tex_01.jpg', './assets/2d/tex_02.jpg', './assets/2d/tex_03.jpg', './assets/2d/tex_04.jpg',
+  './assets/2d/tex_05.jpg', './assets/2d/tex_06.jpg', './assets/2d/tex_07.jpg', './assets/2d/tex_08.jpg',
+  './assets/2d/tex_09.jpg', './assets/2d/tex_10.jpg', './assets/2d/tex_11.jpg', './assets/2d/tex_12.jpg',
+  './assets/2d/tex_13.jpg', './assets/2d/tex_14.jpg', './assets/2d/tex_15.jpg', './assets/2d/tex_16.jpg',
+  './assets/2d/hig_parede.jpg', './assets/2d/hig_chao_pedra.jpg', './assets/2d/hig_chao_madeira.jpg',
+  './assets/2d/hig_barril.png', './assets/2d/hig_tocha.png',
 ];
 
 self.addEventListener('install', e => {
