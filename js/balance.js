@@ -85,6 +85,15 @@ const BAL = {
     kbTravao: 9,         // decaimento exponencial do knockback (por segundo)
   },
 
+  /* ---------- Ritmo das animações (D028 — frames reais por ação) ----------
+     Durações (s) da ação completa e fps dos loops; o número de frames vem do
+     sheet (META), por isso trocar a arte não obriga a mexer aqui. */
+  anim: {
+    heroi:   { idleFps:6, walkFps:12, ataque:0.18, dano:0.24, skill:0.72, morte:0.60 },
+    inimigo: { idleFps:6, walkFps:11, golpe:0.55, disparo:0.60, dano:0.12, morte:0.60, caido:0.70 },
+    projetil:{ altHeroi:22, altInimigo:28, fps:10 },   // sprites *_proj em voo
+  },
+
   /* ---------- Curva de XP ---------- */
   xp: {
     base: 40, expoente: 1.9, mult: 22,  // xpParaNivel(n) = base + n^expoente * mult

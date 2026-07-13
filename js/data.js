@@ -54,6 +54,30 @@ const MASMORRAS = [
     tema:'O portal-mãe. Entra, fecha-a — e que o mundo se lembre do teu nome.' },
 ];
 
+/* Proporções semânticas do pack v2. O frame continua a ter 256×256; estes
+   fatores definem a altura relativa no mundo e eliminam números espalhados
+   pelo motor de combate. */
+const ALTURAS_SPRITE = Object.freeze({
+  basePx:176,
+  heroi:1.00,
+  inimigo:0.82,
+  elite:1.07,
+  boss:1.48,
+  icone:0.36,
+  ancoraY:0.92,
+});
+
+/* Papéis fechados em D030. 12/14 entram como variação moderada da textura
+   principal; 07/08/09 são motivos inteiros, nunca recortes 3×3. */
+const ARTE_CENARIO = Object.freeze({
+  varianteParede:'tex_12',
+  varianteChao:'tex_14',
+  pesoVariante:0.22,
+  grelha:'tex_07',
+  pocaVenenosa:'tex_08',
+  portalProvacao:'tex_09',
+});
+
 /* mHp/mDano: multiplicadores sobre BAL.inimigosRank (balance.js)
    sprite: desenho vetorial em js/art.js */
 /* servos das legiões demoníacas (D017) — sprites reaproveitados, identidade nova */

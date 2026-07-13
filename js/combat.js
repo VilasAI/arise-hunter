@@ -7,7 +7,7 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
 let C = null;          // estado do combate atual
-let rafId = 0, ultimoT = 0;
+let rafId = 0, ultimoT = 0, resizePendente = 0;
 
 function redimensionar(){
   const dpr = Math.min(window.devicePixelRatio||1, 2);
@@ -16,7 +16,10 @@ function redimensionar(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   if(C){ C.W=w; C.H=h; C.chaoTopo=h*0.36; C.chaoFundo=h*0.90; prerenderCenario(); }
 }
-window.addEventListener('resize', redimensionar);
+window.addEventListener('resize', ()=>{
+  if(resizePendente) return;
+  resizePendente=requestAnimationFrame(()=>{ resizePendente=0; redimensionar(); });
+});
 
 /* ---------- arranque ---------- */
 function iniciarCombate(masmorra){
@@ -24,12 +27,12 @@ function iniciarCombate(masmorra){
   redimensionar();
   const w = window.innerWidth, h = window.innerHeight;
   C = {
-    masmorra, sala:1, totalSalas:masmorra.salas,
+    masmorra, sala:1, totalSalas:masmorra.salas, seedCenario:0,
     W:w, H:h, chaoTopo:h*0.36, chaoFundo:h*0.90,
     fase:'luta', tempoFase:0, shake:0, tempo:0,
     jogador:{
       x:w*0.25, y:h*0.65, hp:t.hpMax, mp:t.mpMax,
-      cdAtq:0, cdEsq:0, invul:0, atacando:0, hurt:0, morteInicio:null, dirAtq:1,
+      cdAtq:0, cdEsq:0, invul:0, atacando:0, hurt:0, skill:0, skillDur:0, morteInicio:null, dirAtq:1,
       alvoX:null, alvoY:null, andando:false,
       vx:0, vy:0, movia:false, atqBuf:false,  // peso do movimento · ataque em buffer
     },
@@ -49,7 +52,6 @@ function iniciarCombate(masmorra){
     buffBencao: null,
   };
   criarAliados();
-  prerenderCenario();
   povoarSala();
   montarSlotsPoder();
   document.getElementById('btn-auto').classList.toggle('ligado', C.auto);
@@ -308,7 +310,7 @@ function atacar(){
   }
   j.atqBuf = false;
   j.cdAtq = 0.55 / velAtqAtual();
-  j.atacando = 0.18;
+  j.atacando = BAL.anim.heroi.ataque;
   const alvo = inimigoMaisProximo();
   if(alvo) j.dirAtq = alvo.x>=j.x?1:-1;              // vira-se para o alvo
 
@@ -317,7 +319,9 @@ function atacar(){
     let dx, dy;
     if(alvo){ dx=alvo.x-j.x; dy=(alvo.y-20)-(j.y-26); } else { dx=j.dirAtq; dy=0; }
     const d=Math.hypot(dx,dy)||1, cor=(typeof corClasse==='function' && corClasse())||'#cfe0a0';
-    C.projeteis.push({ tipo:'lamina', x:j.x+j.dirAtq*10, y:j.y-26, vx:dx/d*640, vy:dy/d*640, t:1.0, dano: atqAtual(), cor });
+    const sprTiro = baseHeroi()+'_proj';    // frames verdadeiros do projétil (D028) — só o Mago os tem
+    C.projeteis.push({ tipo:'lamina', x:j.x+j.dirAtq*10, y:j.y-26, vx:dx/d*640, vy:dy/d*640, t:1.0, dano: atqAtual(), cor,
+                       spr: SPR.ok(sprTiro)?sprTiro:null, nasceu:C.tempo });
     for(let i=0;i<3;i++) particula(j.x+j.dirAtq*20, j.y-26, cor, 2.2, 0.2);
     return;
   }
@@ -390,6 +394,7 @@ function usarUltimate(){
   const U = BAL.ultimates, u = C.ult;
   if(u.t>0 || u.carga < U.cargaMax) return;
   const j=C.jogador, t=C.stats, cfg=U[G.classe], mult=multAltarUlt();
+  j.skill = j.skillDur = BAL.anim.heroi.skill;  // toca uma vez; não fica em loop durante o buff
   u.carga = 0;
   AUDIO.sfx('ultimate');
   C.shake = Math.max(C.shake, 10);
@@ -700,7 +705,7 @@ function ferirInimigo(e, dano, crit, cor){
   if(arvKeystone('b_ks_ter') && poderTier('terror') &&
      Math.hypot(e.x-C.jogador.x, e.y-C.jogador.y) < PODERES.terror.base.raio) dano = Math.round(dano*1.10);
   if(arvKeystone('a_ks_sed') && e.hp/e.hpMax < 0.30) dano = Math.round(dano*1.15);
-  e.hp -= dano; e.flash = 0.12;
+  e.hp -= dano; e.flash = BAL.anim.inimigo.dano;
   // knockback com decaimento: impulso para longe do Watcher que trava suave (bosses quase imunes)
   const j2 = C.jogador;
   const kdx = e.x-j2.x, kdy = e.y-j2.y, kd = Math.hypot(kdx,kdy)||1;
@@ -785,7 +790,8 @@ function loop(t){
 function atualizar(dt){
   const j = C.jogador, t = C.stats;
   j.hurt = Math.max(0, (j.hurt||0)-dt);
-  C.caidos = (C.caidos||[]).filter(e=> C.tempo-(e.morteInicio||0) < 0.70);
+  j.skill = Math.max(0, (j.skill||0)-dt);
+  C.caidos = (C.caidos||[]).filter(e=> C.tempo-(e.morteInicio||0) < BAL.anim.inimigo.caido);
 
   if(C.fase==='porta'){
     C.tempoFase += dt;
@@ -957,9 +963,10 @@ function atualizar(dt){
           // dispara um projétil em linha reta (esquivável)
           const ang = Math.atan2((j.y-26)-(e.y-24), j.x-e.x);
           const vp = BAL.combate.velProjInimigo;
+          const m2t = modelo2dDe(e.sprite), sprTiro = anim2d(m2t,'proj');  // frames verdadeiros (D028)
           C.tiros.push({
             x:e.x, y:e.y-24, vx:Math.cos(ang)*vp, vy:Math.sin(ang)*vp,
-            dano, t:3,
+            dano, t:3, spr: SPR.ok(sprTiro)?sprTiro:null, tint: m2t.cor||null, nasceu: C.tempo,
             cor: e.sprite==='orcmago' ? '#b89ae8' : e.sprite==='sacerdote' ? '#d05c4e'
                : e.sprite==='draconiano' ? '#e2762d' : e.sprite==='aranha' ? '#9ad06a' : '#d8c38a',
           });
@@ -1002,13 +1009,13 @@ function atualizar(dt){
           if(e.y <= C.chaoTopo+8 || e.y >= C.chaoFundo-8) e.strafe *= -1;
           e.y = clamp(e.y, C.chaoTopo, C.chaoFundo);
         }
-        if(e.cd<=0 && d < alcance*1.05) e.windup = 0.6;   // dispara assim que recarrega
+        if(e.cd<=0 && d < alcance*1.05) e.windup = BAL.anim.inimigo.disparo;   // dispara assim que recarrega
       } else if(d > alcance){
         // corpo-a-corpo: persegue o Watcher cercando-o por um ângulo de flanco
         const ang = Math.atan2(dy,dx) + e.flank;
         e.x += Math.cos(ang)*e.vel*velMult*dt; e.y += Math.sin(ang)*e.vel*velMult*dt;
       } else if(e.cd<=0){
-        e.windup = 0.55;
+        e.windup = BAL.anim.inimigo.golpe;
       }
     }
   }
@@ -1150,7 +1157,8 @@ function atualizar(dt){
 function prepararHabBoss(e){
   const j = C.jogador;
   const dur = { invocar:0.9, acido:0.9, orbes:0.8, investida:0.9, sopro:1.0, aneis:1.1 }[e.hab] || 0.9;
-  e.habAtiva = { tipo:e.hab, alvoX:j.x, alvoY:j.y, ang:Math.atan2(j.y-e.y, j.x-e.x) };
+  e.habAtiva = { tipo:e.hab, alvoX:j.x, alvoY:j.y,
+                 ang:Math.atan2(j.y-e.y, j.x-e.x), dur };
   e.windup = dur;
 }
 
@@ -1269,7 +1277,7 @@ function ferirJogador(bruto, atacante){
     if(dano<=0){ C.shake=Math.max(C.shake,3); return; }
   }
   j.hp -= dano;
-  j.hurt = 0.24;
+  j.hurt = BAL.anim.heroi.dano;
   AUDIO.sfx('dano');
   numero(j.x, j.y-60, dano, '#d05c4e', 16);
   C.shake = Math.max(C.shake, 6);
@@ -1301,8 +1309,15 @@ function desenhar(){
   // poças de ácido
   for(const p of C.pocas){
     const borb = Math.sin(C.tempo*6 + p.x)*0.12;
-    ctx.fillStyle='rgba(110,160,40,0.40)';
-    ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r*0.45, 0, 0, Math.PI*2); ctx.fill();
+    if(SPR.ok(ARTE_CENARIO.pocaVenenosa)){
+      ctx.save(); ctx.beginPath(); ctx.ellipse(p.x,p.y,p.r,p.r*0.45,0,0,Math.PI*2); ctx.clip();
+      ctx.globalCompositeOperation='screen'; ctx.globalAlpha=0.68;
+      ctx.drawImage(SPR.reg[ARTE_CENARIO.pocaVenenosa].img,p.x-p.r,p.y-p.r*0.52,p.r*2,p.r*1.04);
+      ctx.restore();
+    } else {
+      ctx.fillStyle='rgba(110,160,40,0.40)';
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r*0.45, 0, 0, Math.PI*2); ctx.fill();
+    }
     ctx.fillStyle='rgba(160,210,60,0.35)';
     ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r*(0.62+borb), p.r*0.30, 0, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle='rgba(160,210,60,0.6)'; ctx.lineWidth=2;
@@ -1359,10 +1374,19 @@ function desenhar(){
     ctx.beginPath(); ctx.arc(o.x,o.y,16,0,Math.PI*2); ctx.fill();
   }
   for(const tr of C.tiros){
-    const g = ctx.createRadialGradient(tr.x,tr.y,1, tr.x,tr.y,12);
-    g.addColorStop(0,'rgba(255,255,255,0.85)'); g.addColorStop(0.35,tr.cor); g.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=g;
-    ctx.beginPath(); ctx.arc(tr.x,tr.y,12,0,Math.PI*2); ctx.fill();
+    if(tr.spr && SPR.ok(tr.spr)){
+      // sprite do projétil em voo (aponta para +x na prancha): roda para a direção
+      const A=BAL.anim.projetil, nf=SPR.n(tr.spr);
+      ctx.save(); ctx.globalCompositeOperation='source-over';
+      ctx.translate(tr.x,tr.y); ctx.rotate(Math.atan2(tr.vy,tr.vx));
+      SPR.frameH(ctx, tr.spr, Math.floor((C.tempo-(tr.nasceu||0))*A.fps), nf, A.altInimigo, false, tr.tint, 0.5);
+      ctx.restore();
+    } else {
+      const g = ctx.createRadialGradient(tr.x,tr.y,1, tr.x,tr.y,12);
+      g.addColorStop(0,'rgba(255,255,255,0.85)'); g.addColorStop(0.35,tr.cor); g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(tr.x,tr.y,12,0,Math.PI*2); ctx.fill();
+    }
   }
   ctx.restore();
 
@@ -1434,6 +1458,12 @@ function desenhar(){
       const mx=(p.x1+p.x2)/2+rnd(-14,14), my=(p.y1+p.y2)/2+rnd(-10,10);
       ctx.lineTo(mx,my); ctx.lineTo(p.x2,p.y2); ctx.stroke();
       ctx.globalAlpha=1;
+    } else if(p.spr && SPR.ok(p.spr)){
+      // tiro básico do Mago: sprite verdadeiro da prancha em vez do círculo
+      const A=BAL.anim.projetil;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(Math.atan2(p.vy||0,p.vx||0));
+      SPR.frameH(ctx, p.spr, Math.floor((C.tempo-(p.nasceu||0))*A.fps), SPR.n(p.spr), A.altHeroi, false, null, 0.5);
+      ctx.restore();
     } else {
       ctx.fillStyle=p.cor;
       ctx.shadowColor=p.cor; ctx.shadowBlur=8;
@@ -1498,6 +1528,18 @@ function desenhar(){
 
 /* ---------- cenário pré-renderizado (pedra, pilares, estandartes) ---------- */
 let cenarioCache = null;
+let cenarioPedido = false;
+
+function hashCenario(txt){
+  let h=2166136261;
+  for(let i=0;i<txt.length;i++){ h^=txt.charCodeAt(i); h=Math.imul(h,16777619); }
+  return h>>>0;
+}
+function seedSala(camada, col=0, lin=0, extra=0){
+  const m=C.masmorra;
+  return hashCenario(`${m.rank}|${m.nome}|${C.sala}|${C.seedCenario||0}|${m.despertar?1:0}|${camada}|${col}|${lin}|${extra}`);
+}
+function rndSala(camada, col=0, lin=0, extra=0){ return seedSala(camada,col,lin,extra)/4294967296; }
 
 // Se o primeiro combate arrancar antes das imagens, o fallback aparece só
 // temporariamente: assim que a textura relevante termina, o cache é refeito.
@@ -1506,8 +1548,14 @@ if(typeof SPR!=='undefined' && SPR.aoCarregar){
     if(!sucesso || !C || !C.masmorra) return;
     const tx = C.masmorra.tex || {};
     const relevantes = [tx.parede, tx.chao, 'hig_parede', 'hig_chao_pedra',
-      'hig_chao_madeira', 'hig_barril', 'dungeon_tileset'];
-    if(relevantes.includes(nome)) prerenderCenario();
+      'hig_chao_madeira', 'hig_barril', 'dungeon_tileset', ARTE_CENARIO.varianteParede,
+      ARTE_CENARIO.varianteChao];
+    if(['D','B'].includes(C.masmorra.rank)) relevantes.push(ARTE_CENARIO.grelha);
+    if(C.masmorra.despertar) relevantes.push(ARTE_CENARIO.portalProvacao);
+    if(relevantes.includes(nome) && !cenarioPedido){
+      cenarioPedido=true;
+      requestAnimationFrame(()=>{ cenarioPedido=false; if(C) prerenderCenario(); });
+    }
   });
 }
 
@@ -1516,17 +1564,17 @@ function prerenderCenario(){
   const {W,H} = C;
   const dpr = Math.min(window.devicePixelRatio||1, 2);
   cenarioCache = document.createElement('canvas');
-  cenarioCache.width = W*dpr; cenarioCache.height = H*dpr;
+  cenarioCache.width = Math.ceil(W*dpr); cenarioCache.height = Math.ceil(H*dpr);
   const c = cenarioCache.getContext('2d');
   c.setTransform(dpr,0,0,dpr,0,0);
-  const rng = (function(seed){ let s2=seed; return ()=>{ s2=(s2*9301+49297)%233280; return s2/233280; }; })(C.sala*977+IDX_RARIDADE_RANK(C.masmorra.rank)*131+7);
+  const rng = (function(seed){ let s2=seed; return ()=>{ s2=(s2*9301+49297)%233280; return s2/233280; }; })(seedSala('fallback'));
 
   // ---- 1.º: textura própria do bioma/Hig; 2.º: tiles; por fim, vetorial. ----
   const tx = C.masmorra.tex || {};
   const temParede = (tx.parede && SPR.ok(tx.parede)) || SPR.ok('hig_parede');
   const temChao = (C.masmorra.piso==='madeira' && SPR.ok('hig_chao_madeira')) ||
                   (tx.chao && SPR.ok(tx.chao)) || SPR.ok('hig_chao_pedra');
-  if(temParede && temChao){ prerenderCenarioHig(c, rng); return; }
+  if(temParede && temChao){ prerenderCenarioHig(c); return; }
   if(SPR.ok('dungeon_tileset')){ prerenderDungeonTiles(c, rng); return; }
 
   // parede de pedra com tijolos de tom variado
@@ -1621,6 +1669,14 @@ function prerenderCenario(){
     c.fillStyle = rng()<0.4 ? 'rgba(216,211,200,0.5)' : 'rgba(20,14,9,0.6)';
     c.beginPath(); c.ellipse(ex, ey, 4+rng()*7, 2+rng()*3, rng()*3, 0, Math.PI*2); c.fill();
   }
+  // Rodapé simplificado também no fallback vetorial.
+  const rb=18;
+  c.fillStyle='#2a2118'; c.fillRect(0,C.chaoTopo-rb*0.55,W,rb);
+  c.strokeStyle='rgba(225,205,170,0.12)'; c.lineWidth=1;
+  for(let x=0;x<W;x+=54){ c.strokeRect(x,C.chaoTopo-rb*0.55,52,rb); }
+  const oc=c.createLinearGradient(0,C.chaoTopo,0,C.chaoTopo+48);
+  oc.addColorStop(0,'rgba(0,0,0,0.42)'); oc.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=oc; c.fillRect(0,C.chaoTopo,W,48);
 
   rematarCenario(c);
 }
@@ -1645,36 +1701,118 @@ function prerenderDungeonTiles(c, rng){
   rematarCenario(c);
 }
 
-/* cenário pintado (pack Hig): parede e chão em texturas de alta resolução,
-   barris como adereço variável por sala. Preferido quando as imagens existem. */
-function prerenderCenarioHig(c, rng){
-  const {W,H} = C, topo = C.chaoTopo;
-  c.imageSmoothingEnabled = false;       // preserva o pixel-art do pack
-  const tx = C.masmorra.tex || {};        // texturas próprias do bioma (pack do dono)
-  // parede: banda quadrada repetida na horizontal
-  const par = (tx.parede && SPR.ok(tx.parede)) ? SPR.reg[tx.parede].img : SPR.reg.hig_parede.img;
-  for(let x=0; x<W; x+=topo) c.drawImage(par, x, 0, topo, topo);
-  // chão: madeira onde o bioma manda, senão a textura do bioma, senão pedra
-  const nome = (C.masmorra.piso==='madeira' && SPR.ok('hig_chao_madeira')) ? 'hig_chao_madeira'
-             : (tx.chao && SPR.ok(tx.chao)) ? tx.chao : 'hig_chao_pedra';
-  const chao = SPR.reg[nome].img, TD = Math.round(Math.max(220, Math.min(W,H)*0.6));
-  for(let y=topo; y<H; y+=TD)
-    for(let x=0; x<W; x+=TD) c.drawImage(chao, x, y, TD, TD);
-  // junção parede→chão na sombra
-  const sg = c.createLinearGradient(0,topo-6,0,topo+74);
-  sg.addColorStop(0,'rgba(0,0,0,0.45)'); sg.addColorStop(1,'rgba(0,0,0,0)');
-  c.fillStyle=sg; c.fillRect(0,topo-6,W,80);
-  // barris no chão junto à parede, fora das colunas das tochas (varia por sala)
+const MOTIVOS_INTEIROS = new Set(['tex_07','tex_08','tex_09']);
+
+function desenharTileVariado(c, nome, variante, dx,dy,tam, flipX,flipY,tom){
+  const o=SPR.reg[nome], img=o.img;
+  let sx=0,sy=0,sw=img.naturalWidth||o.w,sh=img.naturalHeight||o.h;
+  const podeRecortar = !MOTIVOS_INTEIROS.has(nome) && /^tex_\d\d$/.test(nome);
+  if(podeRecortar){
+    const col=variante%3, lin=Math.floor(variante/3), iw=sw, ih=sh;
+    sx=Math.floor(col*iw/3); sy=Math.floor(lin*ih/3);
+    sw=Math.floor((col+1)*iw/3)-sx; sh=Math.floor((lin+1)*ih/3)-sy;
+  }
+  c.save(); c.imageSmoothingEnabled=false;
+  c.translate(dx+tam/2,dy+tam/2); c.scale(flipX?-1:1,flipY?-1:1);
+  c.drawImage(img,sx,sy,sw,sh,-tam/2,-tam/2,tam+1,tam+1);
+  c.restore();
+  if(Math.abs(tom)>0.003){
+    c.save(); c.beginPath(); c.rect(dx,dy,tam+1,tam+1); c.clip();
+    c.globalCompositeOperation=tom>0?'screen':'multiply';
+    c.fillStyle=tom>0?`rgba(255,245,225,${Math.abs(tom)})`:`rgba(20,12,8,${Math.abs(tom)})`;
+    c.fillRect(dx,dy,tam+1,tam+1); c.restore();
+  }
+}
+
+function preencherTextura(c, nomeBase, nomeAlt, x0,y0,w,h,tam,camada, flipVertical=false){
+  const cols=Math.ceil(w/tam), lins=Math.ceil(h/tam);
+  const nomeSala=nomeAlt && rndSala(camada+'-pool')<ARTE_CENARIO.pesoVariante ? nomeAlt : nomeBase;
+  for(let lin=0;lin<lins;lin++) for(let col=0;col<cols;col++){
+    const variante=Math.floor(rndSala(camada,col,lin,2)*9);
+    const fx=rndSala(camada,col,lin,3)<0.5;
+    const fy=flipVertical && rndSala(camada,col,lin,4)<0.5;
+    const tom=(rndSala(camada,col,lin,5)-0.5)*0.08; // ±4%
+    desenharTileVariado(c,nomeSala,variante,x0+col*tam,y0+lin*tam,tam,fx,fy,tom);
+  }
+}
+
+function desenharTransicaoParedeChao(c,tam,nomeParede){
+  const {W}=C, topo=Math.round(C.chaoTopo), banda=clamp(Math.round(tam*0.24),12,34);
+  const img=SPR.reg[nomeParede].img, sw=img.naturalWidth||SPR.reg[nomeParede].w;
+  const sh=img.naturalHeight||SPR.reg[nomeParede].h, bloco=Math.round(tam*0.72);
+  c.fillStyle='rgba(16,11,8,0.78)'; c.fillRect(0,topo-banda*0.55,W,banda*1.1);
+  for(let i=0,x=-bloco/3;x<W;i++,x+=bloco){
+    const col=Math.floor(rndSala('rodape',i,0)*3), ehTex=/^tex_\d\d$/.test(nomeParede);
+    const sx=ehTex?Math.floor(col*sw/3):0, sy=ehTex?Math.floor(2*sh/3):Math.floor(sh*0.72);
+    const cw=ehTex?Math.floor((col+1)*sw/3)-sx:sw, ch=ehTex?sh-sy:sh-sy;
+    c.save(); c.imageSmoothingEnabled=false;
+    if(rndSala('rodape',i,1)<0.5){ c.translate(x+bloco,0); c.scale(-1,1); c.translate(-x,0); }
+    c.drawImage(img,sx,sy,cw,ch,x,topo-banda*0.55,bloco+1,banda);
+    c.restore();
+  }
+  c.fillStyle='rgba(15,10,7,0.24)'; c.fillRect(0,topo-banda*0.55,W,banda);
+  c.fillStyle='rgba(255,235,190,0.10)'; c.fillRect(0,topo-banda*0.55,W,1);
+  c.fillStyle='rgba(0,0,0,0.52)'; c.fillRect(0,topo+banda*0.45,W,2);
+  const sombra=c.createLinearGradient(0,topo+banda*0.35,0,topo+tam*0.38);
+  sombra.addColorStop(0,'rgba(0,0,0,0.48)'); sombra.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=sombra; c.fillRect(0,topo+banda*0.30,W,tam*0.42);
+
+  const qtd=Math.max(7,Math.round(W/tam*1.2));
+  for(let i=0;i<qtd;i++){
+    const x=rndSala('entulho',i,0)*W, y=topo+banda*0.35+rndSala('entulho',i,1)*tam*0.20;
+    const rx=2+rndSala('entulho',i,2)*7, ry=1.5+rndSala('entulho',i,3)*3;
+    c.fillStyle=rndSala('entulho',i,4)<0.22?'rgba(205,195,170,0.48)':'rgba(35,25,18,0.72)';
+    c.beginPath(); c.ellipse(x,y,rx,ry,rndSala('entulho',i,5)*Math.PI,0,Math.PI*2); c.fill();
+  }
+}
+
+function desenharMotivosCenario(c,tam){
+  const {W}=C, topo=Math.round(C.chaoTopo), rank=C.masmorra.rank;
+  if(['D','B'].includes(rank) && SPR.ok(ARTE_CENARIO.grelha)){
+    const qtd=rank==='B'?2:1;
+    for(let i=0;i<qtd;i++){
+      const s=tam*(0.72+rndSala('grelha',i,0)*0.22);
+      const x=W*(0.12+(i+1)/(qtd+1)*0.70), y=Math.max(20,topo-s*1.22);
+      c.fillStyle='rgba(0,0,0,0.55)'; c.fillRect(x-s/2-4,y-4,s+8,s+8);
+      c.drawImage(SPR.reg[ARTE_CENARIO.grelha].img,x-s/2,y,s,s);
+      c.strokeStyle='rgba(20,12,8,0.75)'; c.lineWidth=3; c.strokeRect(x-s/2,y,s,s);
+    }
+  }
+  if(C.masmorra.despertar && SPR.ok(ARTE_CENARIO.portalProvacao)){
+    const img=SPR.reg[ARTE_CENARIO.portalProvacao].img, w=clamp(W*0.42,160,360), h=w*0.42;
+    const x=W/2, y=topo+tam*1.25;
+    c.save(); c.beginPath(); c.ellipse(x,y,w/2,h/2,0,0,Math.PI*2); c.clip();
+    c.globalCompositeOperation='screen'; c.globalAlpha=0.78;
+    c.drawImage(img,x-w/2,y-h/2,w,h); c.restore();
+  }
+}
+
+/* Cenário pintado v2: cerca de oito tiles por largura, nove recortes por
+   textura, variação determinística por sala e uma junção física parede/chão. */
+function prerenderCenarioHig(c){
+  const {W,H}=C, topo=Math.round(C.chaoTopo), tx=C.masmorra.tex||{};
+  c.imageSmoothingEnabled=false;
+  const paredeNome=(tx.parede&&SPR.ok(tx.parede))?tx.parede:'hig_parede';
+  const chaoNome=(C.masmorra.piso==='madeira'&&SPR.ok('hig_chao_madeira'))?'hig_chao_madeira'
+    :(tx.chao&&SPR.ok(tx.chao))?tx.chao:'hig_chao_pedra';
+  const altParede=SPR.ok(ARTE_CENARIO.varianteParede)?ARTE_CENARIO.varianteParede:null;
+  const altChao=SPR.ok(ARTE_CENARIO.varianteChao)?ARTE_CENARIO.varianteChao:null;
+  const tam=clamp(Math.round(W/8),48,192);
+  c.fillStyle='#17120f'; c.fillRect(0,0,W,H);
+  preencherTextura(c,paredeNome,altParede,0,0,W,topo,tam,'parede',false);
+  preencherTextura(c,chaoNome,altChao,0,topo,W,H-topo,tam,'chao',true);
+  desenharTransicaoParedeChao(c,tam,paredeNome);
+  desenharMotivosCenario(c,tam);
+
   if(SPR.ok('hig_barril')){
-    const b = SPR.reg.hig_barril, nB = 1+Math.floor(rng()*2);
-    const zonas = [[0.06,0.20],[0.42,0.56],[0.78,0.88]], z0 = Math.floor(rng()*3);
+    const b=SPR.reg.hig_barril, nB=1+Math.floor(rndSala('barris-count')*2);
+    const zonas=[[0.06,0.20],[0.42,0.56],[0.78,0.88]], z0=Math.floor(rndSala('barris-zona')*3);
     for(let i=0;i<nB;i++){
-      const z = zonas[(z0+i)%3];
-      const alt = 46+rng()*18, lB = alt*b.w/b.h;
-      const bx = W*(z[0]+rng()*(z[1]-z[0])), by = topo+30+rng()*26;
-      c.fillStyle='rgba(0,0,0,0.4)';
-      c.beginPath(); c.ellipse(bx, by+2, lB*0.52, lB*0.18, 0, 0, Math.PI*2); c.fill();
-      c.drawImage(b.img, bx-lB/2, by-alt+4, lB, alt);
+      const z=zonas[(z0+i)%3], r0=rndSala('barris',i,0), r1=rndSala('barris',i,1);
+      const alt=46+r0*18, lB=alt*b.w/b.h;
+      const bx=W*(z[0]+r1*(z[1]-z[0])), by=topo+28+rndSala('barris',i,2)*24;
+      c.fillStyle='rgba(0,0,0,0.4)'; c.beginPath(); c.ellipse(bx,by+2,lB*0.52,lB*0.18,0,0,Math.PI*2); c.fill();
+      c.drawImage(b.img,bx-lB/2,by-alt+4,lB,alt);
     }
   }
   rematarCenario(c);
@@ -1826,27 +1964,34 @@ function desenharJogador(){
     let estado, nome, idx;
     if(j.hp<=0 && j.morteInicio!==null) estado='death';
     else if(j.hurt>0) estado='hurt';
+    else if(j.skill>0) estado='skill';
     else if(j.atacando>0) estado='attack';
     else if(j.andando || j.alvoX!==null) estado='walk';
     else estado='idle';
     nome=bh+'_'+estado;
-    if(!SPR.ok(nome)){ estado='idle'; nome=bh+'_idle'; }
-    const nf=SPR.n(nome);
-    if(estado==='death')     idx=Math.floor(clamp((C.tempo-j.morteInicio)/0.60,0,0.999)*nf);
-    else if(estado==='hurt') idx=Math.floor(clamp(1-j.hurt/0.24,0,0.999)*nf);
-    else if(estado==='attack') idx=Math.floor((1-(j.atacando/0.18))*nf);
-    else                    idx=Math.floor(C.tempo*(estado==='walk'?12:6));
+    if(!SPR.ok(nome)){
+      estado = estado==='skill' && SPR.ok(bh+'_attack') ? 'attack' : 'idle';
+      nome=bh+'_'+estado;
+    }
+    const nf=SPR.n(nome), A=BAL.anim.heroi;
+    if(estado==='death')     idx=Math.floor(clamp((C.tempo-j.morteInicio)/A.morte,0,0.999)*nf);
+    else if(estado==='hurt') idx=Math.floor(clamp(1-j.hurt/A.dano,0,0.999)*nf);
+    else if(estado==='skill') idx=Math.floor(clamp(1-j.skill/(j.skillDur||A.skill),0,0.999)*nf);
+    else if(estado==='attack') idx=Math.floor((1-(j.atacando/A.ataque))*nf);
+    else                    idx=Math.floor(C.tempo*(estado==='walk'?A.walkFps:A.idleFps));
     ctx.save(); ctx.translate(j.x, j.y);
     if(j.invul>0 && Math.floor(C.tempo*20)%2) ctx.globalAlpha=0.45;
     // sheets novos: já coloridos (sem tinta), corpo até 92% da altura do frame
-    SPR.frameH(ctx, nome, idx, SPR.n(nome), (novo?176:210)*s, (j.dirAtq||1)<0, null, novo?0.92:0.74);
+    const altHeroi = novo ? ALTURAS_SPRITE.basePx*ALTURAS_SPRITE.heroi : 210;
+    SPR.frameH(ctx, nome, idx, SPR.n(nome), altHeroi*s, (j.dirAtq||1)<0, null,
+               novo?ALTURAS_SPRITE.ancoraY:0.74);
     ctx.restore();
   } else {
     ctx.save(); ctx.translate(j.x,j.y); ctx.scale(s*1.5, s*1.5);
     spriteHeroi(ctx, {
       dir: j.dirAtq||1,
       passo: (j.andando || j.alvoX!==null) ? Math.sin(C.tempo*16)*3 : 0,
-      golpe: j.atacando>0 ? (0.18-j.atacando)/0.18 : null,
+      golpe: j.atacando>0 ? (BAL.anim.heroi.ataque-j.atacando)/BAL.anim.heroi.ataque : null,
       invul: j.invul>0, t: C.tempo,
     });
     ctx.restore();
@@ -1877,7 +2022,11 @@ function desenharAliado(a){
 }
 
 function desenharInimigo(e){
-  const s=escalaProf(e.y)*0.85*(e.classe==='boss'?1.8:e.classe==='elite'?1.3:1);
+  const papel = e.classe==='boss' ? 'boss' : e.classe==='elite' ? 'elite' : 'inimigo';
+  const fatorPapel = ALTURAS_SPRITE[papel];
+  const prof = escalaProf(e.y);
+  // Mantém o sistema vetorial/aura compatível; a arte v2 usa a altura direta abaixo.
+  const s=prof*0.85*(fatorPapel/ALTURAS_SPRITE.inimigo);
   sombraChao(e.x,e.y,e.raio*s*1.1);
   ctx.save(); ctx.translate(e.x,e.y);
 
@@ -1899,35 +2048,42 @@ function desenharInimigo(e){
     let est, idx, nome;
     if(e.morto) est='death';
     else if(e.flash>0) est='hurt';
+    else if(e.habAtiva && e.windup>0) est='skill';
     else if(e.windup>0) est='attack';
     else { const mov = (Math.abs(e.x-(e._dpx??e.x))+Math.abs(e.y-(e._dpy??e.y)))>0.4; est = mov?'walk':'idle'; }
     e._dpx=e.x; e._dpy=e.y;
     nome = anim2d(m2, est);
-    if(!SPR.ok(nome)){ est='idle'; nome=anim2d(m2, est); }
-    const nf = SPR.n(nome);
-    if(est==='death')     idx = Math.floor(clamp((C.tempo-e.morteInicio)/0.60,0,0.999)*nf);
-    else if(est==='attack') idx = Math.floor(clamp(1 - e.windup/(e.ranged?0.6:0.55),0,1)*nf);
-    else if(est==='hurt') idx = Math.floor(clamp(1 - e.flash/0.12,0,1)*nf);
-    else                  idx = Math.floor(C.tempo*(est==='walk'?11:6) + e.x*0.05);
-    const alt = (m2.kind==='novo'?170:m2.kind==='big'?200:112) * s * (m2.esc||1);
+    if(!SPR.ok(nome)){
+      est = est==='skill' && SPR.ok(anim2d(m2,'attack')) ? 'attack' : 'idle';
+      nome=anim2d(m2, est);
+    }
+    const nf = SPR.n(nome), A = BAL.anim.inimigo;
+    if(est==='death')     idx = Math.floor(clamp((C.tempo-e.morteInicio)/A.morte,0,0.999)*nf);
+    else if(est==='skill') idx = Math.floor(clamp(1-e.windup/(e.habAtiva?.dur||1),0,0.999)*nf);
+    else if(est==='attack') idx = Math.floor(clamp(1 - e.windup/(e.ranged?A.disparo:A.golpe),0,1)*nf);
+    else if(est==='hurt') idx = Math.floor(clamp(1 - e.flash/A.dano,0,1)*nf);
+    else                  idx = Math.floor(C.tempo*(est==='walk'?A.walkFps:A.idleFps) + e.x*0.05);
+    const alt = (m2.kind==='novo' ? ALTURAS_SPRITE.basePx*fatorPapel*prof
+                                  : (m2.kind==='big'?200:112)*s) * (m2.esc||1);
     ctx.save();
     if(!e.morto && e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));
-    if(e.flash>0){ const q=BAL.feel.squash*(e.flash/0.12); ctx.scale(1+q, 1-q); }  // squash & stretch
+    if(e.flash>0){ const q=BAL.feel.squash*(e.flash/BAL.anim.inimigo.dano); ctx.scale(1+q, 1-q); }  // squash & stretch
     if(m2.alpha) ctx.globalAlpha=m2.alpha;
     if(e.flash>0) ctx.filter='brightness(2.4)';
     else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
-    SPR.frameH(ctx, nome, idx, nf, alt, C.jogador.x < e.x, m2.cor, m2.kind==='novo'?0.92:m2.kind==='big'?0.74:0.86);
+    SPR.frameH(ctx, nome, idx, nf, alt, C.jogador.x < e.x, m2.cor,
+               m2.kind==='novo'?ALTURAS_SPRITE.ancoraY:m2.kind==='big'?0.74:0.86);
     ctx.filter='none'; ctx.globalAlpha=1;
     ctx.restore();
   } else {
     ctx.save();
     if(e.morto){
-      const f=clamp((C.tempo-e.morteInicio)/0.60,0,1);
+      const f=clamp((C.tempo-e.morteInicio)/BAL.anim.inimigo.morte,0,1);
       ctx.globalAlpha=1-f; ctx.rotate(f*0.8*dir);
     }
     if(e.windup>0) ctx.translate(rnd(-1.6,1.6), rnd(-1.6,1.6));   // tremor de telégrafo
     ctx.scale(dir*s*1.5, s*1.5);
-    if(e.flash>0){ const q=BAL.feel.squash*(e.flash/0.12); ctx.scale(1+q, 1-q); }  // squash & stretch
+    if(e.flash>0){ const q=BAL.feel.squash*(e.flash/BAL.anim.inimigo.dano); ctx.scale(1+q, 1-q); }  // squash & stretch
     if(e.flash>0) ctx.filter='brightness(2.4)';
     else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
     if(e.windup>0){ ctx.shadowColor='#c04438'; ctx.shadowBlur=16; }

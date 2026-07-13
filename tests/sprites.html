@@ -1,101 +1,85 @@
 <!doctype html>
-<html lang="pt">
+<html lang="pt" data-a5-status="loading">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<base href="../"><!-- para o sprites.js achar assets/2d/ a partir de tests/ -->
-<title>Teste — sprites do pack (heróis, inimigos, ícones)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<base href="../">
+<title>A5 — contact sheet da Arte v2</title>
 <style>
-  html,body{margin:0;height:100%;background:#221c14;overflow:auto}
-  canvas{display:block}
+  html,body{margin:0;background:#17130f;color:#eadfc8;font:12px ui-monospace,Consolas,monospace}
+  canvas{display:block;width:1600px;height:auto;image-rendering:pixelated}
+  #estado{position:fixed;right:8px;top:8px;padding:5px 8px;background:#111c;border:1px solid #765;z-index:2}
+  html[data-a5-status="ready"] #estado{color:#9ed18c} html[data-a5-status="error"] #estado{color:#ef7770}
 </style>
 </head>
 <body>
-<canvas id="canvas" width="1280" height="980"></canvas>
-<script>
-window.onerror = (m,f,l)=>{ document.title += ' || ERRO: '+m+' @ '+(f||'').split('/').pop()+':'+l; };
-</script>
-<script src="js/balance.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/data.js"></script>
-<script src="js/art.js"></script>
+<div id="estado">A5: a carregar…</div>
+<canvas id="canvas" width="1600" height="3600"></canvas>
+<script src="tests/a5.js"></script>
 <script src="js/sprites.js"></script>
-<script src="js/powers.js"></script>
-<script src="js/classes.js"></script>
-<script src="js/arvore.js"></script>
-<script src="js/game.js"></script>
 <script>
-/* Desenha com o SPR real e percorre idle/walk/attack/hurt/death.
-   Cada estado fica 1,2 s no ecrã para validar todos os sheets do jogo. */
-const cv = document.getElementById('canvas'), c2 = cv.getContext('2d');
-const CLASSES_L = ['guerreiro','mago','batedor','assassino','paladino'];
-const INIMIGOS_L = ['goblin','orcbrute','necro','warlock','bone','plague','stalker','venom','corrupted','templar'];
-const ANIMACOES = ['idle','walk','attack','hurt','death'];
+'use strict';
+const cv=document.getElementById('canvas'), c=cv.getContext('2d');
+const estadoEl=document.getElementById('estado');
+c.imageSmoothingEnabled=false;
 
-function frame(t){
-  const tempo = t/1000;
-  const acao = ANIMACOES[Math.floor(tempo/1.2)%ANIMACOES.length];
-  cv.dataset.animation = acao;
-  const progresso = (tempo%1.2)/1.2;
-  const fr = Math.min(3, Math.floor(progresso*4));
-  c2.setTransform(1,0,0,1,0,0);
-  c2.fillStyle='#2b241a'; c2.fillRect(0,0,cv.width,cv.height);
-  c2.fillStyle='#e8dcc0'; c2.font='14px monospace'; c2.textAlign='left';
-
-  c2.fillText('HERÓIS — skin 1 e 2 · animação: '+acao.toUpperCase(), 16, 24);
-  CLASSES_L.forEach((cl,i)=>{
-    const x = 90 + i*250;
-    c2.save(); c2.translate(x, 210);
-    SPR.frameH(c2, 'heroi_'+cl+'_'+acao, fr, 4, 176, false, null, 0.92);
-    c2.restore();
-    c2.save(); c2.translate(x+120, 210);
-    SPR.frameH(c2, 'heroi_'+cl+'2_'+acao, fr, 4, 176, false, null, 0.92);
-    c2.restore();
-    c2.fillText(cl, x-30, 236);
+function carregarImagem(src){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(); img.onload=()=>resolve(img); img.onerror=()=>reject(new Error('Falhou '+src)); img.src=src;
   });
-
-  c2.fillText('INIMIGOS — animação: '+acao.toUpperCase(), 16, 290);
-  INIMIGOS_L.forEach((e,i)=>{
-    const x = 80 + (i%5)*250, y = 470 + Math.floor(i/5)*230;
-    c2.save(); c2.translate(x, y);
-    SPR.frameH(c2, 'en_'+e+'_'+acao, fr, 4, 170, false, null, 0.92);
-    c2.restore();
-    c2.save(); c2.translate(x+120, y);
-    SPR.frameH(c2, 'en_'+e+'_'+acao, fr, 4, 170, true, null, 0.92);
-    c2.restore();
-    c2.fillText('en_'+e, x-30, y+26);
-  });
-
-  c2.fillText('ÍCONES — arma/armadura por classe (skins 1·2·3)', 16, 750);
-  CLASSES_L.forEach((cl,i)=>{
-    const cat = { guerreiro:'espada', mago:'cajado', batedor:'arco', assassino:'adaga', paladino:'espada' }[cl];
-    for(let s=1; s<=3; s++){
-      const img = new Image(); // ícones não estão no SPR: são <img> na UI real
-      // desenha via cache global para não recriar a cada frame
-      const k = 'icon_'+cl+'_'+cat+s;
-      if(!frame.cache) frame.cache = {};
-      if(!frame.cache[k]){ frame.cache[k] = new Image(); frame.cache[k].src = 'assets/2d/icon_'+cl+'_'+cat+s+'.png'; }
-      const ic2 = frame.cache[k];
-      if(ic2.complete && ic2.naturalWidth) c2.drawImage(ic2, 40+i*250+(s-1)*72, 770, 64, 64);
-      const k2 = 'icon_'+cl+'_armadura'+s;
-      if(!frame.cache[k2]){ frame.cache[k2] = new Image(); frame.cache[k2].src = 'assets/2d/icon_'+cl+'_armadura'+s+'.png'; }
-      const a2 = frame.cache[k2];
-      if(a2.complete && a2.naturalWidth) c2.drawImage(a2, 40+i*250+(s-1)*72, 848, 64, 64);
-    }
-    c2.fillText(cl, 40+i*250, 936);
-  });
-
-  requestAnimationFrame(frame);
 }
-window.addEventListener('load', async ()=>{
-  const nomes=[];
-  for(const a of ANIMACOES){
-    for(const cl of CLASSES_L) nomes.push('heroi_'+cl+'_'+a, 'heroi_'+cl+'2_'+a);
-    for(const e of INIMIGOS_L) nomes.push('en_'+e+'_'+a);
+function fundo(x,y,w,h){
+  c.fillStyle='#211b15';c.fillRect(x,y,w,h);
+  c.fillStyle='#28221b';for(let yy=y;yy<y+h;yy+=16)for(let xx=x;xx<x+w;xx+=16)if(((xx-x)/16+(yy-y)/16)%2)c.fillRect(xx,yy,16,16);
+}
+function titulo(txt,y){ c.fillStyle='#d8c49b';c.font='bold 16px ui-monospace,monospace';c.fillText(txt,16,y); }
+
+async function montar(){
+  const metaOk=await SPR.metaPromessa;
+  const meta=SPR.meta();
+  if(!metaOk||!meta) throw new Error('sprites-meta.json não carregou');
+  const nomes=Object.keys(meta.sheets);
+  if(nomes.length!==126) throw new Error(`META: ${nomes.length}/126 sheets`);
+  const carregou=await SPR.esperar(nomes,20000);
+  if(!carregou){
+    const falta=nomes.filter(n=>!SPR.ok(n)); throw new Error('Sheets em falta: '+falta.slice(0,8).join(', '));
   }
-  await SPR.esperar(nomes, 10000);
-  requestAnimationFrame(frame);
-});
+
+  const cols=4, cardW=392, cardH=88, linhas=Math.ceil(nomes.length/cols);
+  const ySheets=42, yIcons=ySheets+linhas*cardH+34;
+  const iconNames=Object.keys(meta.icons), texNames=Object.keys(meta.textures);
+  const iconImgs=await Promise.all(iconNames.map(n=>carregarImagem('assets/2d/'+meta.icons[n].file)));
+  const texImgs=await Promise.all(texNames.map(n=>carregarImagem('assets/2d/'+meta.textures[n].file)));
+  const iconRows=Math.ceil(iconNames.length/12), yTex=yIcons+iconRows*86+42;
+  cv.height=yTex+2*154+56;
+  c.imageSmoothingEnabled=false;
+
+  c.fillStyle='#17130f';c.fillRect(0,0,cv.width,cv.height);
+  titulo('PERSONAGENS — 126 sheets · idle / walk / attack / skill / hurt / death · *_proj = projéteis',24);
+  nomes.forEach((nome,i)=>{
+    const col=i%cols,row=Math.floor(i/cols),x=8+col*cardW,y=ySheets+row*cardH;
+    const sp=meta.sheets[nome],o=SPR.reg[nome],size=62;
+    fundo(x,y,cardW-8,cardH-4);
+    c.fillStyle='#eadfc8';c.font='11px ui-monospace,monospace';c.fillText(`${nome} · ${sp.frames}f`,x+6,y+13);
+    for(let f=0;f<sp.frames;f++) c.drawImage(o.img,f*sp.cell.w,0,sp.cell.w,sp.cell.h,x+6+f*(size+4),y+19,size,size);
+  });
+
+  titulo('ÍCONES — 48 recortes',yIcons-12);
+  iconNames.forEach((nome,i)=>{
+    const col=i%12,row=Math.floor(i/12),x=12+col*132,y=yIcons+row*86;
+    fundo(x,y,124,80); c.drawImage(iconImgs[i],x+4,y+3,58,58);
+    c.fillStyle='#cdbb99';c.font='9px ui-monospace,monospace';c.fillText(nome.replace('icon_',''),x+3,y+74);
+  });
+
+  titulo('TEXTURAS — 16 · 07 grelha · 08 veneno · 09 portal · 12/14 variantes',yTex-12);
+  texNames.forEach((nome,i)=>{
+    const col=i%8,row=Math.floor(i/8),x=12+col*196,y=yTex+row*154;
+    c.drawImage(texImgs[i],x,y,142,142);c.fillStyle='#eadfc8';c.font='11px ui-monospace,monospace';c.fillText(nome,x+146,y+18);
+  });
+  estadoEl.textContent=`A5 pronto · ${nomes.length} sheets · ${iconNames.length} ícones · ${texNames.length} texturas`;
+  await a5Ready({sheets:nomes.length,icons:iconNames.length,textures:texNames.length,height:cv.height});
+}
+montar().catch(e=>{ estadoEl.textContent='A5 erro: '+e.message; a5Fail(e.message); });
 </script>
 </body>
 </html>

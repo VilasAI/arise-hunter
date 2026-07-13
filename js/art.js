@@ -516,13 +516,14 @@ const ARTE = (function(){
     c.fillStyle='rgba(255,255,255,0.9)'; estrelinha(c,15.5,4.5,1.5);
   }
 
-  /* arma/armadura com classe escolhida: imagem do pack do dono
-     (a skin 2 dos ícones acompanha a aparência vestida do Watcher) */
+  /* arma/armadura com classe escolhida: imagem do pack do dono.
+     A skin 2 dos ícones acompanha a aparência vestida do Watcher; a skin 3
+     é a recompensa automática do 2.º Despertar (D031) e sobrepõe-se. */
   const ARMA_CLASSE = { guerreiro:'espada', mago:'cajado', batedor:'arco', assassino:'adaga', paladino:'espada' };
   function imgItem(it, px=44){
     if(typeof G!=='undefined' && G && G.classe && (it.tipo==='arma' || it.tipo==='armadura')){
       const cat = it.tipo==='arma' ? ARMA_CLASSE[G.classe] : 'armadura';
-      const skin = G.skinAtiva === G.classe+'2' ? 2 : 1;
+      const skin = G.despertar>=2 ? 3 : (G.skinAtiva === G.classe+'2' ? 2 : 1);
       return `<img class="ic" style="width:${px}px;height:${px}px;image-rendering:pixelated" src="assets/2d/icon_${G.classe}_${cat}${skin}.png" alt="">`;
     }
     const variante = (it.nome||'').length % 3;

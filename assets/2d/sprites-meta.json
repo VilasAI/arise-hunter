@@ -1,0 +1,2637 @@
+{
+    "schema":  2,
+    "defaults":  {
+                     "cell":  {
+                                  "w":  256,
+                                  "h":  256
+                              },
+                     "anchor":  {
+                                    "x":  0.5,
+                                    "y":  0.92
+                                }
+                 },
+    "actions":  [
+                    "idle",
+                    "walk",
+                    "attack",
+                    "skill",
+                    "hurt",
+                    "death"
+                ],
+    "sheets":  {
+                   "heroi_guerreiro_idle":  {
+                                                "file":  "heroi_guerreiro_idle.png",
+                                                "action":  "idle",
+                                                "frames":  4,
+                                                "loop":  true,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                            },
+                   "heroi_guerreiro_walk":  {
+                                                "file":  "heroi_guerreiro_walk.png",
+                                                "action":  "walk",
+                                                "frames":  4,
+                                                "loop":  true,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                            },
+                   "heroi_guerreiro_attack":  {
+                                                  "file":  "heroi_guerreiro_attack.png",
+                                                  "action":  "attack",
+                                                  "frames":  4,
+                                                  "loop":  false,
+                                                  "cell":  {
+                                                               "w":  256,
+                                                               "h":  256
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.92
+                                                             },
+                                                  "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                              },
+                   "heroi_guerreiro_skill":  {
+                                                 "file":  "heroi_guerreiro_skill.png",
+                                                 "action":  "skill",
+                                                 "frames":  4,
+                                                 "loop":  false,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                             },
+                   "heroi_guerreiro_hurt":  {
+                                                "file":  "heroi_guerreiro_hurt.png",
+                                                "action":  "hurt",
+                                                "frames":  4,
+                                                "loop":  false,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                            },
+                   "heroi_guerreiro_death":  {
+                                                 "file":  "heroi_guerreiro_death.png",
+                                                 "action":  "death",
+                                                 "frames":  4,
+                                                 "loop":  false,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                             },
+                   "heroi_guerreiro2_idle":  {
+                                                 "file":  "heroi_guerreiro2_idle.png",
+                                                 "action":  "idle",
+                                                 "frames":  4,
+                                                 "loop":  true,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                             },
+                   "heroi_guerreiro2_walk":  {
+                                                 "file":  "heroi_guerreiro2_walk.png",
+                                                 "action":  "walk",
+                                                 "frames":  4,
+                                                 "loop":  true,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                             },
+                   "heroi_guerreiro2_attack":  {
+                                                   "file":  "heroi_guerreiro2_attack.png",
+                                                   "action":  "attack",
+                                                   "frames":  4,
+                                                   "loop":  false,
+                                                   "cell":  {
+                                                                "w":  256,
+                                                                "h":  256
+                                                            },
+                                                   "anchor":  {
+                                                                  "x":  0.5,
+                                                                  "y":  0.92
+                                                              },
+                                                   "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                               },
+                   "heroi_guerreiro2_skill":  {
+                                                  "file":  "heroi_guerreiro2_skill.png",
+                                                  "action":  "skill",
+                                                  "frames":  4,
+                                                  "loop":  false,
+                                                  "cell":  {
+                                                               "w":  256,
+                                                               "h":  256
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.92
+                                                             },
+                                                  "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                              },
+                   "heroi_guerreiro2_hurt":  {
+                                                 "file":  "heroi_guerreiro2_hurt.png",
+                                                 "action":  "hurt",
+                                                 "frames":  4,
+                                                 "loop":  false,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                             },
+                   "heroi_guerreiro2_death":  {
+                                                  "file":  "heroi_guerreiro2_death.png",
+                                                  "action":  "death",
+                                                  "frames":  4,
+                                                  "loop":  false,
+                                                  "cell":  {
+                                                               "w":  256,
+                                                               "h":  256
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.92
+                                                             },
+                                                  "source":  "76c5a8c9-3713-46c4-9181-0ea96c77d232"
+                                              },
+                   "heroi_mago_idle":  {
+                                           "file":  "heroi_mago_idle.png",
+                                           "action":  "idle",
+                                           "frames":  4,
+                                           "loop":  true,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                       },
+                   "heroi_mago_walk":  {
+                                           "file":  "heroi_mago_walk.png",
+                                           "action":  "walk",
+                                           "frames":  4,
+                                           "loop":  true,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                       },
+                   "heroi_mago_attack":  {
+                                             "file":  "heroi_mago_attack.png",
+                                             "action":  "attack",
+                                             "frames":  3,
+                                             "loop":  false,
+                                             "cell":  {
+                                                          "w":  256,
+                                                          "h":  256
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.92
+                                                        },
+                                             "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                         },
+                   "heroi_mago_skill":  {
+                                            "file":  "heroi_mago_skill.png",
+                                            "action":  "skill",
+                                            "frames":  4,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                        },
+                   "heroi_mago_hurt":  {
+                                           "file":  "heroi_mago_hurt.png",
+                                           "action":  "hurt",
+                                           "frames":  3,
+                                           "loop":  false,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                       },
+                   "heroi_mago_death":  {
+                                            "file":  "heroi_mago_death.png",
+                                            "action":  "death",
+                                            "frames":  3,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                        },
+                   "heroi_mago_proj":  {
+                                           "file":  "heroi_mago_proj.png",
+                                           "action":  "proj",
+                                           "frames":  1,
+                                           "loop":  true,
+                                           "cell":  {
+                                                        "w":  103,
+                                                        "h":  69
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.5
+                                                      },
+                                           "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                       },
+                   "heroi_mago2_idle":  {
+                                            "file":  "heroi_mago2_idle.png",
+                                            "action":  "idle",
+                                            "frames":  4,
+                                            "loop":  true,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                        },
+                   "heroi_mago2_walk":  {
+                                            "file":  "heroi_mago2_walk.png",
+                                            "action":  "walk",
+                                            "frames":  4,
+                                            "loop":  true,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                        },
+                   "heroi_mago2_attack":  {
+                                              "file":  "heroi_mago2_attack.png",
+                                              "action":  "attack",
+                                              "frames":  3,
+                                              "loop":  false,
+                                              "cell":  {
+                                                           "w":  256,
+                                                           "h":  256
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.92
+                                                         },
+                                              "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                          },
+                   "heroi_mago2_skill":  {
+                                             "file":  "heroi_mago2_skill.png",
+                                             "action":  "skill",
+                                             "frames":  4,
+                                             "loop":  false,
+                                             "cell":  {
+                                                          "w":  256,
+                                                          "h":  256
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.92
+                                                        },
+                                             "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                         },
+                   "heroi_mago2_hurt":  {
+                                            "file":  "heroi_mago2_hurt.png",
+                                            "action":  "hurt",
+                                            "frames":  3,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                        },
+                   "heroi_mago2_death":  {
+                                             "file":  "heroi_mago2_death.png",
+                                             "action":  "death",
+                                             "frames":  3,
+                                             "loop":  false,
+                                             "cell":  {
+                                                          "w":  256,
+                                                          "h":  256
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.92
+                                                        },
+                                             "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                         },
+                   "heroi_mago2_proj":  {
+                                            "file":  "heroi_mago2_proj.png",
+                                            "action":  "proj",
+                                            "frames":  1,
+                                            "loop":  true,
+                                            "cell":  {
+                                                         "w":  126,
+                                                         "h":  67
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.5
+                                                       },
+                                            "source":  "91a16169-776d-4776-9325-c9f13e5e1991"
+                                        },
+                   "heroi_batedor_idle":  {
+                                              "file":  "heroi_batedor_idle.png",
+                                              "action":  "idle",
+                                              "frames":  4,
+                                              "loop":  true,
+                                              "cell":  {
+                                                           "w":  256,
+                                                           "h":  256
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.92
+                                                         },
+                                              "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                          },
+                   "heroi_batedor_walk":  {
+                                              "file":  "heroi_batedor_walk.png",
+                                              "action":  "walk",
+                                              "frames":  4,
+                                              "loop":  true,
+                                              "cell":  {
+                                                           "w":  256,
+                                                           "h":  256
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.92
+                                                         },
+                                              "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                          },
+                   "heroi_batedor_attack":  {
+                                                "file":  "heroi_batedor_attack.png",
+                                                "action":  "attack",
+                                                "frames":  4,
+                                                "loop":  false,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                            },
+                   "heroi_batedor_skill":  {
+                                               "file":  "heroi_batedor_skill.png",
+                                               "action":  "skill",
+                                               "frames":  4,
+                                               "loop":  false,
+                                               "cell":  {
+                                                            "w":  256,
+                                                            "h":  256
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.92
+                                                          },
+                                               "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                           },
+                   "heroi_batedor_hurt":  {
+                                              "file":  "heroi_batedor_hurt.png",
+                                              "action":  "hurt",
+                                              "frames":  4,
+                                              "loop":  false,
+                                              "cell":  {
+                                                           "w":  256,
+                                                           "h":  256
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.92
+                                                         },
+                                              "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                          },
+                   "heroi_batedor_death":  {
+                                               "file":  "heroi_batedor_death.png",
+                                               "action":  "death",
+                                               "frames":  4,
+                                               "loop":  false,
+                                               "cell":  {
+                                                            "w":  256,
+                                                            "h":  256
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.92
+                                                          },
+                                               "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                           },
+                   "heroi_batedor2_idle":  {
+                                               "file":  "heroi_batedor2_idle.png",
+                                               "action":  "idle",
+                                               "frames":  4,
+                                               "loop":  true,
+                                               "cell":  {
+                                                            "w":  256,
+                                                            "h":  256
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.92
+                                                          },
+                                               "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                           },
+                   "heroi_batedor2_walk":  {
+                                               "file":  "heroi_batedor2_walk.png",
+                                               "action":  "walk",
+                                               "frames":  4,
+                                               "loop":  true,
+                                               "cell":  {
+                                                            "w":  256,
+                                                            "h":  256
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.92
+                                                          },
+                                               "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                           },
+                   "heroi_batedor2_attack":  {
+                                                 "file":  "heroi_batedor2_attack.png",
+                                                 "action":  "attack",
+                                                 "frames":  4,
+                                                 "loop":  false,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                             },
+                   "heroi_batedor2_skill":  {
+                                                "file":  "heroi_batedor2_skill.png",
+                                                "action":  "skill",
+                                                "frames":  4,
+                                                "loop":  false,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                            },
+                   "heroi_batedor2_hurt":  {
+                                               "file":  "heroi_batedor2_hurt.png",
+                                               "action":  "hurt",
+                                               "frames":  4,
+                                               "loop":  false,
+                                               "cell":  {
+                                                            "w":  256,
+                                                            "h":  256
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.92
+                                                          },
+                                               "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                           },
+                   "heroi_batedor2_death":  {
+                                                "file":  "heroi_batedor2_death.png",
+                                                "action":  "death",
+                                                "frames":  4,
+                                                "loop":  false,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "5cb5e878-4928-4cce-aacf-3c73cb6122d7"
+                                            },
+                   "heroi_assassino_idle":  {
+                                                "file":  "heroi_assassino_idle.png",
+                                                "action":  "idle",
+                                                "frames":  4,
+                                                "loop":  true,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                            },
+                   "heroi_assassino_walk":  {
+                                                "file":  "heroi_assassino_walk.png",
+                                                "action":  "walk",
+                                                "frames":  4,
+                                                "loop":  true,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                            },
+                   "heroi_assassino_attack":  {
+                                                  "file":  "heroi_assassino_attack.png",
+                                                  "action":  "attack",
+                                                  "frames":  4,
+                                                  "loop":  false,
+                                                  "cell":  {
+                                                               "w":  256,
+                                                               "h":  256
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.92
+                                                             },
+                                                  "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                              },
+                   "heroi_assassino_skill":  {
+                                                 "file":  "heroi_assassino_skill.png",
+                                                 "action":  "skill",
+                                                 "frames":  4,
+                                                 "loop":  false,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                             },
+                   "heroi_assassino_hurt":  {
+                                                "file":  "heroi_assassino_hurt.png",
+                                                "action":  "hurt",
+                                                "frames":  4,
+                                                "loop":  false,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                            },
+                   "heroi_assassino_death":  {
+                                                 "file":  "heroi_assassino_death.png",
+                                                 "action":  "death",
+                                                 "frames":  4,
+                                                 "loop":  false,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                             },
+                   "heroi_assassino2_idle":  {
+                                                 "file":  "heroi_assassino2_idle.png",
+                                                 "action":  "idle",
+                                                 "frames":  4,
+                                                 "loop":  true,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                             },
+                   "heroi_assassino2_walk":  {
+                                                 "file":  "heroi_assassino2_walk.png",
+                                                 "action":  "walk",
+                                                 "frames":  4,
+                                                 "loop":  true,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                             },
+                   "heroi_assassino2_attack":  {
+                                                   "file":  "heroi_assassino2_attack.png",
+                                                   "action":  "attack",
+                                                   "frames":  4,
+                                                   "loop":  false,
+                                                   "cell":  {
+                                                                "w":  256,
+                                                                "h":  256
+                                                            },
+                                                   "anchor":  {
+                                                                  "x":  0.5,
+                                                                  "y":  0.92
+                                                              },
+                                                   "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                               },
+                   "heroi_assassino2_skill":  {
+                                                  "file":  "heroi_assassino2_skill.png",
+                                                  "action":  "skill",
+                                                  "frames":  4,
+                                                  "loop":  false,
+                                                  "cell":  {
+                                                               "w":  256,
+                                                               "h":  256
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.92
+                                                             },
+                                                  "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                              },
+                   "heroi_assassino2_hurt":  {
+                                                 "file":  "heroi_assassino2_hurt.png",
+                                                 "action":  "hurt",
+                                                 "frames":  4,
+                                                 "loop":  false,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                             },
+                   "heroi_assassino2_death":  {
+                                                  "file":  "heroi_assassino2_death.png",
+                                                  "action":  "death",
+                                                  "frames":  4,
+                                                  "loop":  false,
+                                                  "cell":  {
+                                                               "w":  256,
+                                                               "h":  256
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.92
+                                                             },
+                                                  "source":  "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20"
+                                              },
+                   "heroi_paladino_idle":  {
+                                               "file":  "heroi_paladino_idle.png",
+                                               "action":  "idle",
+                                               "frames":  4,
+                                               "loop":  true,
+                                               "cell":  {
+                                                            "w":  256,
+                                                            "h":  256
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.92
+                                                          },
+                                               "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                           },
+                   "heroi_paladino_walk":  {
+                                               "file":  "heroi_paladino_walk.png",
+                                               "action":  "walk",
+                                               "frames":  4,
+                                               "loop":  true,
+                                               "cell":  {
+                                                            "w":  256,
+                                                            "h":  256
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.92
+                                                          },
+                                               "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                           },
+                   "heroi_paladino_attack":  {
+                                                 "file":  "heroi_paladino_attack.png",
+                                                 "action":  "attack",
+                                                 "frames":  4,
+                                                 "loop":  false,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                             },
+                   "heroi_paladino_skill":  {
+                                                "file":  "heroi_paladino_skill.png",
+                                                "action":  "skill",
+                                                "frames":  4,
+                                                "loop":  false,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                            },
+                   "heroi_paladino_hurt":  {
+                                               "file":  "heroi_paladino_hurt.png",
+                                               "action":  "hurt",
+                                               "frames":  4,
+                                               "loop":  false,
+                                               "cell":  {
+                                                            "w":  256,
+                                                            "h":  256
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.92
+                                                          },
+                                               "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                           },
+                   "heroi_paladino_death":  {
+                                                "file":  "heroi_paladino_death.png",
+                                                "action":  "death",
+                                                "frames":  4,
+                                                "loop":  false,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                            },
+                   "heroi_paladino2_idle":  {
+                                                "file":  "heroi_paladino2_idle.png",
+                                                "action":  "idle",
+                                                "frames":  4,
+                                                "loop":  true,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                            },
+                   "heroi_paladino2_walk":  {
+                                                "file":  "heroi_paladino2_walk.png",
+                                                "action":  "walk",
+                                                "frames":  4,
+                                                "loop":  true,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                            },
+                   "heroi_paladino2_attack":  {
+                                                  "file":  "heroi_paladino2_attack.png",
+                                                  "action":  "attack",
+                                                  "frames":  4,
+                                                  "loop":  false,
+                                                  "cell":  {
+                                                               "w":  256,
+                                                               "h":  256
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.92
+                                                             },
+                                                  "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                              },
+                   "heroi_paladino2_skill":  {
+                                                 "file":  "heroi_paladino2_skill.png",
+                                                 "action":  "skill",
+                                                 "frames":  4,
+                                                 "loop":  false,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                             },
+                   "heroi_paladino2_hurt":  {
+                                                "file":  "heroi_paladino2_hurt.png",
+                                                "action":  "hurt",
+                                                "frames":  4,
+                                                "loop":  false,
+                                                "cell":  {
+                                                             "w":  256,
+                                                             "h":  256
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.92
+                                                           },
+                                                "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                            },
+                   "heroi_paladino2_death":  {
+                                                 "file":  "heroi_paladino2_death.png",
+                                                 "action":  "death",
+                                                 "frames":  4,
+                                                 "loop":  false,
+                                                 "cell":  {
+                                                              "w":  256,
+                                                              "h":  256
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.92
+                                                            },
+                                                 "source":  "40b8f1be-3378-4690-a57c-a1a34721561a"
+                                             },
+                   "en_goblin_idle":  {
+                                          "file":  "en_goblin_idle.png",
+                                          "action":  "idle",
+                                          "frames":  4,
+                                          "loop":  true,
+                                          "cell":  {
+                                                       "w":  256,
+                                                       "h":  256
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.92
+                                                     },
+                                          "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                      },
+                   "en_goblin_walk":  {
+                                          "file":  "en_goblin_walk.png",
+                                          "action":  "walk",
+                                          "frames":  4,
+                                          "loop":  true,
+                                          "cell":  {
+                                                       "w":  256,
+                                                       "h":  256
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.92
+                                                     },
+                                          "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                      },
+                   "en_goblin_attack":  {
+                                            "file":  "en_goblin_attack.png",
+                                            "action":  "attack",
+                                            "frames":  4,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                        },
+                   "en_goblin_skill":  {
+                                           "file":  "en_goblin_skill.png",
+                                           "action":  "skill",
+                                           "frames":  4,
+                                           "loop":  false,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                       },
+                   "en_goblin_hurt":  {
+                                          "file":  "en_goblin_hurt.png",
+                                          "action":  "hurt",
+                                          "frames":  4,
+                                          "loop":  false,
+                                          "cell":  {
+                                                       "w":  256,
+                                                       "h":  256
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.92
+                                                     },
+                                          "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                      },
+                   "en_goblin_death":  {
+                                           "file":  "en_goblin_death.png",
+                                           "action":  "death",
+                                           "frames":  4,
+                                           "loop":  false,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                       },
+                   "en_orcbrute_idle":  {
+                                            "file":  "en_orcbrute_idle.png",
+                                            "action":  "idle",
+                                            "frames":  4,
+                                            "loop":  true,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                        },
+                   "en_orcbrute_walk":  {
+                                            "file":  "en_orcbrute_walk.png",
+                                            "action":  "walk",
+                                            "frames":  4,
+                                            "loop":  true,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                        },
+                   "en_orcbrute_attack":  {
+                                              "file":  "en_orcbrute_attack.png",
+                                              "action":  "attack",
+                                              "frames":  4,
+                                              "loop":  false,
+                                              "cell":  {
+                                                           "w":  256,
+                                                           "h":  256
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.92
+                                                         },
+                                              "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                          },
+                   "en_orcbrute_skill":  {
+                                             "file":  "en_orcbrute_skill.png",
+                                             "action":  "skill",
+                                             "frames":  4,
+                                             "loop":  false,
+                                             "cell":  {
+                                                          "w":  256,
+                                                          "h":  256
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.92
+                                                        },
+                                             "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                         },
+                   "en_orcbrute_hurt":  {
+                                            "file":  "en_orcbrute_hurt.png",
+                                            "action":  "hurt",
+                                            "frames":  4,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                        },
+                   "en_orcbrute_death":  {
+                                             "file":  "en_orcbrute_death.png",
+                                             "action":  "death",
+                                             "frames":  4,
+                                             "loop":  false,
+                                             "cell":  {
+                                                          "w":  256,
+                                                          "h":  256
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.92
+                                                        },
+                                             "source":  "d9411fe4-cd55-4518-b2f3-80f05f64bf93"
+                                         },
+                   "en_necro_idle":  {
+                                         "file":  "en_necro_idle.png",
+                                         "action":  "idle",
+                                         "frames":  4,
+                                         "loop":  true,
+                                         "cell":  {
+                                                      "w":  256,
+                                                      "h":  256
+                                                  },
+                                         "anchor":  {
+                                                        "x":  0.5,
+                                                        "y":  0.92
+                                                    },
+                                         "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                     },
+                   "en_necro_walk":  {
+                                         "file":  "en_necro_walk.png",
+                                         "action":  "walk",
+                                         "frames":  4,
+                                         "loop":  true,
+                                         "cell":  {
+                                                      "w":  256,
+                                                      "h":  256
+                                                  },
+                                         "anchor":  {
+                                                        "x":  0.5,
+                                                        "y":  0.92
+                                                    },
+                                         "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                     },
+                   "en_necro_attack":  {
+                                           "file":  "en_necro_attack.png",
+                                           "action":  "attack",
+                                           "frames":  3,
+                                           "loop":  false,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                       },
+                   "en_necro_skill":  {
+                                          "file":  "en_necro_skill.png",
+                                          "action":  "skill",
+                                          "frames":  4,
+                                          "loop":  false,
+                                          "cell":  {
+                                                       "w":  256,
+                                                       "h":  256
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.92
+                                                     },
+                                          "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                      },
+                   "en_necro_hurt":  {
+                                         "file":  "en_necro_hurt.png",
+                                         "action":  "hurt",
+                                         "frames":  4,
+                                         "loop":  false,
+                                         "cell":  {
+                                                      "w":  256,
+                                                      "h":  256
+                                                  },
+                                         "anchor":  {
+                                                        "x":  0.5,
+                                                        "y":  0.92
+                                                    },
+                                         "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                     },
+                   "en_necro_death":  {
+                                          "file":  "en_necro_death.png",
+                                          "action":  "death",
+                                          "frames":  4,
+                                          "loop":  false,
+                                          "cell":  {
+                                                       "w":  256,
+                                                       "h":  256
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.92
+                                                     },
+                                          "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                      },
+                   "en_necro_proj":  {
+                                         "file":  "en_necro_proj.png",
+                                         "action":  "proj",
+                                         "frames":  1,
+                                         "loop":  true,
+                                         "cell":  {
+                                                      "w":  129,
+                                                      "h":  85
+                                                  },
+                                         "anchor":  {
+                                                        "x":  0.5,
+                                                        "y":  0.5
+                                                    },
+                                         "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                     },
+                   "en_warlock_idle":  {
+                                           "file":  "en_warlock_idle.png",
+                                           "action":  "idle",
+                                           "frames":  4,
+                                           "loop":  true,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                       },
+                   "en_warlock_walk":  {
+                                           "file":  "en_warlock_walk.png",
+                                           "action":  "walk",
+                                           "frames":  4,
+                                           "loop":  true,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                       },
+                   "en_warlock_attack":  {
+                                             "file":  "en_warlock_attack.png",
+                                             "action":  "attack",
+                                             "frames":  3,
+                                             "loop":  false,
+                                             "cell":  {
+                                                          "w":  256,
+                                                          "h":  256
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.92
+                                                        },
+                                             "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                         },
+                   "en_warlock_skill":  {
+                                            "file":  "en_warlock_skill.png",
+                                            "action":  "skill",
+                                            "frames":  4,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                        },
+                   "en_warlock_hurt":  {
+                                           "file":  "en_warlock_hurt.png",
+                                           "action":  "hurt",
+                                           "frames":  4,
+                                           "loop":  false,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                       },
+                   "en_warlock_death":  {
+                                            "file":  "en_warlock_death.png",
+                                            "action":  "death",
+                                            "frames":  4,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                        },
+                   "en_warlock_proj":  {
+                                           "file":  "en_warlock_proj.png",
+                                           "action":  "proj",
+                                           "frames":  1,
+                                           "loop":  true,
+                                           "cell":  {
+                                                        "w":  138,
+                                                        "h":  81
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.5
+                                                      },
+                                           "source":  "9a7144d4-72ff-445b-8f83-8c394f39ed2f"
+                                       },
+                   "en_bone_idle":  {
+                                        "file":  "en_bone_idle.png",
+                                        "action":  "idle",
+                                        "frames":  4,
+                                        "loop":  true,
+                                        "cell":  {
+                                                     "w":  256,
+                                                     "h":  256
+                                                 },
+                                        "anchor":  {
+                                                       "x":  0.5,
+                                                       "y":  0.92
+                                                   },
+                                        "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                    },
+                   "en_bone_walk":  {
+                                        "file":  "en_bone_walk.png",
+                                        "action":  "walk",
+                                        "frames":  4,
+                                        "loop":  true,
+                                        "cell":  {
+                                                     "w":  256,
+                                                     "h":  256
+                                                 },
+                                        "anchor":  {
+                                                       "x":  0.5,
+                                                       "y":  0.92
+                                                   },
+                                        "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                    },
+                   "en_bone_attack":  {
+                                          "file":  "en_bone_attack.png",
+                                          "action":  "attack",
+                                          "frames":  3,
+                                          "loop":  false,
+                                          "cell":  {
+                                                       "w":  256,
+                                                       "h":  256
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.92
+                                                     },
+                                          "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                      },
+                   "en_bone_skill":  {
+                                         "file":  "en_bone_skill.png",
+                                         "action":  "skill",
+                                         "frames":  4,
+                                         "loop":  false,
+                                         "cell":  {
+                                                      "w":  256,
+                                                      "h":  256
+                                                  },
+                                         "anchor":  {
+                                                        "x":  0.5,
+                                                        "y":  0.92
+                                                    },
+                                         "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                     },
+                   "en_bone_hurt":  {
+                                        "file":  "en_bone_hurt.png",
+                                        "action":  "hurt",
+                                        "frames":  3,
+                                        "loop":  false,
+                                        "cell":  {
+                                                     "w":  256,
+                                                     "h":  256
+                                                 },
+                                        "anchor":  {
+                                                       "x":  0.5,
+                                                       "y":  0.92
+                                                   },
+                                        "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                    },
+                   "en_bone_death":  {
+                                         "file":  "en_bone_death.png",
+                                         "action":  "death",
+                                         "frames":  4,
+                                         "loop":  false,
+                                         "cell":  {
+                                                      "w":  256,
+                                                      "h":  256
+                                                  },
+                                         "anchor":  {
+                                                        "x":  0.5,
+                                                        "y":  0.92
+                                                    },
+                                         "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                     },
+                   "en_bone_proj":  {
+                                        "file":  "en_bone_proj.png",
+                                        "action":  "proj",
+                                        "frames":  1,
+                                        "loop":  true,
+                                        "cell":  {
+                                                     "w":  83,
+                                                     "h":  32
+                                                 },
+                                        "anchor":  {
+                                                       "x":  0.5,
+                                                       "y":  0.5
+                                                   },
+                                        "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                    },
+                   "en_plague_idle":  {
+                                          "file":  "en_plague_idle.png",
+                                          "action":  "idle",
+                                          "frames":  4,
+                                          "loop":  true,
+                                          "cell":  {
+                                                       "w":  256,
+                                                       "h":  256
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.92
+                                                     },
+                                          "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                      },
+                   "en_plague_walk":  {
+                                          "file":  "en_plague_walk.png",
+                                          "action":  "walk",
+                                          "frames":  4,
+                                          "loop":  true,
+                                          "cell":  {
+                                                       "w":  256,
+                                                       "h":  256
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.92
+                                                     },
+                                          "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                      },
+                   "en_plague_attack":  {
+                                            "file":  "en_plague_attack.png",
+                                            "action":  "attack",
+                                            "frames":  3,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                        },
+                   "en_plague_skill":  {
+                                           "file":  "en_plague_skill.png",
+                                           "action":  "skill",
+                                           "frames":  4,
+                                           "loop":  false,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                       },
+                   "en_plague_hurt":  {
+                                          "file":  "en_plague_hurt.png",
+                                          "action":  "hurt",
+                                          "frames":  3,
+                                          "loop":  false,
+                                          "cell":  {
+                                                       "w":  256,
+                                                       "h":  256
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.92
+                                                     },
+                                          "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                      },
+                   "en_plague_death":  {
+                                           "file":  "en_plague_death.png",
+                                           "action":  "death",
+                                           "frames":  4,
+                                           "loop":  false,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                       },
+                   "en_plague_proj":  {
+                                          "file":  "en_plague_proj.png",
+                                          "action":  "proj",
+                                          "frames":  1,
+                                          "loop":  true,
+                                          "cell":  {
+                                                       "w":  96,
+                                                       "h":  39
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.5
+                                                     },
+                                          "source":  "d681d62a-17e3-4bda-af62-726820eaffb7"
+                                      },
+                   "en_stalker_idle":  {
+                                           "file":  "en_stalker_idle.png",
+                                           "action":  "idle",
+                                           "frames":  4,
+                                           "loop":  true,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                       },
+                   "en_stalker_walk":  {
+                                           "file":  "en_stalker_walk.png",
+                                           "action":  "walk",
+                                           "frames":  4,
+                                           "loop":  true,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                       },
+                   "en_stalker_attack":  {
+                                             "file":  "en_stalker_attack.png",
+                                             "action":  "attack",
+                                             "frames":  4,
+                                             "loop":  false,
+                                             "cell":  {
+                                                          "w":  256,
+                                                          "h":  256
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.92
+                                                        },
+                                             "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                         },
+                   "en_stalker_skill":  {
+                                            "file":  "en_stalker_skill.png",
+                                            "action":  "skill",
+                                            "frames":  4,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                        },
+                   "en_stalker_hurt":  {
+                                           "file":  "en_stalker_hurt.png",
+                                           "action":  "hurt",
+                                           "frames":  4,
+                                           "loop":  false,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                       },
+                   "en_stalker_death":  {
+                                            "file":  "en_stalker_death.png",
+                                            "action":  "death",
+                                            "frames":  4,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                        },
+                   "en_venom_idle":  {
+                                         "file":  "en_venom_idle.png",
+                                         "action":  "idle",
+                                         "frames":  4,
+                                         "loop":  true,
+                                         "cell":  {
+                                                      "w":  256,
+                                                      "h":  256
+                                                  },
+                                         "anchor":  {
+                                                        "x":  0.5,
+                                                        "y":  0.92
+                                                    },
+                                         "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                     },
+                   "en_venom_walk":  {
+                                         "file":  "en_venom_walk.png",
+                                         "action":  "walk",
+                                         "frames":  4,
+                                         "loop":  true,
+                                         "cell":  {
+                                                      "w":  256,
+                                                      "h":  256
+                                                  },
+                                         "anchor":  {
+                                                        "x":  0.5,
+                                                        "y":  0.92
+                                                    },
+                                         "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                     },
+                   "en_venom_attack":  {
+                                           "file":  "en_venom_attack.png",
+                                           "action":  "attack",
+                                           "frames":  4,
+                                           "loop":  false,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                       },
+                   "en_venom_skill":  {
+                                          "file":  "en_venom_skill.png",
+                                          "action":  "skill",
+                                          "frames":  4,
+                                          "loop":  false,
+                                          "cell":  {
+                                                       "w":  256,
+                                                       "h":  256
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.92
+                                                     },
+                                          "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                      },
+                   "en_venom_hurt":  {
+                                         "file":  "en_venom_hurt.png",
+                                         "action":  "hurt",
+                                         "frames":  4,
+                                         "loop":  false,
+                                         "cell":  {
+                                                      "w":  256,
+                                                      "h":  256
+                                                  },
+                                         "anchor":  {
+                                                        "x":  0.5,
+                                                        "y":  0.92
+                                                    },
+                                         "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                     },
+                   "en_venom_death":  {
+                                          "file":  "en_venom_death.png",
+                                          "action":  "death",
+                                          "frames":  4,
+                                          "loop":  false,
+                                          "cell":  {
+                                                       "w":  256,
+                                                       "h":  256
+                                                   },
+                                          "anchor":  {
+                                                         "x":  0.5,
+                                                         "y":  0.92
+                                                     },
+                                          "source":  "89b394ee-5f09-499a-bd33-3da8855aaab7"
+                                      },
+                   "en_corrupted_idle":  {
+                                             "file":  "en_corrupted_idle.png",
+                                             "action":  "idle",
+                                             "frames":  4,
+                                             "loop":  true,
+                                             "cell":  {
+                                                          "w":  256,
+                                                          "h":  256
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.92
+                                                        },
+                                             "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                         },
+                   "en_corrupted_walk":  {
+                                             "file":  "en_corrupted_walk.png",
+                                             "action":  "walk",
+                                             "frames":  4,
+                                             "loop":  true,
+                                             "cell":  {
+                                                          "w":  256,
+                                                          "h":  256
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.92
+                                                        },
+                                             "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                         },
+                   "en_corrupted_attack":  {
+                                               "file":  "en_corrupted_attack.png",
+                                               "action":  "attack",
+                                               "frames":  4,
+                                               "loop":  false,
+                                               "cell":  {
+                                                            "w":  256,
+                                                            "h":  256
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.92
+                                                          },
+                                               "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                           },
+                   "en_corrupted_skill":  {
+                                              "file":  "en_corrupted_skill.png",
+                                              "action":  "skill",
+                                              "frames":  4,
+                                              "loop":  false,
+                                              "cell":  {
+                                                           "w":  256,
+                                                           "h":  256
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.92
+                                                         },
+                                              "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                          },
+                   "en_corrupted_hurt":  {
+                                             "file":  "en_corrupted_hurt.png",
+                                             "action":  "hurt",
+                                             "frames":  4,
+                                             "loop":  false,
+                                             "cell":  {
+                                                          "w":  256,
+                                                          "h":  256
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.92
+                                                        },
+                                             "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                         },
+                   "en_corrupted_death":  {
+                                              "file":  "en_corrupted_death.png",
+                                              "action":  "death",
+                                              "frames":  4,
+                                              "loop":  false,
+                                              "cell":  {
+                                                           "w":  256,
+                                                           "h":  256
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.92
+                                                         },
+                                              "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                          },
+                   "en_templar_idle":  {
+                                           "file":  "en_templar_idle.png",
+                                           "action":  "idle",
+                                           "frames":  4,
+                                           "loop":  true,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                       },
+                   "en_templar_walk":  {
+                                           "file":  "en_templar_walk.png",
+                                           "action":  "walk",
+                                           "frames":  4,
+                                           "loop":  true,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                       },
+                   "en_templar_attack":  {
+                                             "file":  "en_templar_attack.png",
+                                             "action":  "attack",
+                                             "frames":  4,
+                                             "loop":  false,
+                                             "cell":  {
+                                                          "w":  256,
+                                                          "h":  256
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.92
+                                                        },
+                                             "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                         },
+                   "en_templar_skill":  {
+                                            "file":  "en_templar_skill.png",
+                                            "action":  "skill",
+                                            "frames":  4,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                        },
+                   "en_templar_hurt":  {
+                                           "file":  "en_templar_hurt.png",
+                                           "action":  "hurt",
+                                           "frames":  4,
+                                           "loop":  false,
+                                           "cell":  {
+                                                        "w":  256,
+                                                        "h":  256
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.92
+                                                      },
+                                           "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                       },
+                   "en_templar_death":  {
+                                            "file":  "en_templar_death.png",
+                                            "action":  "death",
+                                            "frames":  4,
+                                            "loop":  false,
+                                            "cell":  {
+                                                         "w":  256,
+                                                         "h":  256
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.92
+                                                       },
+                                            "source":  "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58"
+                                        }
+               },
+    "icons":  {
+                  "icon_guerreiro_espada1":  {
+                                                 "file":  "icon_guerreiro_espada1.png",
+                                                 "cell":  {
+                                                              "w":  128,
+                                                              "h":  128
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.5
+                                                            }
+                                             },
+                  "icon_guerreiro_espada2":  {
+                                                 "file":  "icon_guerreiro_espada2.png",
+                                                 "cell":  {
+                                                              "w":  128,
+                                                              "h":  128
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.5
+                                                            }
+                                             },
+                  "icon_guerreiro_espada3":  {
+                                                 "file":  "icon_guerreiro_espada3.png",
+                                                 "cell":  {
+                                                              "w":  128,
+                                                              "h":  128
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.5
+                                                            }
+                                             },
+                  "icon_guerreiro_machado1":  {
+                                                  "file":  "icon_guerreiro_machado1.png",
+                                                  "cell":  {
+                                                               "w":  128,
+                                                               "h":  128
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.5
+                                                             }
+                                              },
+                  "icon_guerreiro_machado2":  {
+                                                  "file":  "icon_guerreiro_machado2.png",
+                                                  "cell":  {
+                                                               "w":  128,
+                                                               "h":  128
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.5
+                                                             }
+                                              },
+                  "icon_guerreiro_machado3":  {
+                                                  "file":  "icon_guerreiro_machado3.png",
+                                                  "cell":  {
+                                                               "w":  128,
+                                                               "h":  128
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.5
+                                                             }
+                                              },
+                  "icon_guerreiro_escudo1":  {
+                                                 "file":  "icon_guerreiro_escudo1.png",
+                                                 "cell":  {
+                                                              "w":  128,
+                                                              "h":  128
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.5
+                                                            }
+                                             },
+                  "icon_guerreiro_escudo2":  {
+                                                 "file":  "icon_guerreiro_escudo2.png",
+                                                 "cell":  {
+                                                              "w":  128,
+                                                              "h":  128
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.5
+                                                            }
+                                             },
+                  "icon_guerreiro_escudo3":  {
+                                                 "file":  "icon_guerreiro_escudo3.png",
+                                                 "cell":  {
+                                                              "w":  128,
+                                                              "h":  128
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.5
+                                                            }
+                                             },
+                  "icon_guerreiro_armadura1":  {
+                                                   "file":  "icon_guerreiro_armadura1.png",
+                                                   "cell":  {
+                                                                "w":  128,
+                                                                "h":  128
+                                                            },
+                                                   "anchor":  {
+                                                                  "x":  0.5,
+                                                                  "y":  0.5
+                                                              }
+                                               },
+                  "icon_guerreiro_armadura2":  {
+                                                   "file":  "icon_guerreiro_armadura2.png",
+                                                   "cell":  {
+                                                                "w":  128,
+                                                                "h":  128
+                                                            },
+                                                   "anchor":  {
+                                                                  "x":  0.5,
+                                                                  "y":  0.5
+                                                              }
+                                               },
+                  "icon_guerreiro_armadura3":  {
+                                                   "file":  "icon_guerreiro_armadura3.png",
+                                                   "cell":  {
+                                                                "w":  128,
+                                                                "h":  128
+                                                            },
+                                                   "anchor":  {
+                                                                  "x":  0.5,
+                                                                  "y":  0.5
+                                                              }
+                                               },
+                  "icon_mago_cajado1":  {
+                                            "file":  "icon_mago_cajado1.png",
+                                            "cell":  {
+                                                         "w":  128,
+                                                         "h":  128
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.5
+                                                       }
+                                        },
+                  "icon_mago_cajado2":  {
+                                            "file":  "icon_mago_cajado2.png",
+                                            "cell":  {
+                                                         "w":  128,
+                                                         "h":  128
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.5
+                                                       }
+                                        },
+                  "icon_mago_cajado3":  {
+                                            "file":  "icon_mago_cajado3.png",
+                                            "cell":  {
+                                                         "w":  128,
+                                                         "h":  128
+                                                     },
+                                            "anchor":  {
+                                                           "x":  0.5,
+                                                           "y":  0.5
+                                                       }
+                                        },
+                  "icon_mago_adaga1":  {
+                                           "file":  "icon_mago_adaga1.png",
+                                           "cell":  {
+                                                        "w":  128,
+                                                        "h":  128
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.5
+                                                      }
+                                       },
+                  "icon_mago_adaga2":  {
+                                           "file":  "icon_mago_adaga2.png",
+                                           "cell":  {
+                                                        "w":  128,
+                                                        "h":  128
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.5
+                                                      }
+                                       },
+                  "icon_mago_adaga3":  {
+                                           "file":  "icon_mago_adaga3.png",
+                                           "cell":  {
+                                                        "w":  128,
+                                                        "h":  128
+                                                    },
+                                           "anchor":  {
+                                                          "x":  0.5,
+                                                          "y":  0.5
+                                                      }
+                                       },
+                  "icon_mago_armadura1":  {
+                                              "file":  "icon_mago_armadura1.png",
+                                              "cell":  {
+                                                           "w":  128,
+                                                           "h":  128
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.5
+                                                         }
+                                          },
+                  "icon_mago_armadura2":  {
+                                              "file":  "icon_mago_armadura2.png",
+                                              "cell":  {
+                                                           "w":  128,
+                                                           "h":  128
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.5
+                                                         }
+                                          },
+                  "icon_mago_armadura3":  {
+                                              "file":  "icon_mago_armadura3.png",
+                                              "cell":  {
+                                                           "w":  128,
+                                                           "h":  128
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.5
+                                                         }
+                                          },
+                  "icon_batedor_arco1":  {
+                                             "file":  "icon_batedor_arco1.png",
+                                             "cell":  {
+                                                          "w":  128,
+                                                          "h":  128
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.5
+                                                        }
+                                         },
+                  "icon_batedor_arco2":  {
+                                             "file":  "icon_batedor_arco2.png",
+                                             "cell":  {
+                                                          "w":  128,
+                                                          "h":  128
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.5
+                                                        }
+                                         },
+                  "icon_batedor_arco3":  {
+                                             "file":  "icon_batedor_arco3.png",
+                                             "cell":  {
+                                                          "w":  128,
+                                                          "h":  128
+                                                      },
+                                             "anchor":  {
+                                                            "x":  0.5,
+                                                            "y":  0.5
+                                                        }
+                                         },
+                  "icon_batedor_adaga1":  {
+                                              "file":  "icon_batedor_adaga1.png",
+                                              "cell":  {
+                                                           "w":  128,
+                                                           "h":  128
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.5
+                                                         }
+                                          },
+                  "icon_batedor_adaga2":  {
+                                              "file":  "icon_batedor_adaga2.png",
+                                              "cell":  {
+                                                           "w":  128,
+                                                           "h":  128
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.5
+                                                         }
+                                          },
+                  "icon_batedor_adaga3":  {
+                                              "file":  "icon_batedor_adaga3.png",
+                                              "cell":  {
+                                                           "w":  128,
+                                                           "h":  128
+                                                       },
+                                              "anchor":  {
+                                                             "x":  0.5,
+                                                             "y":  0.5
+                                                         }
+                                          },
+                  "icon_batedor_armadura1":  {
+                                                 "file":  "icon_batedor_armadura1.png",
+                                                 "cell":  {
+                                                              "w":  128,
+                                                              "h":  128
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.5
+                                                            }
+                                             },
+                  "icon_batedor_armadura2":  {
+                                                 "file":  "icon_batedor_armadura2.png",
+                                                 "cell":  {
+                                                              "w":  128,
+                                                              "h":  128
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.5
+                                                            }
+                                             },
+                  "icon_batedor_armadura3":  {
+                                                 "file":  "icon_batedor_armadura3.png",
+                                                 "cell":  {
+                                                              "w":  128,
+                                                              "h":  128
+                                                          },
+                                                 "anchor":  {
+                                                                "x":  0.5,
+                                                                "y":  0.5
+                                                            }
+                                             },
+                  "icon_assassino_adaga1":  {
+                                                "file":  "icon_assassino_adaga1.png",
+                                                "cell":  {
+                                                             "w":  128,
+                                                             "h":  128
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.5
+                                                           }
+                                            },
+                  "icon_assassino_adaga2":  {
+                                                "file":  "icon_assassino_adaga2.png",
+                                                "cell":  {
+                                                             "w":  128,
+                                                             "h":  128
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.5
+                                                           }
+                                            },
+                  "icon_assassino_adaga3":  {
+                                                "file":  "icon_assassino_adaga3.png",
+                                                "cell":  {
+                                                             "w":  128,
+                                                             "h":  128
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.5
+                                                           }
+                                            },
+                  "icon_assassino_arco1":  {
+                                               "file":  "icon_assassino_arco1.png",
+                                               "cell":  {
+                                                            "w":  128,
+                                                            "h":  128
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.5
+                                                          }
+                                           },
+                  "icon_assassino_arco2":  {
+                                               "file":  "icon_assassino_arco2.png",
+                                               "cell":  {
+                                                            "w":  128,
+                                                            "h":  128
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.5
+                                                          }
+                                           },
+                  "icon_assassino_arco3":  {
+                                               "file":  "icon_assassino_arco3.png",
+                                               "cell":  {
+                                                            "w":  128,
+                                                            "h":  128
+                                                        },
+                                               "anchor":  {
+                                                              "x":  0.5,
+                                                              "y":  0.5
+                                                          }
+                                           },
+                  "icon_assassino_armadura1":  {
+                                                   "file":  "icon_assassino_armadura1.png",
+                                                   "cell":  {
+                                                                "w":  128,
+                                                                "h":  128
+                                                            },
+                                                   "anchor":  {
+                                                                  "x":  0.5,
+                                                                  "y":  0.5
+                                                              }
+                                               },
+                  "icon_assassino_armadura2":  {
+                                                   "file":  "icon_assassino_armadura2.png",
+                                                   "cell":  {
+                                                                "w":  128,
+                                                                "h":  128
+                                                            },
+                                                   "anchor":  {
+                                                                  "x":  0.5,
+                                                                  "y":  0.5
+                                                              }
+                                               },
+                  "icon_assassino_armadura3":  {
+                                                   "file":  "icon_assassino_armadura3.png",
+                                                   "cell":  {
+                                                                "w":  128,
+                                                                "h":  128
+                                                            },
+                                                   "anchor":  {
+                                                                  "x":  0.5,
+                                                                  "y":  0.5
+                                                              }
+                                               },
+                  "icon_paladino_espada1":  {
+                                                "file":  "icon_paladino_espada1.png",
+                                                "cell":  {
+                                                             "w":  128,
+                                                             "h":  128
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.5
+                                                           }
+                                            },
+                  "icon_paladino_espada2":  {
+                                                "file":  "icon_paladino_espada2.png",
+                                                "cell":  {
+                                                             "w":  128,
+                                                             "h":  128
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.5
+                                                           }
+                                            },
+                  "icon_paladino_espada3":  {
+                                                "file":  "icon_paladino_espada3.png",
+                                                "cell":  {
+                                                             "w":  128,
+                                                             "h":  128
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.5
+                                                           }
+                                            },
+                  "icon_paladino_escudo1":  {
+                                                "file":  "icon_paladino_escudo1.png",
+                                                "cell":  {
+                                                             "w":  128,
+                                                             "h":  128
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.5
+                                                           }
+                                            },
+                  "icon_paladino_escudo2":  {
+                                                "file":  "icon_paladino_escudo2.png",
+                                                "cell":  {
+                                                             "w":  128,
+                                                             "h":  128
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.5
+                                                           }
+                                            },
+                  "icon_paladino_escudo3":  {
+                                                "file":  "icon_paladino_escudo3.png",
+                                                "cell":  {
+                                                             "w":  128,
+                                                             "h":  128
+                                                         },
+                                                "anchor":  {
+                                                               "x":  0.5,
+                                                               "y":  0.5
+                                                           }
+                                            },
+                  "icon_paladino_armadura1":  {
+                                                  "file":  "icon_paladino_armadura1.png",
+                                                  "cell":  {
+                                                               "w":  128,
+                                                               "h":  128
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.5
+                                                             }
+                                              },
+                  "icon_paladino_armadura2":  {
+                                                  "file":  "icon_paladino_armadura2.png",
+                                                  "cell":  {
+                                                               "w":  128,
+                                                               "h":  128
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.5
+                                                             }
+                                              },
+                  "icon_paladino_armadura3":  {
+                                                  "file":  "icon_paladino_armadura3.png",
+                                                  "cell":  {
+                                                               "w":  128,
+                                                               "h":  128
+                                                           },
+                                                  "anchor":  {
+                                                                 "x":  0.5,
+                                                                 "y":  0.5
+                                                             }
+                                              }
+              },
+    "textures":  {
+                     "tex_01":  {
+                                    "file":  "tex_01.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "base"
+                                },
+                     "tex_02":  {
+                                    "file":  "tex_02.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "base"
+                                },
+                     "tex_03":  {
+                                    "file":  "tex_03.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "base"
+                                },
+                     "tex_04":  {
+                                    "file":  "tex_04.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "base"
+                                },
+                     "tex_05":  {
+                                    "file":  "tex_05.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "base"
+                                },
+                     "tex_06":  {
+                                    "file":  "tex_06.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "base"
+                                },
+                     "tex_07":  {
+                                    "file":  "tex_07.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "grelha"
+                                },
+                     "tex_08":  {
+                                    "file":  "tex_08.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "poca_venenosa"
+                                },
+                     "tex_09":  {
+                                    "file":  "tex_09.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "portal_provacao"
+                                },
+                     "tex_10":  {
+                                    "file":  "tex_10.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "base"
+                                },
+                     "tex_11":  {
+                                    "file":  "tex_11.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "base"
+                                },
+                     "tex_12":  {
+                                    "file":  "tex_12.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "variante_parede"
+                                },
+                     "tex_13":  {
+                                    "file":  "tex_13.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "base"
+                                },
+                     "tex_14":  {
+                                    "file":  "tex_14.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "variante_chao"
+                                },
+                     "tex_15":  {
+                                    "file":  "tex_15.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "base"
+                                },
+                     "tex_16":  {
+                                    "file":  "tex_16.jpg",
+                                    "size":  {
+                                                 "w":  256,
+                                                 "h":  256
+                                             },
+                                    "variants":  {
+                                                     "rows":  3,
+                                                     "cols":  3
+                                                 },
+                                    "role":  "base"
+                                }
+                 }
+}

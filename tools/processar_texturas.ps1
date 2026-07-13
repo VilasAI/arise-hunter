@@ -1,13 +1,15 @@
 ﻿# Processa as pranchas do dono (Imagens\Chat) em assets do jogo:
-#   - heróis e inimigos -> sheets horizontais nome_acao.png (4 frames, 256px, base a 92%)
+#   - heróis e inimigos -> sheets horizontais nome_acao.png (frames reais, células 256px)
 #   - armas/armaduras   -> ícones icon_*.png (128px, centrados)
 #   - texturas          -> tex_NN.jpg (256px, opacas)
-# Fundo: os 2 tons do axadrezado são amostrados por prancha; remove-se por
-# flood-fill do perímetro (+ passe por cor apertado para buracos internos).
-# Grelha dos sprites: bandas detetadas por projeção da máscara de conteúdo.
+# Fundo: os tons do axadrezado são amostrados por prancha e só se remove o
+# componente ligado às margens de cada célula. Píxeis interiores nunca são
+# apagados por semelhança de cor.
+# Grelha dos sprites: tools/mapa_animacoes.json é a fonte única de verdade.
 param(
   [string]$Origem  = "$env:USERPROFILE\Desktop\Claude.ai\Imagens\Chat",
-  [string]$Destino = "$PSScriptRoot\..\assets\2d"
+  [string]$Destino = "$PSScriptRoot\..\assets\2d",
+  [string]$Mapa    = "$PSScriptRoot\mapa_animacoes.json"
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
@@ -175,38 +177,213 @@ public class Prancha {
     }
   }
 
-  // recorta célula com fundo removido: flood do perímetro (tol larga) + cor global (tol curta)
+  // Recorta uma célula e remove exclusivamente o fundo ligado ao perímetro.
+  // Regiões interiores parecidas com o fundo ficam fechadas/opalinas: nunca se
+  // apagam detalhes de armadura, sombras ou contornos por uma passagem global.
   public Bitmap Celula(int cx, int cy, int cw, int ch){
     cw = Math.Min(cw, W-cx); ch = Math.Min(ch, H-cy);
     int n = cw*ch; int[] cel = new int[n];
     for(int y=0;y<ch;y++) for(int x=0;x<cw;x++) cel[y*cw+x] = px[(cy+y)*W + cx+x];
-    bool[] fundo = new bool[n];
-    var fila = new Queue<int>();
+    bool[] candidato = new bool[n];
     Func<int,bool> ehF = i => {
       int c = cel[i]; int[] v = { (c>>16)&255, (c>>8)&255, c&255 };
-      foreach(var t in tons) if(Dist2(t,v) <= 24*24) return true;
+      // Tolerância curta: o checker é quase exato e uma tolerância larga cria
+      // caminhos através de sombras/contornos escuros do próprio sprite.
+      foreach(var t in tons) if(Dist2(t,v) <= 12*12) return true;
       return false;
     };
-    Action<int> semear = i => { if(!fundo[i] && ehF(i)){ fundo[i]=true; fila.Enqueue(i); } };
-    for(int x=0;x<cw;x++){ semear(x); semear((ch-1)*cw+x); }
-    for(int y=0;y<ch;y++){ semear(y*cw); semear(y*cw+cw-1); }
+    for(int i=0;i<n;i++) candidato[i]=ehF(i);
+    // Erosão do candidato: o checker forma áreas sólidas; os píxeis escuros
+    // isolados dentro da arte deixam de constituir corredores para o flood.
+    bool[] nucleo = new bool[n];
+    for(int y=1;y<ch-1;y++) for(int x=1;x<cw-1;x++){
+      int i=y*cw+x; if(!candidato[i]) continue; bool ok=true;
+      for(int dy=-1;dy<=1&&ok;dy++) for(int dx=-1;dx<=1;dx++)
+        if(!candidato[i+dy*cw+dx]){ok=false;break;}
+      nucleo[i]=ok;
+    }
+    bool[] fundo = new bool[n]; var fila = new Queue<int>();
+    Action<int> semear = i => { if(!fundo[i] && nucleo[i]){ fundo[i]=true; fila.Enqueue(i); } };
+    for(int x=1;x<cw-1;x++){ semear(cw+x); semear((ch-2)*cw+x); }
+    for(int y=1;y<ch-1;y++){ semear(y*cw+1); semear(y*cw+cw-2); }
     while(fila.Count>0){
       int i = fila.Dequeue(); int ix=i%cw;
       if(ix>0) semear(i-1); if(ix<cw-1) semear(i+1);
       if(i>=cw) semear(i-cw); if(i<n-cw) semear(i+cw);
     }
-    for(int i=0;i<n;i++){                    // buracos internos: só cor quase exata
-      if(fundo[i]) cel[i]=0;
-      else {
-        int c = cel[i]; int[] v = { (c>>16)&255, (c>>8)&255, c&255 };
-        foreach(var t in tons) if(Dist2(t,v) <= 12*12){ cel[i]=0; break; }
+    // Repõe dois píxeis do contorno que a erosão retirou, mas sem voltar a
+    // abrir caminhos arbitrariamente longos pelo interior do sprite.
+    for(int passe=0;passe<2;passe++){
+      bool[] add=new bool[n];
+      for(int y=0;y<ch;y++) for(int x=0;x<cw;x++){
+        int i=y*cw+x;if(fundo[i]||!candidato[i])continue;
+        if((x>0&&fundo[i-1])||(x<cw-1&&fundo[i+1])||(y>0&&fundo[i-cw])||(y<ch-1&&fundo[i+cw]))add[i]=true;
       }
+      for(int i=0;i<n;i++)if(add[i])fundo[i]=true;
     }
+    for(int i=0;i<n;i++) if(fundo[i]) cel[i]=0;
     Bitmap outb = new Bitmap(cw, ch, PixelFormat.Format32bppArgb);
     var d = outb.LockBits(new Rectangle(0,0,cw,ch), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
     System.Runtime.InteropServices.Marshal.Copy(cel, 0, d.Scan0, n);
     outb.UnlockBits(d);
     return outb;
+  }
+
+  // Os ícones têm molduras que isolam ilhas do checker. Depois do flood de
+  // margem, limpa apenas nesses recortes os tons exatos que ficaram fechados.
+  public Bitmap CelulaIcone(int cx,int cy,int cw,int ch){
+    Bitmap b=Celula(cx,cy,cw,ch); int n=b.Width*b.Height; int[] p=new int[n];
+    var d=b.LockBits(new Rectangle(0,0,b.Width,b.Height),ImageLockMode.ReadWrite,PixelFormat.Format32bppArgb);
+    System.Runtime.InteropServices.Marshal.Copy(d.Scan0,p,0,n);
+    for(int i=0;i<n;i++){
+      if(((p[i]>>24)&255)==0)continue;
+      int c=p[i];int[]v={(c>>16)&255,(c>>8)&255,c&255};
+      foreach(var t in tons)if(Dist2(t,v)<=24*24){p[i]=0;break;}
+    }
+    // As molduras douradas podem ficar isoladas do perímetro pelo próprio
+    // item. Remove componentes horizontais longos e finos; esta regra não
+    // toca lâminas diagonais nem o corpo compacto das armaduras.
+    bool[] visto=new bool[n]; int[] fila=new int[n]; var comp=new List<int>();
+    for(int ini=0;ini<n;ini++){
+      if(visto[ini]||((p[ini]>>24)&255)<=24)continue;
+      int qi=0,qf=0;fila[qf++]=ini;visto[ini]=true;comp.Clear();
+      int x0=b.Width,y0=b.Height,x1=-1,y1=-1;
+      while(qi<qf){
+        int i=fila[qi++],x=i%b.Width,y=i/b.Width;comp.Add(i);
+        if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+        int j;
+        if(x>0){j=i-1;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+        if(x<b.Width-1){j=i+1;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+        if(y>0){j=i-b.Width;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+        if(y<b.Height-1){j=i+b.Width;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+      }
+      if((y1-y0+1)<=8 && (x1-x0+1)>b.Width*25/100)
+        foreach(int i in comp)p[i]=0;
+    }
+    System.Runtime.InteropServices.Marshal.Copy(p,0,d.Scan0,n);b.UnlockBits(d);return b;
+  }
+
+  // Nas armaduras, o friso superior da carta pode ficar desligado do corpo.
+  // Remove apenas componentes confinados ao topo que chegam às margens ou
+  // são largos; capacetes/plumas centrais continuam ligados ao corpo útil.
+  public void LimparMolduraTopo(Bitmap b){
+    int w=b.Width,h=b.Height,n=w*h;int[]p=new int[n];
+    var d=b.LockBits(new Rectangle(0,0,w,h),ImageLockMode.ReadWrite,PixelFormat.Format32bppArgb);
+    System.Runtime.InteropServices.Marshal.Copy(d.Scan0,p,0,n);
+    bool[]visto=new bool[n];int[]fila=new int[n];var comp=new List<int>();
+    for(int ini=0;ini<n;ini++){
+      if(visto[ini]||((p[ini]>>24)&255)<=24)continue;
+      int qi=0,qf=0,x0=w,y0=h,x1=-1,y1=-1;fila[qf++]=ini;visto[ini]=true;comp.Clear();
+      while(qi<qf){
+        int i=fila[qi++],x=i%w,y=i/w,j;comp.Add(i);
+        if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+        if(x>0){j=i-1;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+        if(x<w-1){j=i+1;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+        if(y>0){j=i-w;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+        if(y<h-1){j=i+w;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+      }
+      int bw=x1-x0+1;
+      if(y1<h*22/100 && (x0<w*18/100 || x1>w*82/100 || bw>w*20/100))
+        foreach(int i in comp)p[i]=0;
+    }
+    System.Runtime.InteropServices.Marshal.Copy(p,0,d.Scan0,n);b.UnlockBits(d);
+  }
+
+  // Há pranchas em que o corpo fecha por completo pequenas ilhas do checker.
+  // Limpa o checker escuro fechado pelo corpo. Píxeis de arte (cor, luz e
+  // contorno) criam uma zona protegida de cinco píxeis; só os neutros escuros
+  // fora dessa vizinhança são apagados. A regra é usada apenas no Guerreiro.
+  public void LimparIlhasFundo(Bitmap b,int minPixels){
+    int w=b.Width,h=b.Height,n=w*h;int[]p=new int[n];
+    var d=b.LockBits(new Rectangle(0,0,w,h),ImageLockMode.ReadWrite,PixelFormat.Format32bppArgb);
+    System.Runtime.InteropServices.Marshal.Copy(d.Scan0,p,0,n);
+    bool[] candidato=new bool[n],protegido=new bool[n];
+    for(int i=0;i<n;i++){
+      if(((p[i]>>24)&255)<=24)continue;
+      int c=p[i],r=(c>>16)&255,g=(c>>8)&255,bl=c&255;
+      int hi=Math.Max(r,Math.Max(g,bl)),lo=Math.Min(r,Math.Min(g,bl));
+      candidato[i]=hi<=52 && hi-lo<=16;
+      protegido[i]=!candidato[i];
+    }
+    for(int passe=0;passe<5;passe++){
+      bool[] add=new bool[n];
+      for(int i=0;i<n;i++){
+        if(!candidato[i]||protegido[i])continue;int x=i%w;
+        if((x>0&&protegido[i-1])||(x<w-1&&protegido[i+1])||
+           (i>=w&&protegido[i-w])||(i<n-w&&protegido[i+w]))add[i]=true;
+      }
+      for(int i=0;i<n;i++)if(add[i])protegido[i]=true;
+    }
+    for(int i=0;i<n;i++)if(candidato[i]&&!protegido[i])p[i]=0;
+    System.Runtime.InteropServices.Marshal.Copy(p,0,d.Scan0,n);b.UnlockBits(d);
+  }
+
+  // Segmenta uma linha inteira numa grelha física de quatro colunas. Os
+  // componentes opacos são atribuídos ao centro de frame mais próximo antes
+  // de serem copiados para células iguais; assim VFX largos não são cortados
+  // e fragmentos do frame vizinho nunca entram por uma fronteira arbitrária.
+  public Bitmap[] CelulasLinha(int cx, int cy, int cw, int ch, int frames, int outW, double limiarDivisao){
+    using(Bitmap linha = Celula(cx,cy,cw,ch)){
+      int n=cw*ch; int[] p=new int[n];
+      var d=linha.LockBits(new Rectangle(0,0,cw,ch), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+      System.Runtime.InteropServices.Marshal.Copy(d.Scan0,p,0,n); linha.UnlockBits(d);
+      bool[] visto=new bool[n]; int workW=outW*2; int[][] saida=new int[frames][];
+      for(int f=0;f<frames;f++) saida[f]=new int[workW*ch];
+      int[] q=new int[n]; var comp=new List<int>();
+      for(int ini=0;ini<n;ini++){
+        if(visto[ini] || ((p[ini]>>24)&255)<=24) continue;
+        int qi=0,qf=0; q[qf++]=ini; visto[ini]=true; comp.Clear();
+        int x0=cw,y0=ch,x1=-1,y1=-1;
+        while(qi<qf){
+          int i=q[qi++], x=i%cw, y=i/cw; comp.Add(i);
+          if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+          int j;
+          if(x>0){j=i-1;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;q[qf++]=j;}}
+          if(x<cw-1){j=i+1;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;q[qf++]=j;}}
+          if(y>0){j=i-cw;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;q[qf++]=j;}}
+          if(y<ch-1){j=i+cw;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;q[qf++]=j;}}
+        }
+        int bw=x1-x0+1,bh=y1-y0+1;
+        // Resíduos de uma linha adjacente aparecem como componentes pequenos
+        // colados ao topo/fundo do recorte; não os transfere para o frame.
+        if((y0<=1 || y1>=ch-2) && (bh<=20 || comp.Count<40)) continue;
+        int[] histX=new int[cw]; foreach(int i in comp) histX[i%cw]++;
+        int metade=(comp.Count+1)/2, acum=0, medianaX=x0;
+        for(int x=x0;x<=x1;x++){acum+=histX[x];if(acum>=metade){medianaX=x;break;}}
+        double centro=medianaX;
+        // Se duas poses da prancha se tocam através de um VFX muito largo,
+        // divide esse único componente pela coluna lógica. Componentes normais
+        // (incluindo um sprite largo) continuam inteiros.
+        bool atravessaColunas = bw > (cw/4.0)*limiarDivisao;
+        foreach(int i in comp){
+          int x=i%cw,y=i/cw,alvo=0; double melhor=Double.MaxValue;
+          double refX = atravessaColunas ? x : centro;
+          for(int f=0;f<frames;f++){
+            double cf=(f+0.5)*cw/4.0, dist=Math.Abs(refX-cf);
+            if(dist<melhor){melhor=dist;alvo=f;}
+          }
+          double centroAlvo=(alvo+0.5)*cw/4.0;
+          // Evita o arredondamento bancário de .5, que colapsaria pares de
+          // colunas em centros de célula fracionários.
+          int dx=(int)Math.Floor(x-centroAlvo+workW/2.0+0.5);
+          if(dx>=0 && dx<workW) saida[alvo][y*workW+dx]=p[i];
+        }
+      }
+      Bitmap[] res=new Bitmap[frames];
+      for(int f=0;f<frames;f++){
+        int minX=workW,maxX=-1;
+        for(int y=0;y<ch;y++)for(int x=0;x<workW;x++)if(((saida[f][y*workW+x]>>24)&255)>24){if(x<minX)minX=x;if(x>maxX)maxX=x;}
+        int centroConteudo=maxX>=minX?(minX+maxX)/2:workW/2;
+        int desloca=outW/2-centroConteudo; int[] final=new int[outW*ch];
+        for(int y=0;y<ch;y++)for(int x=0;x<workW;x++){
+          int dx=x+desloca;if(dx>=0&&dx<outW)final[y*outW+dx]=saida[f][y*workW+x];
+        }
+        res[f]=new Bitmap(outW,ch,PixelFormat.Format32bppArgb);
+        var od=res[f].LockBits(new Rectangle(0,0,outW,ch),ImageLockMode.WriteOnly,PixelFormat.Format32bppArgb);
+        System.Runtime.InteropServices.Marshal.Copy(final,0,od.Scan0,final.Length);res[f].UnlockBits(od);
+      }
+      return res;
+    }
   }
 
   // caixa de conteúdo "sólido" da célula (abertura 2px: riscos/molduras finas não contam)
@@ -232,7 +409,17 @@ public class Prancha {
       int x=i%w, y=i/w;
       if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y;
     }
-    if(x1<0) return new int[]{0,0,0,0,0};
+    if(x1<0){
+      // VFX/projectéis muito finos podem não sobreviver à abertura 5x5; para
+      // validação/baseline usa-se então a caixa alpha sem alterar o recorte.
+      x0=w; y0=h; x1=-1; y1=-1; cont=0;
+      for(int i=0;i<n;i++){
+        if(!m[i]) continue; cont++; int x=i%w,y=i/w;
+        if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+      }
+      if(x1<0) return new int[]{0,0,0,0,0};
+      return new int[]{x0,y0,x1-x0+1,y1-y0+1,cont};
+    }
     x0=Math.Max(0,x0-3); y0=Math.Max(0,y0-3); x1=Math.Min(w-1,x1+3); y1=Math.Min(h-1,y1+3);
     return new int[]{x0,y0,x1-x0+1,y1-y0+1,cont};   // [4] = píxeis sólidos
   }
@@ -263,6 +450,72 @@ public class Prancha {
     }
     return sh;
   }
+
+  // Caixa do maior componente ligado (alpha>24). Num frame só-projétil pode
+  // sobrar um fragmento da mão/arma do lançador; o projétil é o componente
+  // dominante e o recorte por esta caixa deixa o resto de fora.
+  public static int[] MaiorComponenteCaixa(Bitmap bmp){
+    int w=bmp.Width, h=bmp.Height, n=w*h; int[] p=new int[n];
+    var d=bmp.LockBits(new Rectangle(0,0,w,h), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+    System.Runtime.InteropServices.Marshal.Copy(d.Scan0,p,0,n); bmp.UnlockBits(d);
+    bool[] visto=new bool[n]; int[] fila=new int[n];
+    int bx0=0,by0=0,bx1=-1,by1=-1,melhor=0;
+    for(int ini=0;ini<n;ini++){
+      if(visto[ini] || ((p[ini]>>24)&255)<=24) continue;
+      int qi=0,qf=0,x0=w,y0=h,x1=-1,y1=-1,cont=0;
+      fila[qf++]=ini; visto[ini]=true;
+      while(qi<qf){
+        int i=fila[qi++], x=i%w, y=i/w; cont++;
+        if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+        int j;
+        if(x>0){j=i-1;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+        if(x<w-1){j=i+1;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+        if(y>0){j=i-w;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+        if(y<h-1){j=i+w;if(!visto[j]&&((p[j]>>24)&255)>24){visto[j]=true;fila[qf++]=j;}}
+      }
+      if(cont>melhor){ melhor=cont; bx0=x0; by0=y0; bx1=x1; by1=y1; }
+    }
+    if(bx1<0) return new int[]{0,0,0,0,0};
+    bx0=Math.Max(0,bx0-2); by0=Math.Max(0,by0-2); bx1=Math.Min(w-1,bx1+2); by1=Math.Min(h-1,by1+2);
+    return new int[]{bx0,by0,bx1-bx0+1,by1-by0+1,melhor};
+  }
+
+  // Sheet de recortes justos (projéteis): cada blob é copiado pela sua caixa
+  // sólida e centrado numa célula comum; a âncora passa a ser o centro.
+  public static Bitmap SheetRecortes(Bitmap[] frames, int[][] caixas, int cellW, int cellH, double esc){
+    Bitmap sh = new Bitmap(cellW*frames.Length, cellH, PixelFormat.Format32bppArgb);
+    using(Graphics g = Graphics.FromImage(sh)){
+      g.InterpolationMode = InterpolationMode.NearestNeighbor;
+      g.PixelOffsetMode = PixelOffsetMode.Half;
+      for(int f=0; f<frames.Length; f++){
+        int[] cx = caixas[f]; if(cx[2]==0) continue;
+        int dw = (int)Math.Round(cx[2]*esc), dh = (int)Math.Round(cx[3]*esc);
+        g.DrawImage(frames[f], new Rectangle(f*cellW+(cellW-dw)/2, (cellH-dh)/2, dw, dh),
+                    new Rectangle(cx[0],cx[1],cx[2],cx[3]), GraphicsUnit.Pixel);
+      }
+    }
+    return sh;
+  }
+
+  // Células de origem completas, uma escala comum e padding transparente.
+  // O baseline é calculado por ação fora daqui; nunca há trim nem zoom por frame.
+  public static Bitmap SheetFixa(Bitmap[] frames, int S, double esc, double[] basesFonte, double ancoraY){
+    Bitmap sh = new Bitmap(S*frames.Length, S, PixelFormat.Format32bppArgb);
+    using(Graphics g = Graphics.FromImage(sh)){
+      g.InterpolationMode = InterpolationMode.NearestNeighbor;
+      g.PixelOffsetMode = PixelOffsetMode.Half;
+      for(int f=0; f<frames.Length; f++){
+        Bitmap fr = frames[f];
+        int dw = (int)Math.Round(fr.Width*esc), dh = (int)Math.Round(fr.Height*esc);
+        int dx = f*S + (S-dw)/2;
+        double baseFonte = basesFonte[Math.Min(f,basesFonte.Length-1)];
+        int dy = (int)Math.Round(S*ancoraY - baseFonte*esc);
+        g.DrawImage(fr, new Rectangle(dx,dy,dw,dh),
+                    new Rectangle(0,0,fr.Width,fr.Height), GraphicsUnit.Pixel);
+      }
+    }
+    return sh;
+  }
 }
 '@
 
@@ -270,98 +523,213 @@ if(-not (Test-Path $Destino)){ New-Item -ItemType Directory -Force $Destino | Ou
 
 $P = @{
   texturas  = 'dfe6ad9a-e833-4d2c-b6f0-085e98b8ae51'
-  guerreiro = '76c5a8c9-3713-46c4-9181-0ea96c77d232'
-  mago      = '91a16169-776d-4776-9325-c9f13e5e1991'
-  batedor   = '5cb5e878-4928-4cce-aacf-3c73cb6122d7'
-  assassino = '43a009d2-e4cf-4b49-acb9-d25d1d5ffa20'
-  paladino  = '40b8f1be-3378-4690-a57c-a1a34721561a'
   eq_paladino  = '50e6692c-602c-4fea-af99-11a7353d547f'
   eq_mago      = '898b8ef0-49d0-4e16-bc49-649a40ef5648'
   eq_batedor   = '139e6d9f-4b7c-485a-b19e-1ed97c945834'
   eq_assassino = '66f14524-8db1-42c1-9f56-49a695a06898'
   eq_guerreiro = 'e8a5543d-246f-4a42-a5b7-ffea7083750d'
-  en_goblin    = 'd9411fe4-cd55-4518-b2f3-80f05f64bf93'
-  en_caster    = '9a7144d4-72ff-445b-8f83-8c394f39ed2f'
-  en_hunter    = 'd681d62a-17e3-4bda-af62-726820eaffb7'
-  en_stalker   = '89b394ee-5f09-499a-bd33-3da8855aaab7'
-  en_knight    = 'fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58'
 }
-$XMIN = 108   # à esquerda disto vivem os rótulos IDLE/WALK/…
-# frames de ataque que a heurística de massa não apanha: herdam o anterior à força
-$HERDAR = @{ 'en_plague' = @(2,3); 'en_warlock' = @(3) }
 
-# gera os 5 sheets (idle/walk/attack/hurt/death) das 2 skins de uma prancha
-# $inset: pranchas com molduras de célula (batedor) recortam o interior
-function Processar-Personagem([string]$id, [string[]]$nomes, [int]$inset = 0){
-  $pr = New-Object Prancha (Join-Path $Origem "$($P[$id]).png"), ($inset -gt 0)
-  $bandas = $pr.Bandas($XMIN, 36)
-  $nB = $bandas.Length/2
-  if($nB -lt 6){ Write-Warning "${id}: só $nB bandas — a saltar"; return }
-  # as 6 últimas bandas são as linhas de sprites (headers ficam acima)
-  $ini = ($nB-6)*2
-  $acoes = @('idle','walk','attack',$null,'hurt','death')   # linha 3 = special (fora)
-  for($lin=0; $lin -lt 6; $lin++){
-    if(-not $acoes[$lin]){ continue }
-    $y0 = $bandas[$ini + $lin*2]; $y1 = $bandas[$ini + $lin*2 + 1]
-    $m = $pr.Metades($y0, $y1, $XMIN)
-    if($m[2] -eq 0){ Write-Warning "${id}/$($acoes[$lin]): sem gap central"; continue }
-    foreach($skin in 0,1){
-      $sx0 = $m[$skin*2]; $sx1 = $m[$skin*2+1]
-      $frames = @(); $caixas = @(); $criados = @()
-      $lw = ($sx1-$sx0+1)/4.0
-      for($f=0; $f -lt 4; $f++){
-        $cx = [int]($sx0 + $f*$lw)
-        $cel = $pr.Celula($cx+$inset, $y0-4+$inset, [int]$lw-2*$inset, ($y1-$y0+9)-2*$inset)
-        $frames += $cel; $criados += $cel; $caixas += ,([Prancha]::CaixaSolida($cel))
-      }
-      $maxW = ($caixas | ForEach-Object { $_[2] } | Measure-Object -Maximum).Maximum
-      $maxH = ($caixas | ForEach-Object { $_[3] } | Measure-Object -Maximum).Maximum
-      if($maxW -eq 0){ Write-Warning "$id skin$skin $($acoes[$lin]): vazio"; continue }
-      # ataque: um frame só com o projétil (pouca massa) faria o corpo piscar — herda o vizinho
-      if($acoes[$lin] -eq 'attack'){
-        $maxPx = ($caixas | ForEach-Object { $_[4] } | Measure-Object -Maximum).Maximum
-        $fracos = $HERDAR[$nomes[$skin]]                    # overrides manuais
-        for($f=1; $f -lt 4; $f++){
-          if($caixas[$f][4] -lt $maxPx*0.5 -or ($fracos -contains $f)){ $frames[$f] = $frames[$f-1]; $caixas[$f] = $caixas[$f-1] }
+if(-not (Test-Path -LiteralPath $Mapa)){ throw "Mapa de animações inexistente: $Mapa" }
+$mapaAnim = Get-Content -Raw -LiteralPath $Mapa | ConvertFrom-Json
+if($mapaAnim.schema -ne 2){ throw "Schema de mapa não suportado: $($mapaAnim.schema)" }
+$acoesEsperadas = @('idle','walk','attack','skill','hurt','death')
+if((@($mapaAnim.actions) -join ',') -ne ($acoesEsperadas -join ',')){
+  throw 'O mapa de animações não contém as seis ações canónicas na ordem esperada.'
+}
+
+$metaSheets = [ordered]@{}
+$metaIcons = [ordered]@{}
+$metaTextures = [ordered]@{}
+$manifest = [ordered]@{
+  schema = 2
+  defaults = [ordered]@{
+    cell = [ordered]@{ w=[int]$mapaAnim.cellSize; h=[int]$mapaAnim.cellSize }
+    anchor = [ordered]@{ x=[double]$mapaAnim.anchor.x; y=[double]$mapaAnim.anchor.y }
+  }
+  actions = $acoesEsperadas
+  sheets = $metaSheets
+  icons = $metaIcons
+  textures = $metaTextures
+}
+
+function Obter-Baselines([object[]]$caixas){
+  $validas = @($caixas | Where-Object { $_[2] -gt 0 })
+  if(-not $validas.Count){ throw 'A ação não contém nenhum frame opaco.' }
+  $maxH = ($validas | ForEach-Object { $_[3] } | Measure-Object -Maximum).Maximum
+  $maxPx = ($validas | ForEach-Object { $_[4] } | Measure-Object -Maximum).Maximum
+  $corpo = @($validas | Where-Object { $_[3] -ge $maxH*0.45 -and $_[4] -ge $maxPx*0.18 })
+  $bases = @($corpo |
+    ForEach-Object { $_[1] + $_[3] })
+  if(-not $bases.Count){ $bases = @($validas | ForEach-Object { $_[1] + $_[3] }) }
+  $bases = @($bases | Sort-Object)
+  $m = [int][Math]::Floor($bases.Count/2)
+  $fallback = if($bases.Count % 2){ [double]$bases[$m] } else { ([double]$bases[$m-1]+[double]$bases[$m])/2.0 }
+  $res = @()
+  foreach($cx in $caixas){
+    $ehCorpo = $cx[2] -gt 0 -and $cx[3] -ge $maxH*0.45 -and $cx[4] -ge $maxPx*0.18
+    if($ehCorpo){ $res += [double]($cx[1]+$cx[3]) } else { $res += $fallback }
+  }
+  return $res
+}
+
+# As dez pranchas animadas usam descritores fixos por UUID. A geometria não
+# depende de texto, massa, VFX ou projéteis presentes em cada linha.
+function Processar-Personagem([object]$board){
+  $g = $board.grid
+  $inset = if($null -ne $g.inset){ [int]$g.inset } else { 0 }
+  $sourceCellWidth = if($null -ne $board.sourceCellWidth){ [int]$board.sourceCellWidth } else { [int]$mapaAnim.sourceCellWidth }
+  $sourceScale = if($null -ne $board.sourceScale){ [double]$board.sourceScale } else { [double]$mapaAnim.sourceScale }
+  $limiarDivisao = if($null -ne $g.splitThreshold){ [double]$g.splitThreshold }
+    elseif($null -ne $g.splitWide -and -not [bool]$g.splitWide){ 999.0 } else { 1.90 }
+  $caminho = Join-Path $Origem ("{0}.png" -f $board.source)
+  if(-not (Test-Path -LiteralPath $caminho)){ throw "Prancha inexistente: $caminho" }
+  $pr = New-Object Prancha $caminho, ($inset -gt 0)
+
+  for($skin=0; $skin -lt 2; $skin++){
+    $base = [string]$board.skins[$skin]
+    $projFrames = @(); $projCaixas = @()
+    for($lin=0; $lin -lt $acoesEsperadas.Count; $lin++){
+      $acao = $acoesEsperadas[$lin]
+      $n = [int]$board.frames.$acao
+      if($n -lt 1){ throw "$($board.key)/${acao}: contagem de frames inválida" }
+      $sxBase = [double]$g.skinX[$skin]
+      $larguraBase = [double]$g.skinWidth[$skin]
+      $sx = [int]$sxBase + $inset
+      $largura = [int]$larguraBase - 2*$inset
+      $cy = [int]$g.rowBounds[$lin] + $inset
+      $ch = [int]$g.rowBounds[$lin+1] - [int]$g.rowBounds[$lin] - 2*$inset
+      if($g.mode -eq 'cells'){
+        $frames = @(); $passo = $larguraBase/4.0
+        for($f=0; $f -lt $n; $f++){
+          $cx = [int][Math]::Round($sxBase+$f*$passo)+$inset
+          $frames += $pr.Celula($cx,$cy,[int][Math]::Floor($passo)-2*$inset,$ch)
         }
-        if($caixas[0][4] -lt $maxPx*0.5){ $frames[0] = $frames[1]; $caixas[0] = $caixas[1] }
+      } else {
+        $frames = @($pr.CelulasLinha($sx, $cy, $largura, $ch, $n,
+          $sourceCellWidth, $limiarDivisao))
       }
-      $esc = [Math]::Min((256*0.92)/$maxW, (256*0.92)/$maxH)
-      $sheet = [Prancha]::Sheet($frames, $caixas, 256, $esc, 0.92)
-      $saida = Join-Path $Destino ("{0}_{1}.png" -f $nomes[$skin], $acoes[$lin])
+      # Nesta prancha concreta, três poses fecham ilhas do checker. A limpeza
+      # é deliberadamente local: todas as restantes continuam só com flood
+      # a partir das margens.
+      if($board.key -eq 'guerreiro' -and $acao -in @('skill','hurt','death')){
+        $frames | ForEach-Object { $pr.LimparIlhasFundo($_, 1) }
+      }
+      $caixas = @()
+      for($f=0; $f -lt $frames.Count; $f++){
+        $box = [Prancha]::CaixaSolida($frames[$f])
+        if($box[2] -eq 0){ $frames | ForEach-Object { $_.Dispose() }; throw "$base/$acao frame $f ficou vazio" }
+        $caixas += ,$box
+      }
+
+      # D028: nas pranchas de atirador, a cauda de attack/skill mostra apenas o
+      # projétil em voo (sem corpo). Esses frames saem da ação — o corpo deixa
+      # de "piscar" — e alimentam o sheet <skin>_proj (o attack tem prioridade,
+      # por ser a primeira das duas ações na ordem canónica).
+      if($acao -in @('attack','skill') -and $frames.Count -gt 1){
+        $maxH  = ($caixas | ForEach-Object { $_[3] } | Measure-Object -Maximum).Maximum
+        $maxPx = ($caixas | ForEach-Object { $_[4] } | Measure-Object -Maximum).Maximum
+        $corte = $frames.Count
+        while($corte -gt 1){
+          # Projétil em voo: blob horizontal (w>=1.18h), mais baixo e mais leve
+          # do que o corpo da ação. Medido nas 10 pranchas: projéteis reais têm
+          # rácio >=1.24 / altura <=71% / píxeis <=47%; o corpo mais parecido
+          # (en_venom curvado) fica a 1.14 / 78% / 65%.
+          $cx = $caixas[$corte-1]
+          $ehProjetil = ($cx[2] -ge $cx[3]*1.18) -and ($cx[3] -lt $maxH*0.80) -and ($cx[4] -lt $maxPx*0.55)
+          if(-not $ehProjetil){ break }
+          $corte--
+        }
+        if($corte -lt $frames.Count){
+          $cauda   = @($frames[$corte..($frames.Count-1)])
+          $caudaCx = @($cauda | ForEach-Object { ,[Prancha]::MaiorComponenteCaixa($_) })
+          if(-not $projFrames.Count){ $projFrames = $cauda; $projCaixas = $caudaCx }
+          else { $cauda | ForEach-Object { $_.Dispose() } }
+          $frames = @($frames[0..($corte-1)])
+          $caixas = @($caixas[0..($corte-1)])
+          $n = $frames.Count
+          Write-Output ("       {0,-28} {1}: {2} frame(s) de projétil separados" -f "$base","$acao",$cauda.Count)
+        }
+      }
+
+      [double[]]$baselines = @(Obter-Baselines $caixas)
+      $sheet = [Prancha]::SheetFixa($frames, [int]$mapaAnim.cellSize,
+        $sourceScale, $baselines, [double]$mapaAnim.anchor.y)
+      $nome = "${base}_${acao}"
+      $ficheiro = "${nome}.png"
+      $saida = Join-Path $Destino $ficheiro
       $sheet.Save($saida, [System.Drawing.Imaging.ImageFormat]::Png)
-      $sheet.Dispose(); $criados | ForEach-Object { $_.Dispose() }
-      Write-Output ("sheet  {0}_{1}  y={2}-{3}" -f $nomes[$skin], $acoes[$lin], $y0, $y1)
+      $sheet.Dispose(); $frames | ForEach-Object { $_.Dispose() }
+
+      $metaSheets[$nome] = [ordered]@{
+        file = $ficheiro
+        action = $acao
+        frames = $n
+        loop = ($acao -in @('idle','walk'))
+        cell = [ordered]@{ w=[int]$mapaAnim.cellSize; h=[int]$mapaAnim.cellSize }
+        anchor = [ordered]@{ x=[double]$mapaAnim.anchor.x; y=[double]$mapaAnim.anchor.y }
+        source = [string]$board.source
+      }
+      Write-Output ("sheet  {0,-28} frames={1} row={2} baselines={3}" -f $nome,$n,$lin,($baselines -join ','))
+    }
+
+    if($projFrames.Count){
+      $nProj = $projFrames.Count
+      $cw = [int][Math]::Ceiling((($projCaixas | ForEach-Object { $_[2] } | Measure-Object -Maximum).Maximum) * $sourceScale) + 4
+      $chP = [int][Math]::Ceiling((($projCaixas | ForEach-Object { $_[3] } | Measure-Object -Maximum).Maximum) * $sourceScale) + 4
+      $sheet = [Prancha]::SheetRecortes($projFrames, $projCaixas, $cw, $chP, $sourceScale)
+      $nome = "${base}_proj"
+      $ficheiro = "${nome}.png"
+      $sheet.Save((Join-Path $Destino $ficheiro), [System.Drawing.Imaging.ImageFormat]::Png)
+      $sheet.Dispose(); $projFrames | ForEach-Object { $_.Dispose() }
+      $metaSheets[$nome] = [ordered]@{
+        file = $ficheiro
+        action = 'proj'
+        frames = $nProj
+        loop = $true
+        cell = [ordered]@{ w=$cw; h=$chP }
+        anchor = [ordered]@{ x=0.5; y=0.5 }
+        source = [string]$board.source
+      }
+      Write-Output ("sheet  {0,-28} frames={1} (projétil, célula {2}x{3})" -f $nome,$nProj,$cw,$chP)
+      $projFrames = @(); $projCaixas = @()
     }
   }
 }
 
-foreach($cl in 'guerreiro','mago','assassino','paladino'){
-  Processar-Personagem $cl @("heroi_$cl", ("heroi_{0}2" -f $cl))
-}
-Processar-Personagem 'batedor' @('heroi_batedor','heroi_batedor2') 9
-Processar-Personagem 'en_goblin'  @('en_goblin','en_orcbrute')
-Processar-Personagem 'en_caster'  @('en_necro','en_warlock')
-Processar-Personagem 'en_hunter'  @('en_bone','en_plague')
-Processar-Personagem 'en_stalker' @('en_stalker','en_venom')
-Processar-Personagem 'en_knight'  @('en_corrupted','en_templar')
-# o ataque do stalker na prancha é só o rasto da garra — usa o walk (o jogo põe o efeito)
-Copy-Item (Join-Path $Destino 'en_stalker_walk.png') (Join-Path $Destino 'en_stalker_attack.png') -Force
+foreach($board in $mapaAnim.boards){ Processar-Personagem $board }
 
 # ---------- equipamento: 3-4 secções × 3 colunas, interior da moldura ----------
 $eqCol = @(@(66,426),@(450,810),@(834,1194))
-function Icone([object]$pr, [int]$x0, [int]$y0, [int]$x1, [int]$y1, [string]$saida){
-  $cel = $pr.Celula($x0, $y0, ($x1-$x0), ($y1-$y0))
+function Icone([object]$pr, [int]$x0, [int]$y0, [int]$x1, [int]$y1, [string]$saida,
+  [bool]$armadura=$false, [bool]$frisoTopoCurto=$false){
+  $cel = $pr.CelulaIcone($x0, $y0, ($x1-$x0), ($y1-$y0))
+  if($armadura){ $pr.LimparMolduraTopo($cel) }
   $cx = [Prancha]::CaixaSolida($cel)
   if($cx[2] -eq 0){ Write-Warning "vazio: $saida"; $cel.Dispose(); return }
   $esc = [Math]::Min((128*0.94)/$cx[2], (128*0.94)/$cx[3])
   $ico = [Prancha]::Sheet(@($cel), @(,$cx), 128, $esc, 0)
+  if($frisoTopoCurto){
+    # Nas variantes centrais, o friso isolado ocupa y=4..6; o capacete começa
+    # em y=7. A faixa medida é removida sem atingir o corpo.
+    $graf = [System.Drawing.Graphics]::FromImage($ico)
+    $graf.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceCopy
+    $pincel = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::Transparent)
+    $graf.FillRectangle($pincel, 0, 0, 128, 7)
+    $pincel.Dispose(); $graf.Dispose()
+  }
   $ico.Save($saida, [System.Drawing.Imaging.ImageFormat]::Png)
   $ico.Dispose(); $cel.Dispose()
+  $chave = [System.IO.Path]::GetFileNameWithoutExtension($saida)
+  $metaIcons[$chave] = [ordered]@{
+    file = [System.IO.Path]::GetFileName($saida)
+    cell = [ordered]@{ w=128; h=128 }
+    anchor = [ordered]@{ x=0.5; y=0.5 }
+  }
   Write-Output ("icone  {0}" -f (Split-Path $saida -Leaf))
 }
 function Processar-Equipamento([string]$id, [string]$cl, [string[]]$cats){
-  $pr = New-Object Prancha (Join-Path $Origem "$($P[$id]).png")
+  $pr = New-Object Prancha (Join-Path $Origem "$($P[$id]).png"), $true
   # secções = bandas largas na coluna central da prancha inteira
   $bandas = $pr.Bandas(20, 120)
   $nB = $bandas.Length/2
@@ -370,7 +738,8 @@ function Processar-Equipamento([string]$id, [string]$cl, [string[]]$cats){
   for($s=0; $s -lt $cats.Length; $s++){
     $y0 = $bandas[$ini+$s*2]; $y1 = $bandas[$ini+$s*2+1]
     for($k=0; $k -lt 3; $k++){
-      Icone $pr ($eqCol[$k][0]+14) ($y0+12) ($eqCol[$k][1]-14) ($y1-52) (Join-Path $Destino ("icon_{0}_{1}{2}.png" -f $cl, $cats[$s], ($k+1)))
+      $ehArmadura = $cats[$s] -eq 'armadura'
+      Icone $pr ($eqCol[$k][0]+24) ($y0+20) ($eqCol[$k][1]-24) ($y1-58) (Join-Path $Destino ("icon_{0}_{1}{2}.png" -f $cl, $cats[$s], ($k+1))) $ehArmadura ($ehArmadura -and $k -eq 1)
     }
   }
 }
@@ -397,8 +766,32 @@ for($lin=0; $lin -lt 4; $lin++){
     $g.Dispose()
     $out.Save((Join-Path $Destino ("tex_{0:00}.jpg" -f $n)), $jpegCodec, $jpegParams)
     $out.Dispose()
+    $nomeTex = "tex_{0:00}" -f $n
+    $papel = switch($n){
+      7 {'grelha'}
+      8 {'poca_venenosa'}
+      9 {'portal_provacao'}
+      12 {'variante_parede'}
+      14 {'variante_chao'}
+      default {'base'}
+    }
+    $metaTextures[$nomeTex] = [ordered]@{
+      file = "${nomeTex}.jpg"
+      size = [ordered]@{ w=256; h=256 }
+      variants = [ordered]@{ rows=3; cols=3 }
+      role = $papel
+    }
   }
 }
 $img.Dispose()
 Write-Output 'texturas: 16 tiles'
-Write-Output 'FEITO'
+
+# 120 sheets de ação + 6 de projétil (heroi_mago ×2 skins, en_necro, en_warlock, en_bone, en_plague)
+if($metaSheets.Count -ne 126){ throw "META incompleto: $($metaSheets.Count)/126 sheets" }
+if($metaIcons.Count -ne 48){ throw "META incompleto: $($metaIcons.Count)/48 ícones" }
+if($metaTextures.Count -ne 16){ throw "META incompleto: $($metaTextures.Count)/16 texturas" }
+$json = $manifest | ConvertTo-Json -Depth 10
+$metaPath = Join-Path $Destino 'sprites-meta.json'
+[System.IO.File]::WriteAllText($metaPath, $json, (New-Object System.Text.UTF8Encoding($false)))
+Write-Output ("META   {0} ({1} sheets, {2} ícones, {3} texturas)" -f $metaPath,$metaSheets.Count,$metaIcons.Count,$metaTextures.Count)
+Write-Output 'FEITO — recorte v2'

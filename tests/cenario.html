@@ -1,22 +1,20 @@
 <!doctype html>
-<html lang="pt">
+<html lang="pt" data-a5-status="loading">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<base href="../"><!-- para o sprites.js achar assets/2d/ a partir de tests/ -->
-<title>Teste — cenário das masmorras</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<base href="../">
+<title>A5 — cenário Arte v2</title>
 <style>
   html,body{margin:0;height:100%;background:#0c0a10;overflow:hidden}
-  canvas{display:block}
-  #dica{position:fixed;top:8px;left:10px;color:#cbb;font:12px monospace;pointer-events:none}
+  canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
+  #dica{position:fixed;top:8px;left:10px;color:#e0d6c4;background:#111a;padding:4px 6px;font:12px ui-monospace,monospace;pointer-events:none}
 </style>
 </head>
 <body>
 <canvas id="canvas"></canvas>
-<div id="dica">toque/clique: bioma seguinte · ?bioma=0..5 escolhe à partida</div>
-<script>
-window.onerror = (m,f,l)=>{ document.title += ' || ERRO: '+m+' @ '+(f||'').split('/').pop()+':'+l; };
-</script>
+<div id="dica">A5 cenário</div>
+<script src="tests/a5.js"></script>
 <script src="js/balance.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/data.js"></script>
@@ -27,45 +25,67 @@ window.onerror = (m,f,l)=>{ document.title += ' || ERRO: '+m+' @ '+(f||'').split
 <script src="js/arvore.js"></script>
 <script src="js/game.js"></script>
 <script>
-/* o combat.js liga botões do HUD (index.html) no arranque; aqui não existem — devolve mudos */
-const _gEBI = document.getElementById.bind(document);
-document.getElementById = id => _gEBI(id) || {
-  addEventListener(){}, style:{}, textContent:'', innerHTML:'',
-  classList:{ add(){}, remove(){}, toggle(){}, contains(){ return false; } },
-  querySelector(){ return null; }, querySelectorAll(){ return []; },
+/* combat.js liga o HUD do jogo; no laboratório os controlos ausentes são mudos. */
+const _get=document.getElementById.bind(document);
+document.getElementById=id=>_get(id)||{
+  addEventListener(){},style:{},textContent:'',innerHTML:'',hidden:false,
+  classList:{add(){},remove(){},toggle(){},contains(){return false;}},
+  querySelector(){return null;},querySelectorAll(){return[];},
 };
 </script>
 <script src="js/combat.js"></script>
 <script>
-/* Pré-visualiza o cenário real (prerenderCenario + desenharCenario) por bioma,
-   sem entrar no jogo. Usa as mesmas funções do combate. */
-let bioma = Math.max(0, Math.min(5, +(new URLSearchParams(location.search).get('bioma')||0)));
+'use strict';
+const qs=new URLSearchParams(location.search);
+function inteiro(nome,padrao,min,max){
+  const valor=qs.get(nome); if(valor===null)return padrao;
+  const n=Number(valor); return Number.isInteger(n)?Math.max(min,Math.min(max,n)):padrao;
+}
+let bioma=inteiro('bioma',0,0,MASMORRAS.length-1);
+const sala=inteiro('sala',1,1,99), seed=inteiro('seed',123,0,2147483647);
+const tempo=Number.isFinite(Number(qs.get('tempo')))?Number(qs.get('tempo')):0;
+const estatico=qs.get('static')==='1', loopHeadless=qs.get('loop')==='1', provacao=qs.get('provacao')==='1';
+let rafTeste=0;
 
 function montar(){
-  const w = window.innerWidth, h = window.innerHeight;
-  canvas.width = w; canvas.height = h;
-  ctx.setTransform(1,0,0,1,0,0);
-  C = { W:w, H:h, chaoTopo:h*0.36, chaoFundo:h*0.90,
-        sala:1+bioma, masmorra:MASMORRAS[bioma], tempo:0,
-        particulas:[] };
+  const w=innerWidth,h=innerHeight,dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=Math.ceil(w*dpr);canvas.height=Math.ceil(h*dpr);
+  canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0);
+  const masmorra={...MASMORRAS[bioma]}; if(provacao)masmorra.despertar=true;
+  C={W:w,H:h,chaoTopo:h*0.36,chaoFundo:h*0.90,sala,seedCenario:seed,
+     masmorra,tempo,particulas:[],pocas:[],orbes:[],aneisBoss:[]};
   prerenderCenario();
 }
-
-function frame(t){
-  C.tempo = t/1000;
+function desenharTeste(t){
+  if(!estatico)C.tempo=t/1000;
+  ctx.setTransform(Math.min(devicePixelRatio||1,2),0,0,Math.min(devicePixelRatio||1,2),0,0);
   desenharCenario();
-  ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.font='13px monospace'; ctx.textAlign='left';
-  ctx.fillText(C.masmorra.rank+' — '+C.masmorra.nome+(C.masmorra.piso?' (piso: '+C.masmorra.piso+')':''), 10, C.H-10);
-  requestAnimationFrame(frame);
+  ctx.fillStyle='rgba(255,255,255,.92)';ctx.font='13px ui-monospace,monospace';ctx.textAlign='left';
+  ctx.fillText(`${C.masmorra.rank} — ${C.masmorra.nome} · sala ${C.sala} · seed ${C.seedCenario}${provacao?' · PROVAÇÃO':''}`,10,C.H-10);
+  if(!estatico||loopHeadless)rafTeste=requestAnimationFrame(desenharTeste);
 }
-
-canvas.addEventListener('pointerdown', ()=>{ bioma=(bioma+1)%MASMORRAS.length; montar(); });
-window.addEventListener('resize', montar);
-window.addEventListener('load', async ()=>{
-  const tx = MASMORRAS[bioma].tex || {};
-  await SPR.esperar([tx.parede, tx.chao, 'hig_parede', 'hig_chao_pedra', 'hig_chao_madeira'], 5000);
-  montar(); requestAnimationFrame(frame);
-});
+async function iniciar(){
+  const tx=MASMORRAS[bioma].tex||{};
+  const nomes=[tx.parede,tx.chao,'hig_parede','hig_chao_pedra','hig_chao_madeira','hig_barril','hig_tocha',
+    ARTE_CENARIO.varianteParede,ARTE_CENARIO.varianteChao,ARTE_CENARIO.grelha,
+    ARTE_CENARIO.pocaVenenosa,ARTE_CENARIO.portalProvacao].filter(Boolean);
+  await SPR.metaPromessa;
+  if(!await SPR.esperar(nomes,15000))throw new Error('Texturas em falta: '+nomes.filter(n=>!SPR.ok(n)).join(', '));
+  montar();
+  if(estatico){
+    // Três frames com o mesmo tempo: força a rasterização no Chrome headless
+    // sem introduzir variação na imagem usada pelo teste de seed.
+    for(let i=0;i<3;i++){
+      await new Promise(resolve=>setTimeout(resolve,16));
+      desenharTeste(tempo*1000);
+    }
+  } else desenharTeste(tempo*1000);
+  document.getElementById('dica').textContent=`A5 pronto · bioma=${bioma} sala=${sala} seed=${seed}`;
+  await a5Ready({bioma,sala,seed,tempo,static:estatico,loopHeadless,provacao,dpr:Math.min(devicePixelRatio||1,2)});
+}
+canvas.addEventListener('pointerdown',()=>{if(estatico)return;bioma=(bioma+1)%MASMORRAS.length;montar();});
+addEventListener('resize',()=>{cancelAnimationFrame(rafTeste);montar();desenharTeste(performance.now());});
+iniciar().catch(e=>a5Fail(e.message));
 </script>
 </body>
 </html>

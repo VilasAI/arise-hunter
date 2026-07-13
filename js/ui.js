@@ -977,6 +977,7 @@ function fimCombateUI(r){
       <div class="loot-linha">${ic('cristal',16)} +${r.cristais} cristais</div>
       <div class="loot-linha">${ic('despertar',16)} Tiers superiores${G.despertar===1?' e portais rank A':' e portais rank S'} desbloqueados!</div>
       ${G.despertar===1 && ultimateClasse() ? `<div class="loot-linha" style="border-color:${ultimateClasse().cor}">${ic(ultimateClasse().icone,18)} O teu dom manifesta-se: <b>${ultimateClasse().nome}</b> desbloqueada!</div>` : ''}
+      ${G.despertar===2 ? `<div class="loot-linha">${ic('forja',16)} O teu equipamento é reforjado pelo dom: <b>aspeto lendário</b> desbloqueado!</div>` : ''}
     </div>
     <div class="modal-acoes"><button class="btn btn-primario" id="r-ok">Continuar</button></div>`;
   } else if(r.vitoria){

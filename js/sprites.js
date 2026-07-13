@@ -6,7 +6,7 @@
 
 const SPR = (function(){
   const BASE = 'assets/2d/';
-  const reg = {};            // nome -> {img, ok, w, h}
+  const reg = {};            // nome -> {img, ok, w, h, erro}
   const tintCache = {};      // "nome|cor" -> canvas tingido
   const ouvintes = new Set();// callbacks de assets concluídos (cenário pode repintar)
 
@@ -19,12 +19,43 @@ const SPR = (function(){
     enemy_vampire_idle:6, enemy_vampire_walk:8, enemy_vampire_attack:16, enemy_vampire_death:14, enemy_vampire_take_damage:5,
     torch_1:1, torch_2:1, torch_3:1, torch_4:1,
   };
+  let packMeta = null;
+
+  function aplicarMeta(m){
+    if(!m || m.schema!==2 || !m.sheets) throw new Error('sprites-meta.json inválido');
+    packMeta = m;
+    for(const [nome,spec] of Object.entries(m.sheets)){
+      META[nome] = spec.frames;
+      if(!reg[nome] && spec.file) carregar(nome, spec.file);  // sheets que só o META anuncia (*_proj)
+    }
+    for(const [nome,o] of Object.entries(reg)) if(o.ok) validarDimensoes(nome,o);
+    return true;
+  }
+  const metaPromessa = fetch(BASE+'sprites-meta.json', { cache:'no-cache' })
+    .then(r=>{ if(!r.ok) throw new Error('META HTTP '+r.status); return r.json(); })
+    .then(aplicarMeta)
+    .catch(()=>false); // file:// e builds antigos: naturalWidth mantém fallback funcional
+
+  function validarDimensoes(nome,o){
+    const spec = packMeta && packMeta.sheets[nome];
+    if(!spec) return true;
+    const cw=spec.cell?.w||256, ch=spec.cell?.h||256;
+    if(o.w !== cw*spec.frames || o.h !== ch){
+      o.ok=false; o.erro=`dimensões ${o.w}×${o.h}; esperado ${cw*spec.frames}×${ch}`;
+      return false;
+    }
+    return true;
+  }
 
   function carregar(nome, ficheiro){
     const o = { img:new Image(), ok:false, w:0, h:0, promessa:null };
     o.promessa = new Promise(resolve=>{
       o.img.onload = ()=>{
         o.ok=true; o.w=o.img.naturalWidth; o.h=o.img.naturalHeight;
+        // Todos os sheets v2 usam células 256×256; isto mantém file:// útil
+        // mesmo quando fetch(JSON) é bloqueado pelo browser.
+        if(!META[nome] && o.h===256 && o.w%256===0) META[nome]=o.w/256;
+        validarDimensoes(nome,o);
         for(const fn of ouvintes){ try{ fn(nome, true); }catch(e){} }
         resolve(true);
       };
@@ -40,11 +71,12 @@ const SPR = (function(){
   }
 
   const ok  = nome => { const o=reg[nome]; return !!(o && o.ok); };
-  const n   = nome => META[nome] || 1;
+  const n   = nome => (packMeta?.sheets?.[nome]?.frames || META[nome] || 1);
+  const spec = nome => packMeta?.sheets?.[nome] || null;
   const aoCarregar = fn => { ouvintes.add(fn); return ()=>ouvintes.delete(fn); };
   function esperar(nomes, timeout=5000){
     const lista = [...new Set((nomes||[]).filter(Boolean))];
-    const todas = Promise.all(lista.map(nome=> reg[nome] ? reg[nome].promessa : Promise.resolve(false)));
+    const todas = Promise.all([metaPromessa, ...lista.map(nome=> reg[nome] ? reg[nome].promessa : Promise.resolve(false))]);
     if(!timeout) return todas.then(()=>lista.every(ok));
     return Promise.race([todas, new Promise(resolve=>setTimeout(resolve, timeout))])
       .then(()=>lista.every(ok));
@@ -68,10 +100,10 @@ const SPR = (function(){
      cor = tinta opcional · ancoraY = fração da altura que assenta no chão. */
   function frameH(ctx, nome, i, total, altDest, flip, cor, ancoraY){
     const o = reg[nome]; if(!o || !o.ok) return false;
-    const nn = total || META[nome] || 1;
-    const fw = o.w/nn, fh = o.h;
+    const sp = spec(nome), nn = total || sp?.frames || META[nome] || 1;
+    const fw = sp?.cell?.w || o.w/nn, fh = sp?.cell?.h || o.h;
     const esc = altDest/fh, dw = fw*esc, dh = altDest;
-    const ay = (ancoraY==null ? 0.92 : ancoraY);
+    const ay = (ancoraY==null ? (sp?.anchor?.y ?? 0.92) : ancoraY);
     const fonte = cor ? (tingir(nome,cor)||o.img) : o.img;
     const idx = ((i%nn)+nn)%nn;
     ctx.save(); ctx.imageSmoothingEnabled=false;
@@ -113,13 +145,13 @@ const SPR = (function(){
   carregar('dungeon_tileset','dungeon_tileset.png');
   for(let i=1;i<=4;i++) carregar('torch_'+i,'torch_'+i+'.png');
 
-  // pack do dono (2026-07-12): heróis por classe (2 skins) e inimigos, 4 frames/ação
-  for(const a of ['idle','walk','attack','hurt','death']){
+  // pack do dono (recorte v2): seis ações e contagens vindas do META/naturalWidth
+  for(const a of ['idle','walk','attack','skill','hurt','death']){
     for(const cl of ['guerreiro','mago','batedor','assassino','paladino']){
-      for(const s of ['','2']){ carregar('heroi_'+cl+s+'_'+a, 'heroi_'+cl+s+'_'+a+'.png'); META['heroi_'+cl+s+'_'+a] = 4; }
+      for(const s of ['','2']) carregar('heroi_'+cl+s+'_'+a, 'heroi_'+cl+s+'_'+a+'.png');
     }
     for(const e of ['goblin','orcbrute','necro','warlock','bone','plague','stalker','venom','corrupted','templar']){
-      carregar('en_'+e+'_'+a, 'en_'+e+'_'+a+'.png'); META['en_'+e+'_'+a] = 4;
+      carregar('en_'+e+'_'+a, 'en_'+e+'_'+a+'.png');
     }
   }
   // personagens antigos (fallback)
@@ -129,5 +161,6 @@ const SPR = (function(){
   // vila (Cute Fantasy)
   for(const t of ['grass','water','path','water_tile','path_tile','cliff_tile','house','tree','tree_small','decor','chest','fences','bridge']) carregar('cf_'+t,'cf_'+t+'.png');
 
-  return { carregar, esperar, aoCarregar, ok, n, tingir, frameH, tile, imagem, reg };
+  return { carregar, esperar, aoCarregar, ok, n, spec, tingir, frameH, tile, imagem, reg,
+           meta:()=>packMeta, metaPromessa };
 })();

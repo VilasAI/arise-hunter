@@ -1,0 +1,94 @@
+{
+  "schema": 2,
+  "cellSize": 256,
+  "anchor": { "x": 0.5, "y": 0.92 },
+  "sourceScale": 0.94,
+  "sourceCellWidth": 280,
+  "actions": ["idle", "walk", "attack", "skill", "hurt", "death"],
+  "boards": [
+    {
+      "key": "guerreiro",
+      "source": "76c5a8c9-3713-46c4-9181-0ea96c77d232",
+      "skins": ["heroi_guerreiro", "heroi_guerreiro2"],
+      "skillLabel": "SPECIAL SKILL",
+      "grid": { "skinX": [127, 670], "skinWidth": [496, 536], "rowBounds": [75, 265, 425, 615, 825, 1030, 1225] },
+      "frames": { "idle": 4, "walk": 4, "attack": 4, "skill": 4, "hurt": 4, "death": 4 }
+    },
+    {
+      "key": "mago",
+      "source": "91a16169-776d-4776-9325-c9f13e5e1991",
+      "skins": ["heroi_mago", "heroi_mago2"],
+      "skillLabel": "CAST SPELL",
+      "grid": { "skinX": [105, 710], "skinWidth": [520, 520], "rowBounds": [75, 250, 425, 600, 795, 950, 1130] },
+      "frames": { "idle": 4, "walk": 4, "attack": 4, "skill": 4, "hurt": 3, "death": 3 }
+    },
+    {
+      "key": "batedor",
+      "source": "5cb5e878-4928-4cce-aacf-3c73cb6122d7",
+      "skins": ["heroi_batedor", "heroi_batedor2"],
+      "skillLabel": "SPECIAL SKILL",
+      "grid": { "skinX": [106, 730], "skinWidth": [512, 516], "rowBounds": [54, 230, 407, 596, 788, 978, 1202], "inset": 9, "mode": "cells" },
+      "frames": { "idle": 4, "walk": 4, "attack": 4, "skill": 4, "hurt": 4, "death": 4 }
+    },
+    {
+      "key": "assassino",
+      "source": "43a009d2-e4cf-4b49-acb9-d25d1d5ffa20",
+      "skins": ["heroi_assassino", "heroi_assassino2"],
+      "skillLabel": "STEALTH (DASH)",
+      "grid": { "skinX": [125, 680], "skinWidth": [496, 512], "rowBounds": [75, 250, 444, 645, 820, 1035, 1205] },
+      "frames": { "idle": 4, "walk": 4, "attack": 4, "skill": 4, "hurt": 4, "death": 4 }
+    },
+    {
+      "key": "paladino",
+      "source": "40b8f1be-3378-4690-a57c-a1a34721561a",
+      "skins": ["heroi_paladino", "heroi_paladino2"],
+      "skillLabel": "HOLY SKILL",
+      "grid": { "skinX": [128, 705], "skinWidth": [508, 496], "rowBounds": [60, 238, 396, 595, 820, 1007, 1200] },
+      "frames": { "idle": 4, "walk": 4, "attack": 4, "skill": 4, "hurt": 4, "death": 4 }
+    },
+    {
+      "key": "en_goblin",
+      "source": "d9411fe4-cd55-4518-b2f3-80f05f64bf93",
+      "skins": ["en_goblin", "en_orcbrute"],
+      "skillLabel": "SPECIAL SKILL",
+      "grid": { "skinX": [112, 650], "skinWidth": [512, 580], "rowBounds": [120, 288, 462, 665, 850, 1035, 1225] },
+      "frames": { "idle": 4, "walk": 4, "attack": 4, "skill": 4, "hurt": 4, "death": 4 }
+    },
+    {
+      "key": "en_caster",
+      "source": "9a7144d4-72ff-445b-8f83-8c394f39ed2f",
+      "skins": ["en_necro", "en_warlock"],
+      "skillLabel": "CAST SPELL",
+      "grid": { "skinX": [110, 670], "skinWidth": [540, 556], "rowBounds": [105, 287, 460, 628, 820, 1020, 1200] },
+      "frames": { "idle": 4, "walk": 4, "attack": 4, "skill": 4, "hurt": 4, "death": 4 }
+    },
+    {
+      "key": "en_hunter",
+      "source": "d681d62a-17e3-4bda-af62-726820eaffb7",
+      "skins": ["en_bone", "en_plague"],
+      "skillLabel": "SPECIAL SKILL",
+      "grid": { "skinX": [127, 702], "skinWidth": [520, 528], "rowBounds": [125, 292, 445, 605, 790, 980, 1180] },
+      "frames": { "idle": 4, "walk": 4, "attack": 4, "skill": 4, "hurt": 3, "death": 4 }
+    },
+    {
+      "key": "en_stalker",
+      "source": "89b394ee-5f09-499a-bd33-3da8855aaab7",
+      "skins": ["en_stalker", "en_venom"],
+      "sourceCellWidth": 340,
+      "sourceScale": 0.78,
+      "skillLabel": "STEALTH (DASH)",
+      "grid": { "skinX": [110, 695], "skinWidth": [504, 496], "rowBounds": [120, 300, 474, 645, 825, 1035, 1200], "splitThreshold": 1.3 },
+      "frames": { "idle": 4, "walk": 4, "attack": 4, "skill": 4, "hurt": 4, "death": 4 }
+    },
+    {
+      "key": "en_knight",
+      "source": "fcab45ea-29fa-4f58-ac25-cfc3c4f1fd58",
+      "skins": ["en_corrupted", "en_templar"],
+      "sourceCellWidth": 340,
+      "sourceScale": 0.78,
+      "skillLabel": "DARK SKILL",
+      "grid": { "skinX": [104, 665], "skinWidth": [548, 584], "rowBounds": [110, 294, 454, 635, 825, 1020, 1200], "splitThreshold": 1.3 },
+      "frames": { "idle": 4, "walk": 4, "attack": 4, "skill": 4, "hurt": 4, "death": 4 }
+    }
+  ]
+}
