@@ -9,6 +9,12 @@ const ctx = canvas.getContext('2d');
 let C = null;          // estado do combate atual
 let rafId = 0, ultimoT = 0, resizePendente = 0;
 
+/* zonas no chão são elipses achatadas — a colisão usa a mesma forma do desenho (IA.4) */
+function dentroElipse(px, py, cx, cy, rx, ry){
+  const nx=(px-cx)/rx, ny=(py-cy)/ry;
+  return nx*nx + ny*ny < 1;
+}
+
 function redimensionar(){
   const dpr = Math.min(window.devicePixelRatio||1, 2);
   const w = window.innerWidth, h = window.innerHeight;
@@ -112,12 +118,12 @@ function criarInimigo(base, rank, classe, i=0){
   const e = {
     tipo:'inimigo', classe, nome:base.nome,
     sprite: base.sprite, adornos: base.adornos||null, hab: base.hab||null,
-    ranged: !!base.ranged, recupera:0, homeX:undefined, homeY:undefined,
+    ranged: !!base.ranged, recupera:0, entrou:false, furia:false,
     x: lado>0 ? C.W + 40 + i*30 : -40 - i*30,
     y: rnd(C.chaoTopo+30, C.chaoFundo-10),
     hp:st.hp, hpMax:st.hp, atq:st.dano, def:st.def,
     vel: base.vel * (classe==='boss'?0.85:1),
-    cd: rnd(0.5,1.5), windup:0, habAtiva:null, investe:null,
+    cd: rnd(0.3,1.0), windup:0, habAtiva:null, investe:null,
     raio: classe==='boss'?34 : classe==='elite'?24 : 16,
     flash:0, kbvx:0, kbvy:0,
     strafe: Math.random()<0.5?-1:1,   // sentido do passo lateral (arqueiros)
@@ -741,13 +747,61 @@ function ferirInimigo(e, dano, crit, cor){
 }
 
 /* ---------- auto-combate ---------- */
+/* direção normalizada a afastar-se de um ponto (no próprio ponto: para o lado) */
+function fugirDe(x, y){
+  const j=C.jogador, dx=j.x-x, dy=j.y-y, d=Math.hypot(dx,dy);
+  return d<1 ? { x:1, y:0 } : { x:dx/d, y:dy/d };
+}
+
+/* perigo iminente para o auto-combate: golpes, habilidades, projéteis e
+   zonas no chão (IA.2). Devolve a direção de fuga, ou null. */
+function perigoAuto(){
+  const j=C.jogador, B=BAL.combate;
+  for(const e of C.inimigos){
+    // carga já em voo na nossa direção: sai da linha
+    if(e.investe && !e.investe.feriu){
+      const vm=Math.hypot(e.investe.vx,e.investe.vy)||1, d=Math.hypot(j.x-e.x,j.y-e.y)||1;
+      if(((j.x-e.x)*e.investe.vx+(j.y-e.y)*e.investe.vy)/(vm*d) > 0.7)
+        return { x:-e.investe.vy/vm, y:e.investe.vx/vm };
+    }
+    if(e.windup<=0 || e.windup>0.35) continue;   // só quando está quase a resolver
+    const d=Math.hypot(e.x-j.x,e.y-j.y), h=e.habAtiva && e.habAtiva.tipo;
+    if(h==='investida' && d<B.alcanceHab+40){
+      const a=e.habAtiva.ang;
+      return { x:-Math.sin(a), y:Math.cos(a) };  // perpendicular à carga
+    }
+    if(h==='tremor' && d<140) return fugirDe(e.x, e.y);
+    if(h==='poca' && Math.hypot(e.habAtiva.alvoX-j.x, e.habAtiva.alvoY-j.y)<70)
+      return fugirDe(e.habAtiva.alvoX, e.habAtiva.alvoY);
+    if(!h && !e.ranged && d<70) return fugirDe(e.x, e.y);   // golpe corpo-a-corpo
+  }
+  // projétil ou orbe em rota de colisão
+  for(const tr of C.tiros){
+    const dx=j.x-tr.x, dy=(j.y-26)-tr.y, d=Math.hypot(dx,dy)||1, vm=Math.hypot(tr.vx,tr.vy)||1;
+    if(d<100 && (dx*tr.vx+dy*tr.vy)/(d*vm) > 0.85) return { x:-tr.vy/vm, y:tr.vx/vm };
+  }
+  for(const o of C.orbes) if(Math.hypot(o.x-j.x, o.y-(j.y-30))<80) return fugirDe(o.x, o.y);
+  // está dentro de uma zona de perigo no chão: sai dela
+  for(const p of C.pocas) if(dentroElipse(j.x, j.y, p.x, p.y, p.r, p.r*0.45)) return fugirDe(p.x, p.y);
+  for(const a of C.aneisBoss) if(dentroElipse(j.x, j.y, a.x, a.y, a.r+20, (a.r+20)*0.5)) return fugirDe(a.x, a.y);
+  return null;
+}
+
 function autoIA(dt){
   const j=C.jogador;
   const alvo = inimigoMaisProximo();
   if(!alvo) return;
   const d = Math.hypot(alvo.x-j.x, alvo.y-j.y);
-  const perigo = C.inimigos.find(e=> e.windup>0 && e.windup<0.3 && Math.hypot(e.x-j.x,e.y-j.y)<70);
-  if(perigo && j.cdEsq<=0){ const a=rnd(0,Math.PI*2); esquivar(Math.cos(a),Math.sin(a)); return; }
+  const fuga = perigoAuto();
+  if(fuga){
+    if(j.cdEsq<=0){ esquivar(fuga.x, fuga.y); return; }
+    // sem dash pronto: afasta-se a andar
+    const v = BAL.combate.velJogador * C.stats.velMov * dt;
+    j.x = clamp(j.x + fuga.x*v, 24, C.W-24);
+    j.y = clamp(j.y + fuga.y*v, C.chaoTopo, C.chaoFundo);
+    j.andando = true;
+    return;
+  }
   // ultimate carregada dispara logo
   if(temUltimate() && C.ult.t<=0 && C.ult.carga>=BAL.ultimates.cargaMax) usarUltimate();
   // usa poderes prontos com critério simples
@@ -918,8 +972,8 @@ function atualizar(dt){
     e.flash = Math.max(0, e.flash-dt);
     // knockback em curso: impulso que decai até parar (nada de saltos secos)
     if(e.kbvx || e.kbvy){
-      e.x = clamp(e.x + e.kbvx*dt, 20, C.W-20);
-      e.y = clamp(e.y + e.kbvy*dt, C.chaoTopo, C.chaoFundo);
+      e.x += e.kbvx*dt;
+      e.y += e.kbvy*dt;
       const trav = Math.exp(-BAL.feel.kbTravao*dt);
       e.kbvx *= trav; e.kbvy *= trav;
       if(Math.abs(e.kbvx)+Math.abs(e.kbvy) < 6) e.kbvx = e.kbvy = 0;
@@ -934,6 +988,14 @@ function atualizar(dt){
     }
     if(e.lento){ e.lento.t -= dt; if(e.lento.t<=0) e.lento=null; }
     e.congelado = Math.max(0, e.congelado-dt);
+    // fúria: corpo-a-corpo ferido a fundo enfurece (uma vez): mais rápido e mais forte
+    const FU = BAL.combate.furia;
+    if(!e.furia && !e.ranged && e.classe!=='boss' && e.hp < e.hpMax*FU.hp){
+      e.furia = true; e.vel *= FU.vel; e.atq = Math.round(e.atq*FU.dano);
+      numero(e.x, e.y-46, 'FÚRIA!', '#e2762d', 13);
+      for(let k=0;k<8;k++) particula(e.x, e.y-18, '#d05c4e', 3.5, 0.5);
+    }
+    if(e.furia && Math.random()<dt*5) particula(e.x+rnd(-8,8), e.y-26, '#d05c4e', 2.6, 0.35, rnd(-10,10), -40);
 
     const dx=j.x-e.x, dy=j.y-e.y, d=Math.hypot(dx,dy);
     const noTerror = terrorOn && d < terrorRaio;
@@ -943,51 +1005,45 @@ function atualizar(dt){
     if(e.congelado>0) velMult = 0;
 
     if(e.investe){
-      // carga do Senhor da Guerra em curso
-      e.investe.t -= dt;
-      e.x = clamp(e.x + e.investe.vx*dt, 20, C.W-20);
-      e.y = clamp(e.y + e.investe.vy*dt, C.chaoTopo, C.chaoFundo);
-      if(!e.investe.feriu && Math.hypot(j.x-e.x,j.y-e.y) < e.raio+36 && j.invul<=0){
-        e.investe.feriu = true; ferirJogador(e.atq*1.5, e);
+      // carga em linha em curso (bosses e monstros com hab 'investida');
+      // congelado trava-a por completo, lentidão/terror abrandam-na (IA.6)
+      if(velMult>0){
+        e.investe.t -= dt*velMult;
+        e.x += e.investe.vx*velMult*dt;
+        e.y += e.investe.vy*velMult*dt;
+        if(!e.investe.feriu && Math.hypot(j.x-e.x,j.y-e.y) < e.raio+36 && j.invul<=0){
+          e.investe.feriu = true; ferirJogador(e.investe.dano, e);   // dano fixado no windup (IA.7)
+        }
+        if(Math.random()<dt*30) particula(e.x, e.y-12, '#d05c4e', 4, 0.3);
+        if(e.investe.t<=0){ e.investe=null; e.cd=rnd(1.0,1.6); }
       }
-      if(Math.random()<dt*30) particula(e.x, e.y-12, '#d05c4e', 4, 0.3);
-      if(e.investe.t<=0){ e.investe=null; e.cd=rnd(1.2,2.0); }
     }
     else if(e.windup>0){
       if(e.congelado<=0) e.windup -= dt;
       if(e.windup<=0){
         let dano = e.atq;
         if(noTerror) dano *= 1-terrorFraq;
-        if(e.habAtiva){ resolverHabBoss(e, dano); e.habAtiva=null; }
+        if(e.habAtiva){ resolverHab(e, dano); e.habAtiva=null; }
         else if(e.ranged){
           // dispara um projétil em linha reta (esquivável)
-          const ang = Math.atan2((j.y-26)-(e.y-24), j.x-e.x);
-          const vp = BAL.combate.velProjInimigo;
-          const m2t = modelo2dDe(e.sprite), sprTiro = anim2d(m2t,'proj');  // frames verdadeiros (D028)
-          C.tiros.push({
-            x:e.x, y:e.y-24, vx:Math.cos(ang)*vp, vy:Math.sin(ang)*vp,
-            dano, t:3, spr: SPR.ok(sprTiro)?sprTiro:null, tint: m2t.cor||null, nasceu: C.tempo,
-            cor: e.sprite==='orcmago' ? '#b89ae8' : e.sprite==='sacerdote' ? '#d05c4e'
-               : e.sprite==='draconiano' ? '#e2762d' : e.sprite==='aranha' ? '#9ad06a' : '#d8c38a',
-          });
+          tiroInimigo(e, Math.atan2((j.y-26)-(e.y-24), j.x-e.x), dano, BAL.combate.velProjInimigo);
         }
         else if(d < e.raio+52 && j.invul<=0) ferirJogador(dano, e);
-        e.cd = rnd(1.0,1.9);
+        e.cd = rnd(BAL.combate.cdAtq[0], BAL.combate.cdAtq[1]);
         e.recupera = BAL.combate.recuperar;   // pausa pós-golpe: não cola
       }
     } else {
       e.cd -= dt*(e.congelado>0?0:1);
       e.recupera = Math.max(0, e.recupera-dt);
-      if(e.homeX===undefined && e.x>30 && e.x<C.W-30){ e.homeX=e.x; e.homeY=e.y; }
       const B = BAL.combate;
       const alcance = e.ranged ? B.alcanceRanged : e.raio+46;
-      if(e.classe==='boss' && e.hab && e.cd<=0 && Math.random()<0.45){
-        prepararHabBoss(e);
-      } else if(d > B.leash && e.classe!=='boss'){
-        // o Watcher fugiu: desinteressa-se e volta ao seu posto
-        const hx = e.homeX ?? C.W*0.7, hy = e.homeY ?? (C.chaoTopo+C.chaoFundo)/2;
-        const hd = Math.hypot(hx-e.x, hy-e.y);
-        if(hd > 24){ e.x += (hx-e.x)/hd*e.vel*0.4*dt; e.y += (hy-e.y)/hd*e.vel*0.4*dt; }
+      if(!e.entrou){
+        // ainda a entrar na sala: caminha direto ao Watcher até pisar o ecrã
+        if(e.x>24 && e.x<C.W-24) e.entrou = true;
+        else { e.x += dx/d*e.vel*velMult*dt; e.y += dy/d*e.vel*velMult*dt; }
+      } else if(e.hab && e.cd<=0 && d < (e.hab==='tremor' ? 140 : B.alcanceHab)
+                && Math.random() < 1-Math.exp(-(e.classe==='boss' ? B.habPorSegBoss : B.habPorSeg)*dt)){
+        prepararHab(e);
       } else if(e.recupera > 0){
         // recua ligeiramente depois de atacar
         e.x -= dx/d*e.vel*0.35*velMult*dt; e.y -= dy/d*e.vel*0.35*velMult*dt;
@@ -996,18 +1052,17 @@ function atualizar(dt){
         const perto = alcance*0.70, longe = alcance*0.98;
         if(d < perto){
           // demasiado perto — recua sem virar costas ao Watcher
-          e.x = clamp(e.x - dx/d*e.vel*0.95*velMult*dt, 20, C.W-20);
-          e.y = clamp(e.y - dy/d*e.vel*0.95*velMult*dt, C.chaoTopo, C.chaoFundo);
+          e.x -= dx/d*e.vel*0.95*velMult*dt;
+          e.y -= dy/d*e.vel*0.95*velMult*dt;
         } else if(d > longe){
           // fora de alcance — aproxima-se até poder disparar
           e.x += dx/d*e.vel*0.75*velMult*dt; e.y += dy/d*e.vel*0.75*velMult*dt;
         } else {
           // distância ideal — passo lateral (perpendicular) para ser alvo difícil
           const perpx = -dy/d, perpy = dx/d, spd = e.vel*0.5*velMult*dt;
-          e.x = clamp(e.x + perpx*e.strafe*spd, 20, C.W-20);
+          e.x += perpx*e.strafe*spd;
           e.y += perpy*e.strafe*spd;
           if(e.y <= C.chaoTopo+8 || e.y >= C.chaoFundo-8) e.strafe *= -1;
-          e.y = clamp(e.y, C.chaoTopo, C.chaoFundo);
         }
         if(e.cd<=0 && d < alcance*1.05) e.windup = BAL.anim.inimigo.disparo;   // dispara assim que recarrega
       } else if(d > alcance){
@@ -1018,18 +1073,25 @@ function atualizar(dt){
         e.windup = BAL.anim.inimigo.golpe;
       }
     }
+
+    // barreira do ecrã: depois de entrar, nenhum movimento (IA, carga, knockback) o tira de cena
+    if(e.entrou){
+      e.x = clamp(e.x, 24, C.W-24);
+      e.y = clamp(e.y, C.chaoTopo, C.chaoFundo);
+    }
   }
 
-  // separação entre inimigos (não se empilham)
+  // separação entre inimigos (não se empilham) — só depois de pisarem o ecrã (IA.5)
   for(let a=0;a<C.inimigos.length;a++){
     for(let b2=a+1;b2<C.inimigos.length;b2++){
       const A=C.inimigos[a], B2=C.inimigos[b2];
+      if(!A.entrou || !B2.entrou) continue;
       const sdx=B2.x-A.x, sdy=B2.y-A.y, sd=Math.hypot(sdx,sdy)||1;
       const minD = BAL.combate.separacao + (A.raio+B2.raio)*0.35;
       if(sd < minD){
-        const push = (minD-sd)/2;
-        A.x = clamp(A.x - sdx/sd*push, 20, C.W-20); A.y = clamp(A.y - sdy/sd*push, C.chaoTopo, C.chaoFundo);
-        B2.x = clamp(B2.x + sdx/sd*push, 20, C.W-20); B2.y = clamp(B2.y + sdy/sd*push, C.chaoTopo, C.chaoFundo);
+        const push = (minD-sd)/2;   // margens iguais à barreira do ecrã
+        A.x = clamp(A.x - sdx/sd*push, 24, C.W-24); A.y = clamp(A.y - sdy/sd*push, C.chaoTopo, C.chaoFundo);
+        B2.x = clamp(B2.x + sdx/sd*push, 24, C.W-24); B2.y = clamp(B2.y + sdy/sd*push, C.chaoTopo, C.chaoFundo);
       }
     }
   }
@@ -1049,7 +1111,7 @@ function atualizar(dt){
   if(C.lentoJog){ C.lentoJog.t-=dt; if(C.lentoJog.t<=0) C.lentoJog=null; }
   for(const p of C.pocas){
     p.t -= dt; p.tick = (p.tick||0) - dt;
-    if(p.tick<=0 && Math.hypot(j.x-p.x, j.y-p.y) < p.r && j.invul<=0){
+    if(p.tick<=0 && dentroElipse(j.x, j.y, p.x, p.y, p.r, p.r*0.45) && j.invul<=0){
       p.tick = 0.5;
       ferirJogador(p.dano);
     }
@@ -1069,7 +1131,7 @@ function atualizar(dt){
       a.feito = true;
       for(let i=0;i<24;i++) particula(a.x, a.y, '#d05c4e', 5, 0.5);
       C.shake = Math.max(C.shake, 9);
-      if(Math.hypot(j.x-a.x, j.y-a.y) < a.r && j.invul<=0) ferirJogador(a.dano);
+      if(dentroElipse(j.x, j.y, a.x, a.y, a.r, a.r*0.5) && j.invul<=0) ferirJogador(a.dano);
     }
   }
   C.aneisBoss = C.aneisBoss.filter(a=>!a.feito);
@@ -1153,16 +1215,28 @@ function atualizar(dt){
   }
 }
 
-/* ---------- habilidades únicas dos bosses ---------- */
-function prepararHabBoss(e){
+/* ---------- habilidades dos monstros (bosses e monstros com `hab` no data.js) ---------- */
+/* projétil inimigo: sprite real da prancha quando existe (D028), vetorial senão */
+function tiroInimigo(e, ang, dano, vp){
+  const m2t = modelo2dDe(e.sprite), sprTiro = anim2d(m2t,'proj');
+  C.tiros.push({
+    x:e.x, y:e.y-24, vx:Math.cos(ang)*vp, vy:Math.sin(ang)*vp,
+    dano, t:3, spr: SPR.ok(sprTiro)?sprTiro:null, tint: m2t.cor||null, nasceu: C.tempo,
+    cor: e.sprite==='orcmago' ? '#b89ae8' : e.sprite==='sacerdote' ? '#d05c4e'
+       : e.sprite==='draconiano' ? '#e2762d' : e.sprite==='aranha' ? '#9ad06a' : '#d8c38a',
+  });
+}
+
+function prepararHab(e){
   const j = C.jogador;
-  const dur = { invocar:0.9, acido:0.9, orbes:0.8, investida:0.9, sopro:1.0, aneis:1.1 }[e.hab] || 0.9;
+  const dur = { invocar:0.9, acido:0.9, orbes:0.8, investida:0.9, sopro:1.0, aneis:1.1,
+                rajada:0.7, poca:0.8, tremor:1.0 }[e.hab] || 0.9;
   e.habAtiva = { tipo:e.hab, alvoX:j.x, alvoY:j.y,
                  ang:Math.atan2(j.y-e.y, j.x-e.x), dur };
   e.windup = dur;
 }
 
-function resolverHabBoss(e, dano){
+function resolverHab(e, dano){
   const j = C.jogador, h = e.habAtiva, rank = C.masmorra.rank;
   switch(h.tipo){
     case 'invocar': {      // Rei Goblin chama lacaios
@@ -1182,7 +1256,7 @@ function resolverHabBoss(e, dano){
         C.pocas.push({
           x: clamp(h.alvoX + (i-1)*70 + rnd(-16,16), 30, C.W-30),
           y: clamp(h.alvoY + rnd(-26,26), C.chaoTopo, C.chaoFundo),
-          r: 52, t: 5.5, dano: Math.round(dano*0.35), tick: 0,
+          r: 52, t: 5.5, dano: Math.round(dano*0.35), tick: 0.35,   // (IA.3)
         });
       }
       break;
@@ -1193,9 +1267,27 @@ function resolverHabBoss(e, dano){
       }
       break;
     }
-    case 'investida': {    // Senhor da Guerra carrega em linha
-      const vx = Math.cos(h.ang)*640, vy = Math.sin(h.ang)*640;
-      e.investe = { t:0.55, vx, vy, feriu:false };
+    case 'investida': {    // carga em linha (boss a 640 px/s; monstros comuns a 520)
+      const v = e.classe==='boss' ? 640 : 520;
+      e.investe = { t:0.55, vx:Math.cos(h.ang)*v, vy:Math.sin(h.ang)*v, feriu:false,
+                    dano: Math.round(dano*1.5) };   // dano já com a fraqueza do Terror (IA.7)
+      break;
+    }
+    case 'rajada': {       // leque de 3 projéteis (esquivável entre eles)
+      for(let i=-1;i<=1;i++)
+        tiroInimigo(e, h.ang + i*0.22, Math.round(dano*0.8), BAL.combate.velProjInimigo*1.05);
+      break;
+    }
+    case 'poca': {         // cospe uma poça venenosa onde o Watcher estava
+      C.pocas.push({
+        x: clamp(h.alvoX, 30, C.W-30),
+        y: clamp(h.alvoY, C.chaoTopo, C.chaoFundo),
+        r: 44, t: 4, dano: Math.round(dano*0.3), tick: 0.35,   // tolerância: a poça avisa antes de morder (IA.3)
+      });
+      break;
+    }
+    case 'tremor': {       // pancada no chão: anel de choque à volta de si
+      C.aneisBoss.push({ x:e.x, y:e.y, r:105, t:0.7, dano:Math.round(dano*1.1), feito:false });
       break;
     }
     case 'sopro': {        // Dragão sopra gelo em cone
@@ -1324,10 +1416,10 @@ function desenhar(){
     ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r*0.45, 0, 0, Math.PI*2); ctx.stroke();
   }
 
-  // telégrafos das habilidades dos bosses
+  // telégrafos das habilidades dos monstros
   for(const e of C.inimigos){
     if(!e.habAtiva || e.windup<=0) continue;
-    const h = e.habAtiva, prog = 1 - e.windup/1.1;
+    const h = e.habAtiva, prog = 1 - e.windup/(h.dur||1);
     ctx.strokeStyle='rgba(192,68,56,0.85)'; ctx.lineWidth=3;
     ctx.fillStyle=`rgba(192,68,56,${0.10+0.18*prog})`;
     if(h.tipo==='acido' || h.tipo==='aneis'){
@@ -1341,6 +1433,14 @@ function desenhar(){
       ctx.fillRect(0, -26, 380, 52);
       ctx.strokeRect(0, -26, 380, 52);
       ctx.restore();
+    } else if(h.tipo==='poca'){
+      // marca a zona alvo no chão antes de a poça nascer (IA.3)
+      const tx = clamp(h.alvoX, 30, C.W-30), ty = clamp(h.alvoY, C.chaoTopo, C.chaoFundo);
+      ctx.strokeStyle='rgba(160,210,60,0.8)'; ctx.fillStyle=`rgba(110,160,40,${0.10+0.20*prog})`;
+      ctx.beginPath(); ctx.ellipse(tx, ty, 44, 44*0.45, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    } else if(h.tipo==='tremor'){
+      // anel de choque à volta do monstro (IA.3)
+      ctx.beginPath(); ctx.ellipse(e.x, e.y, 105, 105*0.5, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     } else if(h.tipo==='sopro'){
       ctx.save(); ctx.translate(e.x, e.y);
       ctx.fillStyle=`rgba(120,190,230,${0.12+0.2*prog})`;
@@ -2071,7 +2171,7 @@ function desenharInimigo(e){
     if(m2.alpha) ctx.globalAlpha=m2.alpha;
     if(e.flash>0) ctx.filter='brightness(2.4)';
     else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
-    SPR.frameH(ctx, nome, idx, nf, alt, C.jogador.x < e.x, m2.cor,
+    SPR.frameH(ctx, nome, idx, nf, alt, C.jogador.x < e.x, e.furia ? '#d05c4e' : m2.cor,
                m2.kind==='novo'?ALTURAS_SPRITE.ancoraY:m2.kind==='big'?0.74:0.86);
     ctx.filter='none'; ctx.globalAlpha=1;
     ctx.restore();
@@ -2087,6 +2187,7 @@ function desenharInimigo(e){
     if(e.flash>0) ctx.filter='brightness(2.4)';
     else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
     if(e.windup>0){ ctx.shadowColor='#c04438'; ctx.shadowBlur=16; }
+    else if(e.furia){ ctx.shadowColor='#d05c4e'; ctx.shadowBlur=10; }
     ctx.lineJoin='round'; ctx.lineCap='round';
     ARTE.monstro(ctx, e.sprite, e.adornos);
     ctx.filter='none'; ctx.shadowBlur=0;

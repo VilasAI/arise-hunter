@@ -79,15 +79,18 @@ const ARTE_CENARIO = Object.freeze({
 });
 
 /* mHp/mDano: multiplicadores sobre BAL.inimigosRank (balance.js)
-   sprite: desenho vetorial em js/art.js */
+   sprite: desenho vetorial em js/art.js
+   hab: habilidade do monstro (mesmo motor dos bosses) —
+   investida = carga em linha · rajada = leque de 3 projéteis ·
+   poca = cospe poça no alvo · tremor = anel de choque à volta de si */
 /* servos das legiões demoníacas (D017) — sprites reaproveitados, identidade nova */
 const MONSTROS = {
-  E:[{nome:'Diabrete',sprite:'goblin',mHp:1.0,mDano:1.0,vel:55},{nome:'Cão da Fenda',sprite:'lobo',mHp:0.8,mDano:1.2,vel:75},{nome:'Diabrete Fundeiro',sprite:'goblin',mHp:0.7,mDano:0.9,vel:50,ranged:true}],
-  D:[{nome:'Carraça do Enxame',sprite:'formiga',mHp:1.0,mDano:1.0,vel:65},{nome:'Tecelã Venenosa',sprite:'aranha',mHp:0.8,mDano:1.2,vel:80,ranged:true}],
-  C:[{nome:'Renegado Erguido',sprite:'esqueleto',mHp:1.0,mDano:0.9,vel:60},{nome:'Alma Cativa',sprite:'espectro',mHp:0.75,mDano:1.1,vel:90},{nome:'Arqueiro Erguido',sprite:'esqueleto',mHp:0.75,mDano:1.0,vel:52,ranged:true}],
-  B:[{nome:'Bruto da Legião',sprite:'orc',mHp:1.0,mDano:0.85,vel:65},{nome:'Feiticeiro da Legião',sprite:'orcmago',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
-  A:[{nome:'Dracónida',sprite:'draconiano',mHp:0.85,mDano:0.85,vel:70},{nome:'Golem do Degelo',sprite:'golem',mHp:1.2,mDano:0.7,vel:45},{nome:'Dracónida Cuspidor',sprite:'draconiano',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
-  S:[{nome:'Cavaleiro do Vazio',sprite:'cavaleiro',mHp:0.8,mDano:0.7,vel:75},{nome:'Sacerdote da Fenda',sprite:'sacerdote',mHp:0.65,mDano:0.85,vel:60,ranged:true}],
+  E:[{nome:'Diabrete',sprite:'goblin',mHp:1.0,mDano:1.0,vel:55},{nome:'Cão da Fenda',sprite:'lobo',mHp:0.8,mDano:1.2,vel:75,hab:'investida'},{nome:'Diabrete Fundeiro',sprite:'goblin',mHp:0.7,mDano:0.9,vel:50,ranged:true}],
+  D:[{nome:'Carraça do Enxame',sprite:'formiga',mHp:1.0,mDano:1.0,vel:65},{nome:'Tecelã Venenosa',sprite:'aranha',mHp:0.8,mDano:1.2,vel:80,ranged:true,hab:'poca'}],
+  C:[{nome:'Renegado Erguido',sprite:'esqueleto',mHp:1.0,mDano:0.9,vel:60},{nome:'Alma Cativa',sprite:'espectro',mHp:0.75,mDano:1.1,vel:90},{nome:'Arqueiro Erguido',sprite:'esqueleto',mHp:0.75,mDano:1.0,vel:52,ranged:true,hab:'rajada'}],
+  B:[{nome:'Bruto da Legião',sprite:'orc',mHp:1.0,mDano:0.85,vel:65,hab:'investida'},{nome:'Feiticeiro da Legião',sprite:'orcmago',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
+  A:[{nome:'Dracónida',sprite:'draconiano',mHp:0.85,mDano:0.85,vel:70},{nome:'Golem do Degelo',sprite:'golem',mHp:1.2,mDano:0.7,vel:45,hab:'tremor'},{nome:'Dracónida Cuspidor',sprite:'draconiano',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
+  S:[{nome:'Cavaleiro do Vazio',sprite:'cavaleiro',mHp:0.8,mDano:0.7,vel:75,hab:'investida'},{nome:'Sacerdote da Fenda',sprite:'sacerdote',mHp:0.65,mDano:0.85,vel:60,ranged:true,hab:'rajada'}],
 };
 
 /* Bosses: stats de BAL.inimigosRank × BAL.inimigoClasse.boss
