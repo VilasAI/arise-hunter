@@ -25,6 +25,8 @@
   --c-mitico:#c04438;
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-left:env(safe-area-inset-left,0px);    /* notch lateral em landscape (P2.19) */
+  --safe-right:env(safe-area-inset-right,0px);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
@@ -343,7 +345,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .hud-topo{
   position:absolute;top:0;left:0;right:0;z-index:5;
   display:flex;align-items:flex-start;gap:10px;
-  padding:calc(8px + var(--safe-top)) 10px 0;pointer-events:none;
+  padding:calc(8px + var(--safe-top)) calc(10px + var(--safe-right)) 0 calc(10px + var(--safe-left));pointer-events:none;
 }
 .hud-topo>*{pointer-events:auto}
 .hud-centro{flex:1;max-width:520px;margin:0 auto}
@@ -367,7 +369,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 
 /* botão de ataque grande (polegar direito) */
 .btn-atacar{
-  position:absolute;right:18px;bottom:calc(26px + var(--safe-bottom));z-index:6;
+  position:absolute;right:calc(18px + var(--safe-right));bottom:calc(26px + var(--safe-bottom));z-index:6;
   width:86px;height:86px;border-radius:50%;
   background:radial-gradient(circle at 35% 30%, #4a3b29, #241d16);
   border:3px solid var(--bronze);
@@ -380,7 +382,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 
 /* botão de esquiva (rolamento) */
 .btn-esquiva{
-  position:absolute;right:114px;bottom:calc(34px + var(--safe-bottom));z-index:6;
+  position:absolute;right:calc(114px + var(--safe-right));bottom:calc(34px + var(--safe-bottom));z-index:6;
   width:58px;height:58px;border-radius:50%;position:absolute;
   background:radial-gradient(circle at 35% 30%, #3a3026, #1a1410);
   border:2px solid var(--borda);
@@ -399,7 +401,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 
 /* slots de poderes em combate (polegar direito) */
 .slots-poder{
-  position:absolute;right:16px;bottom:calc(136px + var(--safe-bottom));z-index:5;
+  position:absolute;right:calc(16px + var(--safe-right));bottom:calc(136px + var(--safe-bottom));z-index:5;
   display:flex;flex-direction:row-reverse;gap:12px;   /* arco acima do ataque/esquiva */
 }
 .slot-poder.sem-mana{filter:saturate(.3) brightness(.7)}
@@ -545,8 +547,8 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
   .painel-corpo>.seccao-titulo,.painel-corpo>.equipado-fila,.painel-corpo>.grelha-itens,.painel-corpo>button{grid-column:1/-1}
   /* em ecrãs baixos não há altura para o arco: os poderes ficam ao lado
      da esquiva/ataque (right:190px evita a sobreposição com os botões) */
-  .slots-poder{right:190px;bottom:calc(20px + var(--safe-bottom));flex-direction:row}
-  .dica-controlo{bottom:8px;left:80px;right:240px}
+  .slots-poder{right:calc(190px + var(--safe-right));bottom:calc(20px + var(--safe-bottom));flex-direction:row}
+  .dica-controlo{bottom:8px;left:calc(80px + var(--safe-left));right:calc(240px + var(--safe-right))}
 }
 
 /* ---------- escolha de classe ---------- */
@@ -566,7 +568,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 
 /* ---------- botão da ultimate (desbloqueia no 1.º Despertar) ---------- */
 .btn-ult{
-  position:absolute;right:20px;bottom:calc(206px + var(--safe-bottom));z-index:6;
+  position:absolute;right:calc(20px + var(--safe-right));bottom:calc(206px + var(--safe-bottom));z-index:6;
   width:64px;height:64px;border-radius:50%;
   background:radial-gradient(circle at 35% 30%, #3d2a4a, #1c1422);
   border:2px solid #6b4a8a;
@@ -589,7 +591,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 }
 .btn-ult .ult-carga-fill{height:100%;width:0;background:linear-gradient(90deg,#8a6fc8,#f0d272)}
 @media (orientation:landscape) and (max-height:520px){
-  .btn-ult{right:114px;bottom:calc(104px + var(--safe-bottom))}
+  .btn-ult{right:calc(114px + var(--safe-right));bottom:calc(104px + var(--safe-bottom))}
 }
 
 /* ---------- árvore de poderes ---------- */

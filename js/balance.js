@@ -158,7 +158,7 @@ const BAL = {
   /* ---------- Economia ---------- */
   economia: {
     forjaBase: 60,       // ouro por nível de melhoria (escala com nível e raridade)
-    encanteCristais: 3,  // custo de um encantamento
+    encanteOuro: 180,    // custo de um encantamento (D032: poder compra-se com ouro)
     fusaoQtd: 3,         // itens iguais necessários para fundir
     lojaMargem: 8,       // preço de compra = valor do item × esta margem
   },
@@ -199,8 +199,7 @@ const BAL = {
   /* ---------- Base do jogador (melhorias) ---------- */
   base: {
     maxNivel: 5,
-    custoOuro: n => 300 * Math.pow(2, n),   // custo do nível n→n+1
-    custoCristais: n => 5 * (n+1),
+    custoOuro: n => 300 * Math.pow(2, n),   // custo do nível n→n+1 (D032: só ouro)
     forjaDescontoPorNivel: 0.06,   // -6% custo de forja por nível
     altarBonusPorNivel: 0.10,      // Altar do Dom: +10% stats das sombras/nível (Assassino)
     altarUltPorNivel: 0.08,        // Altar do Dom: +8% efeito da ultimate/nível (outras classes)
@@ -226,7 +225,7 @@ const BAL = {
 /* Aliases para retro-compatibilidade com o resto do código */
 const PONTOS_POR_NIVEL  = BAL.jogador.pontosPorNivel;
 const CUSTO_FORJA_BASE  = BAL.economia.forjaBase;
-const CUSTO_ENCANTE     = BAL.economia.encanteCristais;
+const CUSTO_ENCANTE     = BAL.economia.encanteOuro;
 const FUSAO_QTD         = BAL.economia.fusaoQtd;
 
 /* ============================================================

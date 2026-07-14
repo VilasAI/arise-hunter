@@ -24,7 +24,7 @@
     <button id="btn-comecar" class="btn btn-primario btn-grande">⚔ COMEÇAR A VIGÍLIA</button>
     <button id="btn-apagar-save" class="btn btn-fantasma">Apagar progresso</button>
     <button id="btn-som" class="btn btn-fantasma">Som: ligado</button>
-    <p class="versao">v3.7 BETA · Arte v2 · campanha até ao rank C</p>
+    <p class="versao">v3.8 BETA · IA + economia · campanha até ao rank C</p>
   </div>
 </section>
 
@@ -118,21 +118,9 @@
 <!-- ============ TOASTS ============ -->
 <div id="toasts"></div>
 
-<script src="js/balance.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/data.js"></script>
-<script src="js/art.js"></script>
-<script src="js/sprites.js"></script>
-<script src="js/powers.js"></script>
-<script src="js/classes.js"></script>
-<script src="js/arvore.js"></script>
-<script src="js/game.js"></script>
-<script src="js/combat.js"></script>
-<script src="js/hub.js"></script>
-<script src="js/ui.js"></script>
-
 <script>
-/* mostra erros no ecrã — permite diagnosticar no telemóvel sem consola */
+/* mostra erros no ecrã — instalado ANTES dos scripts do jogo, para apanhar
+   falhas do próprio arranque no telemóvel, sem consola (P2.17) */
 (function(){
   function mostrar(msg){
     var d=document.getElementById('erro-fatal');
@@ -153,7 +141,22 @@
     mostrar('promessa rejeitada: '+((e.reason&&e.reason.message)||e.reason||'?'));
   });
 })();
+</script>
 
+<script src="js/balance.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/data.js"></script>
+<script src="js/art.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/powers.js"></script>
+<script src="js/classes.js"></script>
+<script src="js/arvore.js"></script>
+<script src="js/game.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/hub.js"></script>
+<script src="js/ui.js"></script>
+
+<script>
 /* service worker com auto-atualização: expulsa versões antigas em cache.
    Se já existia um SW a controlar a página, recarrega uma vez quando o novo assume. */
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

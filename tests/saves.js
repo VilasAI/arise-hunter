@@ -52,6 +52,8 @@ const codigo = FICHEIROS.map(f => fs.readFileSync(path.join(RAIZ,f),'utf8')).joi
   novoJogo, migrarSave, normalizarSave, prepararSave, carregar, importarSave, exportarSave,
   guardar, escolherClasse, staminaMax, multAltarUlt, ferirInimigo, pontosInvestidos,
   comprarSkin, baseHeroi,
+  encantar, fundir, subirSombra, custoSombra, statsSombra, compensacaoSombra,
+  rankCacador, despertarDisponivel, tabelaRanking, hojeStr,
   BAL, PODERES, CLASSES, SOMBRAS_BASE, SAVE_KEY,
 };`;
 vm.runInContext(codigo, sandbox, { filename:'jogo-concatenado.js' });
@@ -107,11 +109,14 @@ t('P1.4: escolher classe limpa poderes de outras classes', () => {
   assert.equal(jogo.G.basicas.vit, jogo.CLASSES.guerreiro.basicas.vit);
 });
 
-t('P1.4: sombras compensadas ao escolher classe não-Assassino', () => {
+t('P1.4/P2.11: sombras compensadas ao escolher classe não-Assassino', () => {
   jogo.G = jogo.prepararSave({ nivel:8, cristais:0, sombras:[{ rank:'E', nivel:4, ativa:true }] });
+  // a migração D032 reembolsa os níveis comprados (E: 4+8+12 = 24)…
+  assert.equal(jogo.G.cristais, 24);
   jogo.escolherClasse('mago');
   assert.equal(jogo.G.sombras.length, 0);
-  assert.equal(jogo.G.cristais, 4 + 3*4);
+  // …e a troca de classe soma o valor simbólico da sombra (4)
+  assert.equal(jogo.G.cristais, 24 + 4);
 });
 
 t('P1.5: a mesma morte não conta duas vezes', () => {
@@ -171,6 +176,87 @@ t('exportar → importar preserva o essencial', () => {
   assert.equal(jogo.importarSave(cod), true);
   assert.equal(jogo.G.nivel, 7);
   assert.equal(jogo.G.ouro, 1234);
+});
+
+/* ---------- Bloco 4 (auditoria): beta, economia D032, sombras, ranking ---------- */
+
+t('D032: cristais gastos em poder reembolsados na migração', () => {
+  jogo.G = jogo.prepararSave({ nivel:20, classe:'assassino', cristais:0,
+    inventario:[{ id:1, tipo:'arma', nome:'Espada do Eco', raridade:'raro', base:10, nivel:0,
+                  encante:{ stat:'sorte', nome:'da Fortuna', valor:3 } }],
+    sombras:[{ rank:'C', nivel:4, ativa:true }],
+    base:{ forja:0, altar:2, reservatorio:0 } });
+  // 3 (encante) + 42 (níveis da sombra C: 10+14+18) + 15 (altar nv.2: 5+10)
+  assert.equal(jogo.G.cristais, 3 + 42 + 15);
+  assert.equal(jogo.G._d032, 60);
+  assert.equal(jogo.G.sombras[0].nivel, 4);    // os níveis mantêm-se
+  // um save já no schema novo não volta a ser reembolsado
+  const cod = jogo.exportarSave();
+  jogo.importarSave(cod);
+  assert.equal(jogo.G.cristais, 60);
+});
+
+t('D032: encantar custa ouro, não cristais', () => {
+  jogo.G = jogo.novoJogo(); jogo.G.ouro = 1000; jogo.G.cristais = 0;
+  jogo.G.inventario.push({ id:1, tipo:'arma', nome:'X', raridade:'comum', base:6, nivel:0, encante:null });
+  assert.equal(jogo.encantar(jogo.G.inventario[0]).ok, true);
+  assert.equal(jogo.G.ouro, 1000 - jogo.BAL.economia.encanteOuro);
+  assert.equal(jogo.G.cristais, 0);
+});
+
+t('D032: subir sombra custa ouro', () => {
+  jogo.G = jogo.prepararSave({ nivel:12, classe:'assassino', ouro:5000, cristais:0,
+    sombras:[{ rank:'E', nivel:1, ativa:true }] });
+  const s = jogo.G.sombras[0];
+  assert.equal(jogo.subirSombra(s).ok, true);
+  assert.equal(s.nivel, 2);
+  assert.equal(jogo.G.ouro, 5000 - jogo.custoSombra({ rank:'E', nivel:1 }));
+  assert.equal(jogo.G.cristais, 0);
+});
+
+t('D033: sombras incorpóreas — só ataque, sem HP', () => {
+  jogo.G = jogo.prepararSave({ nivel:8, classe:'assassino', sombras:[{ rank:'E', nivel:2, ativa:true }] });
+  const st = jogo.statsSombra(jogo.G.sombras[0]);
+  assert.ok(st.atq > 0);
+  assert.equal(st.hp, undefined);
+});
+
+t('P2.1: na beta, o rank do caçador e a 2.ª Provação cortam', () => {
+  jogo.G = jogo.prepararSave({ nivel:34 });
+  assert.equal(jogo.rankCacador(), jogo.BAL.beta.rankMax);
+  jogo.G = jogo.prepararSave({ nivel:30, despertar:1 });
+  assert.equal(jogo.despertarDisponivel(), false);   // a Provação A fica para a versão completa
+  jogo.G = jogo.prepararSave({ nivel:15 });
+  assert.equal(jogo.despertarDisponivel(), true);    // a 1.ª (rank C) continua na beta
+});
+
+t('P2.7: o ranking é vencível com poder suficiente', () => {
+  jogo.G = jogo.novoJogo();
+  jogo.G.basicas.for = 200000;                       // poder de fim de jogo
+  const tab = jogo.tabelaRanking();
+  assert.equal(tab[0].eu, true);
+  jogo.G.basicas.for = 0;                            // no arranque fica atrás dos NPC
+  assert.equal(jogo.tabelaRanking()[0].eu, false);
+});
+
+t('P2.8: o dia do diário é o dia local', () => {
+  const d = new Date();
+  const esperado = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  assert.equal(jogo.hojeStr(), esperado);
+});
+
+t('P2.13: a arma inicial só se oferece uma vez', () => {
+  jogo.G = jogo.prepararSave({ nivel:1,
+    inventario:[{ id:3, tipo:'arma', nome:'Adaga do Watcher', raridade:'comum', base:8, nivel:0 }] });
+  assert.equal(jogo.G.armaInicialDada, true);        // quem tem itens já a recebeu
+  jogo.G = jogo.prepararSave({ nivel:1 });
+  assert.equal(jogo.G.armaInicialDada, false);       // save virgem ainda recebe a primeira
+});
+
+t('P3: fundir rejeita o mesmo item repetido', () => {
+  jogo.G = jogo.novoJogo();
+  jogo.G.inventario.push({ id:1, tipo:'arma', nome:'X', raridade:'comum', base:6, nivel:0, encante:null });
+  assert.equal(jogo.fundir([1,1,1]).ok, false);
 });
 
 console.log('\nPASS — ' + passaram + ' testes verdes');

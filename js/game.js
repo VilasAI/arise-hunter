@@ -2,7 +2,7 @@
 'use strict';
 
 const SAVE_KEY = 'arise-hunter-save-v1';
-const SCHEMA_VERSAO = 3;   // versão da forma do save (migrações correm por comparação)
+const SCHEMA_VERSAO = 4;   // versão da forma do save (migrações correm por comparação)
 
 /* Modo de teste: abrir o link com ?teste (ou ?test) dá energia ilimitada,
    para poder jogar em contínuo à caça de bugs. Não afeta jogadores normais. */
@@ -38,6 +38,7 @@ function novoJogo(){
     // missões
     contadores:{ mortes:0, forjas:0, fusoes:0, sombras:0, poderes:0, despertar:0 },
     missoesFeitas:[],
+    armaInicialDada:false,   // a Adaga do Watcher só se oferece uma vez (P2.13)
     criadoEm: Date.now(),
   };
 }
@@ -78,8 +79,9 @@ function migrarSave(obj){
     obj._sombrasMigradas = true;
   }
   // D010: sombras exclusivas do Assassino — compensa as outras classes em cristais
+  // (reembolso integral dos níveis comprados na era dos cristais — P2.11)
   if(obj.classe && obj.classe !== 'assassino' && Array.isArray(obj.sombras) && obj.sombras.length){
-    obj.cristais = (obj.cristais||0) + obj.sombras.reduce((a,s)=> a + 4 + ((s.nivel||1)-1)*4, 0);
+    obj.cristais = (obj.cristais||0) + obj.sombras.reduce((a,s)=> a + compensacaoSombra(s.nivel, s.rank), 0);
     obj.sombras = [];
     obj._sombrasMigradas = true;
   }
@@ -89,7 +91,34 @@ function migrarSave(obj){
     for(const id of obj.skins) if(PALETAS[id]) obj.cristais = (obj.cristais||0) + PALETAS[id];
     obj.skins = obj.skins.filter(id => !PALETAS[id]);
   }
+  // schema 4 (D032): cristais deixam de comprar poder — reembolsa o que foi gasto neles:
+  // encantamentos, níveis de sombras (que se mantêm) e a componente em cristais da base
+  if((obj.schema||1) < 4){
+    let devolver = 0;
+    for(const it of (Array.isArray(obj.inventario) ? obj.inventario : []))
+      if(it && it.encante) devolver += 3;                       // encanteCristais da era anterior
+    for(const s of (Array.isArray(obj.sombras) ? obj.sombras : [])){
+      const n = Math.max(1, s && s.nivel || 1), idx = Math.max(0, IDX_RARIDADE_RANK(s && s.rank));
+      devolver += 2*n*(n-1) + 3*idx*(n-1);                      // Σ custos de nível (4l + 3·idx)
+    }
+    if(ehObjeto(obj.base)) for(const tipo of ['forja','altar','reservatorio']){
+      const nv = Math.min(BAL.base.maxNivel, Math.max(0, Math.floor(obj.base[tipo]||0)));
+      for(let i=0;i<nv;i++) devolver += 5*(i+1);                // custoCristais da era anterior
+    }
+    if(devolver > 0){
+      obj.cristais = (obj.cristais||0) + devolver;
+      obj._d032 = devolver;
+    }
+  }
   return obj;
+}
+
+/* cristais investidos numa sombra na era dos cristais: 4 de base
+   + reembolso integral dos níveis comprados, Σ(4·l + 3·idx) (P2.11) */
+function compensacaoSombra(nivel, rank){
+  const n = Math.max(1, nivel||1);
+  const idx = Math.max(0, IDX_RARIDADE_RANK(rank));
+  return 4 + 2*n*(n-1) + 3*idx*(n-1);
 }
 
 /* ---------- Validação profunda do save ----------
@@ -217,11 +246,14 @@ function normalizarSave(o){
   g.stamina = { v: vNum(st.v, g.stamina.v, 0, 999), ts: vNum(st.ts, Date.now(), 0) };
 
   g.missoesFeitas = (Array.isArray(o.missoesFeitas) ? o.missoesFeitas : []).filter(id => MISSOES.some(m=>m.id===id));
+  // saves anteriores à flag: quem já tem itens ou nível já recebeu a arma inicial (P2.13)
+  g.armaInicialDada = !!o.armaInicialDada || g.inventario.length > 0 || g.nivel > 1;
   g.criadoEm = vNum(o.criadoEm, Date.now(), 0);
 
   // avisos de migração pendentes (a UI mostra-os e apaga-os)
   if(o._migrado) g._migrado = true;
   if(o._sombrasMigradas) g._sombrasMigradas = true;
+  if(o._d032) g._d032 = vInt(o._d032, 0, 0);
   return g;
 }
 
@@ -339,7 +371,8 @@ function darXP(qtd){
 
 function rankCacador(){
   const n = G.nivel;
-  return n>=34?'S' : n>=24?'A' : n>=16?'B' : n>=10?'C' : n>=5?'D' : 'E';
+  const r = n>=34?'S' : n>=24?'A' : n>=16?'B' : n>=10?'C' : n>=5?'D' : 'E';
+  return rankNaBeta(r) ? r : BAL.beta.rankMax;   // na beta, o rank do caçador também corta (P2.1)
 }
 
 /* ---------- Itens ---------- */
@@ -410,8 +443,8 @@ function forjar(it){
 }
 
 function encantar(it){
-  if(G.cristais < CUSTO_ENCANTE) return {ok:false, msg:'Cristais insuficientes'};
-  G.cristais -= CUSTO_ENCANTE;
+  if(G.ouro < CUSTO_ENCANTE) return {ok:false, msg:'Ouro insuficiente'};   // D032: poder compra-se com ouro
+  G.ouro -= CUSTO_ENCANTE;
   const e = escolher(ENCANTAMENTOS);
   const r = IDX_RARIDADE[it.raridade];
   it.encante = { stat:e.stat, nome:e.nome, valor: rndInt(2,5) + r*2 };
@@ -420,6 +453,7 @@ function encantar(it){
 }
 
 function fundir(ids){
+  if(new Set(ids).size !== FUSAO_QTD) return {ok:false, msg:`Escolhe ${FUSAO_QTD} itens diferentes.`};
   const itens = ids.map(itemPorId).filter(Boolean);
   if(itens.length !== FUSAO_QTD) return {ok:false, msg:`Escolhe ${FUSAO_QTD} itens.`};
   const r = itens[0].raridade, tipo = itens[0].tipo;
@@ -447,30 +481,30 @@ function tentarExtrairSombra(rank){
   const chance = clamp(BAL.sombras.chanceExtracao + t.sorte * BAL.sombras.chancePorSorte, 0, 0.95);
   if(Math.random() > chance) return null;
   const base = SOMBRAS_BASE[rank];
-  const sombra = { rank, nome:base.nome, sprite:base.sprite, nivel:1, ativa:G.sombras.length < t.maxSombras };
+  const sombra = { rank, nome:base.nome, sprite:base.sprite, nivel:1,
+                   ativa: G.sombras.filter(x=>x.ativa).length < t.maxSombras };   // conta as ATIVAS (P3)
   G.sombras.push(sombra);
   G.contadores.sombras++;
   guardar();
   return sombra;
 }
 
+/* sombras são incorpóreas (D033): só têm ataque, nunca HP */
 function statsSombra(s){
   const base = SOMBRAS_BASE[s.rank], c = BAL.sombras.crescimentoPorNivel;
   const mult = (1 + G.base.altar * BAL.base.altarBonusPorNivel)              // Altar do Dom
              * ((typeof arvKeystone==='function' && arvKeystone('a_ks_dom')) ? 1.25 : 1); // Rei das Sombras
-  return {
-    atq: Math.round(base.atq*(1+s.nivel*c)*mult),
-    hp:  Math.round(base.hp *(1+s.nivel*c)*mult),
-  };
+  return { atq: Math.round(base.atq*(1+s.nivel*c)*mult) };
 }
 
-function custoSombra(s){ return s.nivel * 4 + IDX_RARIDADE_RANK(s.rank)*3; }
+/* D032: subir de nível custa OURO (cristais nunca compram poder) */
+function custoSombra(s){ return (s.nivel * 4 + IDX_RARIDADE_RANK(s.rank)*3) * 50; }
 function IDX_RARIDADE_RANK(rank){ return ['E','D','C','B','A','S'].indexOf(rank); }
 
 function subirSombra(s){
   const custo = custoSombra(s);
-  if(G.cristais < custo) return {ok:false, msg:'Cristais insuficientes'};
-  G.cristais -= custo; s.nivel++;
+  if(G.ouro < custo) return {ok:false, msg:'Ouro insuficiente'};
+  G.ouro -= custo; s.nivel++;
   guardar();
   return {ok:true};
 }
@@ -510,7 +544,11 @@ function baseHeroi(){
 }
 
 /* ---------- Diário / eventos ---------- */
-function hojeStr(){ return new Date().toISOString().slice(0,10); }
+/* dia LOCAL do jogador — com UTC, em Portugal no verão o dia virava à 01:00 (P2.8) */
+function hojeStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 
 function verificarDiario(){
   const hoje = hojeStr();
@@ -581,15 +619,14 @@ const BASE_DEFS = {
 function custoMelhoriaBase(tipo){
   const n = G.base[tipo];
   if(n >= BAL.base.maxNivel) return null;
-  return { ouro: BAL.base.custoOuro(n), cristais: BAL.base.custoCristais(n) };
+  return { ouro: BAL.base.custoOuro(n) };   // D032: a base melhora-se só com ouro
 }
 
 function melhorarBase(tipo){
   const c = custoMelhoriaBase(tipo);
   if(!c) return {ok:false, msg:'Nível máximo.'};
   if(G.ouro < c.ouro) return {ok:false, msg:'Ouro insuficiente.'};
-  if(G.cristais < c.cristais) return {ok:false, msg:'Cristais insuficientes.'};
-  G.ouro -= c.ouro; G.cristais -= c.cristais;
+  G.ouro -= c.ouro;
   G.base[tipo]++;
   guardar();
   return {ok:true};
@@ -621,6 +658,8 @@ function removerRuna(slot){ G.runasEq[slot] = null; guardar(); }
 function despertarDisponivel(){
   const alvo = G.despertar;                       // próximo despertar (0→1, 1→2)
   if(alvo >= BAL.despertar.niveis.length) return false;
+  // a Provação decorre numa masmorra C (1.º) ou A (2.º) — fora da beta não abre (P2.1)
+  if(!rankNaBeta(alvo === 0 ? 'C' : 'A')) return false;
   return G.nivel >= BAL.despertar.niveis[alvo];
 }
 
@@ -669,7 +708,7 @@ function stockLoja(){
   const dia = parseInt(hojeStr().replace(/-/g,''),10);
   let semente = dia * 9301 + 49297;                 // PRNG determinístico do dia
   const rndS = ()=>{ semente = (semente*9301+49297) % 233280; return semente/233280; };
-  const elegiveis = MASMORRAS.filter(m=>m.nivelReq <= G.nivel+4);
+  const elegiveis = MASMORRAS.filter(m=> m.nivelReq <= G.nivel+4 && rankNaBeta(m.rank));   // (P2.1)
   const m = elegiveis[elegiveis.length-1] || MASMORRAS[0];
   const stock = [];
   for(let i=0;i<4;i++){
@@ -710,8 +749,10 @@ const Cloud = {
 /* ---------- Ranking ---------- */
 function tabelaRanking(){
   const meu = poderTotal();
+  // cada NPC cresce SEMPRE mais devagar que o jogador (fator/120 < 1),
+  // por isso todos são ultrapassáveis com progresso suficiente (P2.7)
   const npcs = NPC_RANKING.map(([nome,fator])=>({
-    nome, poder: Math.round(fator * (20 + meu*0.022) ), eu:false
+    nome, poder: Math.round(fator*25 + meu*fator/120), eu:false
   }));
   npcs.push({ nome:`${G.nome} (tu)`, poder:meu, eu:true });
   npcs.sort((a,b)=>b.poder-a.poder);

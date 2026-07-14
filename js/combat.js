@@ -20,7 +20,16 @@ function redimensionar(){
   const w = window.innerWidth, h = window.innerHeight;
   canvas.width = w*dpr; canvas.height = h*dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  if(C){ C.W=w; C.H=h; C.chaoTopo=h*0.36; C.chaoFundo=h*0.90; prerenderCenario(); }
+  if(C){
+    const Wo=C.W, Ho=C.H;
+    C.W=w; C.H=h; C.chaoTopo=h*0.36; C.chaoFundo=h*0.90;
+    // rodar/redimensionar mantém o Watcher em cena, na mesma posição relativa (P2.20)
+    const j=C.jogador;
+    if(Wo && Ho){ j.x = j.x/Wo*w; j.y = j.y/Ho*h; }
+    j.x = clamp(j.x, 24, w-24); j.y = clamp(j.y, C.chaoTopo, C.chaoFundo);
+    j.alvoX = null;   // um dash a meio aponta para coordenadas do ecrã antigo
+    prerenderCenario();
+  }
 }
 window.addEventListener('resize', ()=>{
   if(resizePendente) return;
@@ -73,11 +82,10 @@ function iniciarCombate(masmorra){
 
 function criarAliados(){
   for(const s of sombrasAtivas()){
-    const st = statsSombra(s);
-    C.aliados.push({
+    C.aliados.push({   // incorpóreas: sem HP (D033)
       tipo:'sombra', nome:s.nome, sprite:SOMBRAS_BASE[s.rank].sprite,
       x:C.jogador.x - rnd(40,90), y:C.jogador.y + rnd(-50,50),
-      hp:st.hp, hpMax:st.hp, atq:st.atq, vel:90, cd:0, raio:16,
+      atq:statsSombra(s).atq, vel:90, cd:0, raio:16,
     });
   }
 }
@@ -290,7 +298,7 @@ function defAtual(){
   let def = t.def;
   if(C.buffGelo>0){
     const g = PODERES.gelo, tal = talentoDe('gelo');
-    def += t.def * g.base.defBonus * ((tal && tal.mod.def)||1);
+    def += t.def * g.base.defBonus * ((tal && tal.mod.def)||1) * efeitoPoder('gelo');   // tiers contam (P2.10)
   }
   return def;
 }
@@ -382,7 +390,7 @@ function esquivar(nx,ny){
       nx = C.joy.dx/m; ny = C.joy.dy/m;
     } else { nx = j.dirAtq||1; ny = 0; }
   }
-  j.cdEsq = B.dashCd * (1 - t.cdr/100);
+  j.cdEsq = B.dashCd * (1 - t.cdr/100) * passivaClasse().dashMult;   // Batedor esquiva mais depressa (P2.4)
   j.invul = B.dashInvul;
   j.atacando = 0;
   j.cdAtq = Math.min(j.cdAtq, BAL.feel.dashCancel);   // o dash cancela o recovery do golpe
@@ -414,12 +422,13 @@ function usarUltimate(){
       break;
     case 'assassino': {                     // Chamada: a coleção inteira entra em campo
       u.t = cfg.dur;                        // (o Altar já reforça as sombras)
+      const emCampo = new Set(C.aliados.map(a=>a.nome));
       for(const s of G.sombras){
-        const st = statsSombra(s);
-        C.aliados.push({
+        if(emCampo.has(s.nome)) continue;   // as já ativas não se duplicam (P2.5)
+        C.aliados.push({                    // incorpóreas: sem HP (D033)
           tipo:'sombra', nome:s.nome, sprite:SOMBRAS_BASE[s.rank].sprite,
           x:clamp(j.x+rnd(-80,80), 24, C.W-24), y:clamp(j.y+rnd(-60,60), C.chaoTopo, C.chaoFundo),
-          hp:st.hp, hpMax:st.hp, atq:st.atq, vel:110, cd:0, raio:16, temp:u.t,
+          atq:statsSombra(s).atq, vel:110, cd:0, raio:16, temp:u.t,
         });
       }
       for(let i=0;i<24;i++) particula(j.x+rnd(-60,60), j.y-10+rnd(-40,10), '#8a6fc8', 4.5, 0.6);
@@ -582,12 +591,13 @@ function usarPoder(slot, dir){
       break;
     }
     case 'gelo': {
-      const congela = p.base.congela + ((tal && tal.mod.congelaExtra)||0)
-                    + (arvKeystone('m_ks_gel') ? 0.6 : 0);   // Zero Absoluto
+      // os tiers ampliam o efeito real: congelamento e lentidão escalam com ef (P2.10)
+      const congela = (p.base.congela + ((tal && tal.mod.congelaExtra)||0)
+                    + (arvKeystone('m_ks_gel') ? 0.6 : 0)) * ef;   // Zero Absoluto
       for(const e of C.inimigos){
         if(Math.hypot(e.x-j.x,e.y-j.y) <= p.base.raio + e.raio){
           e.congelado = Math.max(e.congelado, congela);
-          aplicarLentidao(e, p.base.lentidao, p.base.dur);
+          aplicarLentidao(e, Math.min(0.8, p.base.lentidao*ef), p.base.dur);
           for(let i=0;i<6;i++) particula(e.x, e.y-16, p.cor, 3.5, 0.5);
         }
       }
@@ -654,14 +664,15 @@ function usarPoder(slot, dir){
       break;
     }
     case 'luz': {
-      const cura = t.hpMax * p.base.cura * ef;
+      const cura = t.hpMax * p.base.cura * ef;                 // a Graça (mod.efeito) conta na cura…
       j.hp = Math.min(t.hpMax, j.hp + cura);
       numero(j.x, j.y-74, '+'+Math.round(cura), '#f0d272', 16);
+      const efDano = ef / ((tal && tal.mod.efeito)||1);        // …mas não no dano sagrado (P2.10)
       const danoMul = (tal&&tal.mod.dano)||1;
       const raioLuz = p.base.raio * (arvKeystone('p_ks_luz') ? 1.5 : 1);   // Sol Nascente
       for(const e of [...C.inimigos]){
         if(Math.hypot(e.x-j.x,e.y-j.y) <= raioLuz + e.raio){
-          const g = calcularGolpe(atqAtual()*p.base.dano*danoMul*ef, t.crit, t.critDano, t.pen, e.def);
+          const g = calcularGolpe(atqAtual()*p.base.dano*danoMul*efDano, t.crit, t.critDano, t.pen, e.def);
           ferirInimigo(e, g.dano, g.crit, p.cor);
         }
       }
@@ -708,8 +719,11 @@ function distSegmento(px,py, ax,ay, bx,by){
 function ferirInimigo(e, dano, crit, cor){
   if(e.morto) return;   // abate já processado — procs em cadeia não contam a morte duas vezes
   // keystones: Pânico (na Aura de Terror) · Marca do Ceifeiro (alvos enfraquecidos)
-  if(arvKeystone('b_ks_ter') && poderTier('terror') &&
-     Math.hypot(e.x-C.jogador.x, e.y-C.jogador.y) < PODERES.terror.base.raio) dano = Math.round(dano*1.10);
+  if(arvKeystone('b_ks_ter') && poderTier('terror')){
+    const talT = talentoDe('terror');   // o Pavor alarga a aura — o Pânico acompanha (P2.10)
+    if(Math.hypot(e.x-C.jogador.x, e.y-C.jogador.y) < PODERES.terror.base.raio * ((talT && talT.mod.raio)||1))
+      dano = Math.round(dano*1.10);
+  }
   if(arvKeystone('a_ks_sed') && e.hp/e.hpMax < 0.30) dano = Math.round(dano*1.15);
   e.hp -= dano; e.flash = BAL.anim.inimigo.dano;
   // knockback com decaimento: impulso para longe do Watcher que trava suave (bosses quase imunes)
@@ -1195,7 +1209,7 @@ function atualizar(dt){
   if(boss) document.getElementById('boss-hp').style.width = (boss.hp/boss.hpMax*100)+'%';
   // botão de esquiva: recarga visível
   const beq = document.getElementById('btn-esquiva');
-  const cdMaxE = BAL.combate.dashCd * (1 - t.cdr/100);
+  const cdMaxE = BAL.combate.dashCd * (1 - t.cdr/100) * passivaClasse().dashMult;   // (P2.4)
   beq.querySelector('.cd-sweep').style.setProperty('--cd', Math.round(clamp(j.cdEsq/cdMaxE,0,1)*100));
   beq.classList.toggle('pronto', j.cdEsq<=0);
   // botão da ultimate: barra de carga + estados
@@ -2285,8 +2299,9 @@ function terminarCombate(vitoria, fuga=false){
     G.cristais += resultado.cristais;
     G.inventario.push(...resultado.itens);
     resultado.subiu = darXP(resultado.xp);
-    G.clears[m.rank] = (G.clears[m.rank]||0)+1;
-    resultado.primeiroClear = G.clears[m.rank]===1 && !m.diaria && !m.despertar;  // fala do Aldric (D008)
+    // só a campanha conta clears — a diária e a Provação não consomem o 1.º clear narrativo (P2.2)
+    if(!m.diaria && !m.despertar) G.clears[m.rank] = (G.clears[m.rank]||0)+1;
+    resultado.primeiroClear = !m.diaria && !m.despertar && G.clears[m.rank]===1;  // fala do Aldric (D008)
     if(m.diaria) G.diario.feitoDiaria = true;
     resultado.sombra = tentarExtrairSombra(m.rank);
     // runa: drop dos bosses de rank C+

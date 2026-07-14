@@ -196,7 +196,7 @@ function interagirLocal(id){
 /* badges de notificação nos separadores */
 function atualizarBadges(){
   const badges = {
-    missoes: MISSOES.filter(m=>missaoCumprida(m) && !missaoReclamada(m)).length,
+    missoes: missoesVisiveis().filter(m=>missaoCumprida(m) && !missaoReclamada(m)).length,   // (P2.3)
     vigia: (G.pontos>0?1:0) + (pontosHabDisponiveis()>0?1:0) + (despertarDisponivel()?1:0),
     batalha: G.diario.feitoDiaria ? 0 : 1,
     loja: 0, ferreiro: 0,
@@ -251,7 +251,7 @@ function cartaoPortal(m, feito, diaria){
 }
 
 function modalEntrarPortal(m){
-  const custo = m.diaria||m.despertar ? 0 : BAL.stamina.custoPortal;
+  const custo = m.diaria ? BAL.stamina.custoDiaria : m.despertar ? 0 : BAL.stamina.custoPortal;
   // 1.ª visita ao rank: o Aldric contextualiza o bioma (D008 — saltável, é só ler ou não)
   const fala = (!m.diaria && !m.despertar && !(G.clears[m.rank]) && NPC.porRank[m.rank])
     ? `<div class="npc-fala">${ic('npc',14)} «${NPC.porRank[m.rank]}»</div>` : '';
@@ -456,7 +456,7 @@ function modalForja(it){
       <button class="btn btn-primario" id="f-melhorar">
         Melhorar para +${it.nivel+1} — ${ic('ouro',14)} ${custoForja(it)} (${Math.round(chanceForja(it)*100)}%)
       </button>
-      <button class="btn btn-sec" id="f-encantar">Encantar — ${ic('cristal',14)} ${CUSTO_ENCANTE}</button>
+      <button class="btn btn-sec" id="f-encantar">Encantar — ${ic('ouro',14)} ${CUSTO_ENCANTE}</button>
     </div>`);
   $('#f-melhorar').addEventListener('click', ()=>{ const r = forjar(it); toast(r.msg); fecharModal(); refrescar(); });
   $('#f-encantar').addEventListener('click', ()=>{ const r = encantar(it); toast(r.msg); fecharModal(); refrescar(); });
@@ -547,7 +547,7 @@ function htmlBase(){
         <div class="portal-nome">${d.nome} <span class="nota">nv.${n}/${BAL.base.maxNivel}</span></div>
         <div class="portal-info">${d.desc(n)}${c?` → <b>${d.desc(n+1)}</b>`:''}</div>
       </div>
-      ${c?`<button class="btn btn-sec" data-base-up="${tipo}" style="font-size:12px">${ic('ouro',11)}${c.ouro}<br>${ic('cristal',11)}${c.cristais}</button>`:`<span class="etiqueta">MÁX</span>`}
+      ${c?`<button class="btn btn-sec" data-base-up="${tipo}" style="font-size:12px">${ic('ouro',11)}${c.ouro}</button>`:`<span class="etiqueta">MÁX</span>`}
     </div>`;
   }
 
@@ -565,10 +565,10 @@ function htmlBase(){
         <div class="avatar" style="overflow:hidden">${sombraImg(s.rank, 38)}</div>
         <div class="crescer">
           <div class="portal-nome">${s.nome} <span class="nota">Rank ${s.rank} · Nv.${s.nivel}</span></div>
-          <div class="portal-info">${ic('arma',12)} ${st.atq} · ${ic('hp',12)} ${st.hp}</div>
+          <div class="portal-info">${ic('arma',12)} ${st.atq}</div>
         </div>
         <button class="btn btn-sec" data-sombra-toggle="${s.nome}" style="font-size:12px">${s.ativa?'Ativa ✓':'Inativa'}</button>
-        <button class="btn-mais" data-sombra-up="${s.nome}" title="Subir nível — ${custoSombra(s)} cristais">+</button>
+        <button class="btn-mais" data-sombra-up="${s.nome}" title="Subir nível — ${custoSombra(s)} ouro">+</button>
       </div>`;
     }
   }
@@ -1195,7 +1195,13 @@ function entrarNoJogo(){
     toast('Sistema de atributos renovado — pontos devolvidos!');
     setTimeout(modalStats, 800);
   }
-  if(G.nivel===1 && !G.inventario.length){
+  if(G._d032){
+    const n = G._d032;
+    delete G._d032; guardar();
+    toast(`Cristais já não compram poder — recebeste ${n} ${ic('cristal',13)} de volta. Encantes, sombras e base agora custam ouro.`);
+  }
+  if(G.nivel===1 && !G.inventario.length && !G.armaInicialDada){   // uma única vez (P2.13)
+    G.armaInicialDada = true;
     G.inventario.push({ id:G.proxId++, tipo:'arma', nome:'Adaga do Watcher', raridade:'comum', base:8, nivel:0, encante:null });
     equipar(G.inventario[0]);
     atualizarTopo();

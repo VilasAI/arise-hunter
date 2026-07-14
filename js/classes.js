@@ -107,9 +107,10 @@ function escolherClasse(id){
     G.equipadosPoder = G.equipadosPoder.map(p => (p && G.poderes[p]) ? p : null);
     if(!poderAprendido(cl.inicial)) G.poderes[cl.inicial] = { tier:1, talento:null };
     if(PODERES[cl.inicial].tipo==='ativo' && !G.equipadosPoder.some(Boolean)) G.equipadosPoder[0] = cl.inicial;
-    // sombras fora do Assassino: compensa em cristais (D010)
+    // sombras fora do Assassino saem (D010). Os níveis já foram reembolsados
+    // na migração D032 (schema 4), por isso aqui fica só o valor simbólico.
     if(id !== 'assassino' && G.sombras.length){
-      G.cristais += G.sombras.reduce((a,s)=> a + 4 + (s.nivel-1)*4, 0);
+      G.cristais += G.sombras.length * 4;
       G.sombras = [];
       G._sombrasMigradas = true;
     }

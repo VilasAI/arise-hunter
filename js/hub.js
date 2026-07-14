@@ -542,7 +542,7 @@ function hubDesenhar(dt){
 }
 
 function haMissaoPorReclamar(){
-  return MISSOES.some(m => missaoCumprida(m) && !missaoReclamada(m));
+  return missoesVisiveis().some(m => missaoCumprida(m) && !missaoReclamada(m));   // (P2.3)
 }
 
 /* ---------- Mestre Aldric (painterly) ---------- */

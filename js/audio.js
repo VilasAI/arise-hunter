@@ -7,7 +7,9 @@
 const AUDIO = (()=>{
   const VOL_SFX = 0.5, VOL_MUS = 0.16;
   let ac = null, gSfx = null, gMus = null;
-  let mudo = localStorage.getItem('vigilia.mudo') === '1';
+  // storage bloqueado (SecurityError) não pode impedir o jogo de arrancar (P2.17)
+  let mudo = false;
+  try{ mudo = localStorage.getItem('vigilia.mudo') === '1'; }catch(e){}
   let faixa = null;             // 'calma' | 'combate' | null
   let passo = 0, proxT = 0;     // agendador da música
 
@@ -109,7 +111,7 @@ const AUDIO = (()=>{
   }
   function alternarMudo(){
     mudo = !mudo;
-    localStorage.setItem('vigilia.mudo', mudo ? '1' : '0');
+    try{ localStorage.setItem('vigilia.mudo', mudo ? '1' : '0'); }catch(e){}
     aplicarMudo();
     return mudo;
   }
