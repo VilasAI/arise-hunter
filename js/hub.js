@@ -314,19 +314,14 @@ function prerenderMapa(){
   mc.imageSmoothingEnabled = false;
   mc.drawImage(loCv, 0, 0, lw, lh, 0, 0, BW, BH);
   crisp.sort((a,b)=>(a.baseY??a.y+a.h)-(b.baseY??b.y+b.h));
+  for(const sp of crisp) if(sp.solo) desenharEncaixeSolo(mc,sp,s,false);
   for(const sp of crisp) if(sp.sombra){
     const [rx,ry,dx]=sp.sombra;
     mc.fillStyle='rgba(6,8,7,.34)'; mc.beginPath();
     mc.ellipse(sp.baseX+dx,sp.baseY+2*s,rx,ry,0,0,Math.PI*2); mc.fill();
   }
   for(const sp of crisp) mc.drawImage(sp.img, sp.x, sp.y, sp.w, sp.h);
-  for(const sp of crisp) if(sp.solo){
-    const x=sp.baseX,y=sp.baseY;
-    mc.fillStyle=sp.solo==='terra'?'rgba(95,74,49,.70)':sp.solo==='pedra'?'rgba(104,101,91,.72)':'rgba(55,75,39,.82)';
-    mc.fillRect(x-10*s,y-1*s,7*s,3*s); mc.fillRect(x+3*s,y,9*s,3*s);
-    mc.fillStyle='rgba(112,126,67,.70)';
-    mc.fillRect(x-7*s,y-5*s,2*s,5*s); mc.fillRect(x+7*s,y-4*s,2*s,5*s);
-  }
+  for(const sp of crisp) if(sp.solo) desenharEncaixeSolo(mc,sp,s,true);
 
   /* --- luz quente global + vinheta (sobre tudo; é iluminação, fica suave) --- */
   const luz = mc.createRadialGradient(W*0.5, H*0.40, Math.min(W,H)*0.18, W*0.5, H*0.55, Math.max(W,H)*0.75);
@@ -334,6 +329,51 @@ function prerenderMapa(){
   luz.addColorStop(0.55,'rgba(0,0,0,0)');
   luz.addColorStop(1,'rgba(8,6,16,0.28)');
   mc.fillStyle=luz; mc.fillRect(0,0,W,H);
+}
+
+/* Integra a base dos sprites no terreno em duas passagens: primeiro uma mancha
+   irregular por baixo, depois ervas/pedras à frente para quebrar o recorte. */
+function desenharEncaixeSolo(c,sp,s,frente){
+  const x=sp.baseX,y=sp.baseY, tipo=sp.solo;
+  const rx=Math.max(10*s,(sp.sombra?.[0]||18*s)*0.92), ry=Math.max(3*s,(sp.sombra?.[1]||6*s)*0.72);
+  const ruido=k=>{ const n=Math.sin((x*12.9898+y*78.233+k*37.719))*43758.5453; return n-Math.floor(n); };
+  const cor=tipo==='terra'?'rgba(83,63,40,.82)':tipo==='pedra'?'rgba(91,91,82,.82)':'rgba(42,61,31,.86)';
+  const claro=tipo==='terra'?'rgba(129,96,56,.72)':tipo==='pedra'?'rgba(135,132,116,.70)':'rgba(91,113,53,.78)';
+  if(!frente){
+    c.fillStyle=cor;
+    c.beginPath();
+    c.moveTo(x-rx,y);
+    for(let i=0;i<=8;i++){
+      const a=Math.PI+i/8*Math.PI, r=rx*(0.82+ruido(i)*0.22);
+      c.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*ry*(0.75+ruido(i+10)*0.35));
+    }
+    for(let i=8;i>=0;i--){
+      const a=i/8*Math.PI, r=rx*(0.82+ruido(i+20)*0.22);
+      c.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*ry*(0.75+ruido(i+30)*0.35));
+    }
+    c.closePath(); c.fill();
+    // manchas pequenas ligam o remendo à textura circundante
+    c.fillStyle=claro;
+    for(let i=0;i<5;i++){
+      const px=x+(ruido(i+40)*2-1)*rx*1.05, py=y+(ruido(i+50)*2-1)*ry;
+      c.fillRect(Math.round(px),Math.round(py),Math.max(2,Math.round((2+ruido(i+60)*4)*s)),Math.max(1,Math.round(2*s)));
+    }
+    return;
+  }
+  // borda frontal sobre o sprite: tufos e pequenas pedras escondem o corte reto
+  c.fillStyle=claro;
+  for(let i=0;i<7;i++){
+    const px=x-rx*0.75+i*(rx*1.5/6)+(ruido(i+70)-.5)*5*s;
+    const h=(3+ruido(i+80)*5)*s, w=(1.5+ruido(i+90)*2)*s;
+    if(tipo==='pedra') c.fillRect(Math.round(px-w),Math.round(y-h*.35),Math.round(w*2.4),Math.max(2,Math.round(h*.45)));
+    else {
+      c.fillRect(Math.round(px),Math.round(y-h),Math.max(1,Math.round(w)),Math.round(h));
+      c.fillRect(Math.round(px-w),Math.round(y-h*.55),Math.max(1,Math.round(w)),Math.round(h*.55));
+    }
+  }
+  c.fillStyle=tipo==='terra'?'rgba(53,43,31,.75)':tipo==='pedra'?'rgba(58,59,55,.78)':'rgba(29,45,25,.80)';
+  c.fillRect(Math.round(x-rx*.55),Math.round(y+1*s),Math.round(rx*.42),Math.max(1,Math.round(2*s)));
+  c.fillRect(Math.round(x+rx*.18),Math.round(y),Math.round(rx*.34),Math.max(1,Math.round(2*s)));
 }
 
 function ajustarBaseIlha(x,y,margem=0.88){
