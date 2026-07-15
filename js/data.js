@@ -72,6 +72,16 @@ const ALTURAS_SPRITE = Object.freeze({
   ancoraY:0.92,
 });
 
+/* Normalização visual medida nas pranchas: compensa margens transparentes
+   diferentes para as dez aparências terem uma altura útil semelhante. */
+const ESCALA_HEROI_SPRITE = Object.freeze({
+  heroi_assassino:1.04, heroi_assassino2:1.04,
+  heroi_batedor:0.91,   heroi_batedor2:0.91,
+  heroi_guerreiro:0.99, heroi_guerreiro2:0.98,
+  heroi_mago:1.02,      heroi_mago2:1.00,
+  heroi_paladino:1.00,  heroi_paladino2:1.00,
+});
+
 /* Papéis fechados em D030. 12/14 entram como variação moderada da textura
    principal; 07/08/09 são motivos inteiros, nunca recortes 3×3. */
 const ARTE_CENARIO = Object.freeze({

@@ -138,7 +138,9 @@ function criarInimigo(base, rank, classe, i=0){
     sprite:base.sprite, adornos:base.adornos||null,
     hab:base.hab || (classe==='elite' ? (base.ranged?'rajada':'investida') : null),
     ranged: !!base.ranged, recupera:0, entrou:false, furia:false,
-    x: lado>0 ? C.W + 40 + i*30 : -40 - i*30,
+    // No telemóvel, filas largas fora do canvas demoravam vários segundos a
+    // aparecer. Todos nascem junto à margem e a separação organiza-os dentro.
+    x: 0, // definido abaixo com a margem visual do tipo de inimigo
     y: rnd(C.chaoTopo+30, C.chaoFundo-10),
     hp:st.hp, hpMax:st.hp, atq:st.dano, def:st.def,
     vel: base.vel * (classe==='boss'?0.85:1),
@@ -152,7 +154,16 @@ function criarInimigo(base, rank, classe, i=0){
     congelado:0,           // segundos
     estadoAnim:'idle', inicioAnim:C.tempo, durAnim:0,
   };
+  const margem=margemVisualInimigo(e), desvio=14+(i%2)*6;
+  e.x = lado>0 ? C.W-margem+desvio : margem-desvio;
   return e;
+}
+
+/* A hitbox é pequena, mas o sprite não: esta margem mantém o corpo visível,
+   sobretudo quando arqueiros recuam junto às laterais em portrait. */
+function margemVisualInimigo(e){
+  const desejada = e.classe==='boss' ? 82 : e.classe==='elite' ? 68 : 54;
+  return Math.min(desejada, Math.max(24, C.W*0.22));
 }
 
 function iniciarAnimInimigo(e, estado, dur){
@@ -1088,7 +1099,8 @@ function atualizar(dt){
       const alcance = e.ranged ? B.alcanceRanged : e.raio+46;
       if(!e.entrou){
         // ainda a entrar na sala: caminha direto ao Watcher até pisar o ecrã
-        if(e.x>24 && e.x<C.W-24) e.entrou = true;
+        const margem= margemVisualInimigo(e);
+        if(e.x>margem && e.x<C.W-margem) e.entrou = true;
         else { e.x += dx/d*e.vel*velMult*dt; e.y += dy/d*e.vel*velMult*dt; }
       } else if(e.hab && e.cd<=0 && perigosAtivos()<B.maxPerigosSimultaneos
                 && d < (e.hab==='tremor' ? 140 : B.alcanceHab)
@@ -1127,7 +1139,8 @@ function atualizar(dt){
 
     // barreira do ecrã: depois de entrar, nenhum movimento (IA, carga, knockback) o tira de cena
     if(e.entrou){
-      e.x = clamp(e.x, 24, C.W-24);
+      const margem = margemVisualInimigo(e);
+      e.x = clamp(e.x, margem, C.W-margem);
       e.y = clamp(e.y, C.chaoTopo, C.chaoFundo);
     }
   }
@@ -1141,8 +1154,9 @@ function atualizar(dt){
       const minD = BAL.combate.separacao + (A.raio+B2.raio)*0.35;
       if(sd < minD){
         const push = (minD-sd)/2;   // margens iguais à barreira do ecrã
-        A.x = clamp(A.x - sdx/sd*push, 24, C.W-24); A.y = clamp(A.y - sdy/sd*push, C.chaoTopo, C.chaoFundo);
-        B2.x = clamp(B2.x + sdx/sd*push, 24, C.W-24); B2.y = clamp(B2.y + sdy/sd*push, C.chaoTopo, C.chaoFundo);
+        const ma=margemVisualInimigo(A), mb=margemVisualInimigo(B2);
+        A.x = clamp(A.x - sdx/sd*push, ma, C.W-ma); A.y = clamp(A.y - sdy/sd*push, C.chaoTopo, C.chaoFundo);
+        B2.x = clamp(B2.x + sdx/sd*push, mb, C.W-mb); B2.y = clamp(B2.y + sdy/sd*push, C.chaoTopo, C.chaoFundo);
       }
     }
   }
@@ -2245,7 +2259,8 @@ function desenharJogador(){
     ctx.save(); ctx.translate(j.x, j.y);
     if(j.invul>0 && Math.floor(C.tempo*20)%2) ctx.globalAlpha=0.45;
     // sheets novos: já coloridos (sem tinta), corpo até 92% da altura do frame
-    const altHeroi = novo ? ALTURAS_SPRITE.basePx*ALTURAS_SPRITE.heroi : 210;
+    const escalaPrancha = ESCALA_HEROI_SPRITE[bh] || 1;
+    const altHeroi = novo ? ALTURAS_SPRITE.basePx*ALTURAS_SPRITE.heroi*escalaPrancha : 210;
     // o pack novo foi exportado a olhar para a esquerda; inverte a convenção antiga
     SPR.frameH(ctx, nome, idx, SPR.n(nome), altHeroi*s, espelharSpriteHeroi(novo,j.dirAtq||1), null,
                novo?ALTURAS_SPRITE.ancoraY:0.74);

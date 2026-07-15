@@ -57,7 +57,7 @@ const codigo = FICHEIROS.map(f => fs.readFileSync(path.join(RAIZ,f),'utf8')).joi
   comprarSkin, baseHeroi,
   encantar, fundir, subirSombra, custoSombra, statsSombra, compensacaoSombra,
   rankCacador, despertarDisponivel, tabelaRanking, hojeStr,
-  BAL, PODERES, CLASSES, SOMBRAS_BASE, MASMORRAS, SAVE_KEY,
+  BAL, PODERES, CLASSES, SOMBRAS_BASE, MASMORRAS, ESCALA_HEROI_SPRITE, SAVE_KEY,
 };`;
 vm.runInContext(codigo, sandbox, { filename:'jogo-concatenado.js' });
 const jogo = sandbox.jogo;
@@ -85,6 +85,13 @@ t('conta de teste: perfil completo e troca entre as cinco classes', () => {
   }
   jogo.trocarClasseTeste('assassino', false);
   assert.equal(jogo.G.sombras.length, Object.keys(jogo.SOMBRAS_BASE).length);
+});
+
+t('personagens: as dez aparências têm normalização visual', () => {
+  for(const id of Object.keys(jogo.CLASSES)){
+    assert.ok(jogo.ESCALA_HEROI_SPRITE['heroi_'+id] > 0);
+    assert.ok(jogo.ESCALA_HEROI_SPRITE['heroi_'+id+'2'] > 0);
+  }
 });
 
 t('P1.1: save antigo (stats) recebe os pontos de volta', () => {

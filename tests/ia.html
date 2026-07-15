@@ -130,6 +130,20 @@ function correr(){
   afirmar('Matriz — habilidades e abates acontecem nas lutas reais',
     habsUsadas>0 && mortesTotal>0, 'habs='+habsUsadas+' abates='+mortesTotal);
 
+  /* em portrait, mesmo o inimigo mais lento entra rapidamente no ecrã */
+  {
+    novoCombate(); C.W=390; C.H=844; C.chaoTopo=C.H*0.36; C.chaoFundo=C.H*0.90;
+    C.jogador.x=C.W*0.25; C.jogador.y=C.H*0.65;
+    const base={...MONSTROS.E[0], vel:Math.min(...Object.values(MONSTROS).flat().map(m=>m.vel))};
+    const e=criarInimigo(base,'E','normal',9); C.inimigos=[e];
+    let tEntrada=0;
+    while(!e.entrou && tEntrada<2){ atualizar(1/60); tEntrada+=1/60; }
+    const margem=margemVisualInimigo(e);
+    afirmar('Mobile — inimigo entra por completo em menos de 1,5 s',
+      e.entrou&&tEntrada<1.5&&e.x>=margem&&e.x<=C.W-margem,
+      't='+tEntrada.toFixed(2)+' x='+e.x.toFixed(1)+' margem='+margem);
+  }
+
   /* ---- IA.2: o auto-combate esquiva a investida telegrafada ---- */
   {
     const j = novoCombate(); C.auto = true;
