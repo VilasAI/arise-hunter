@@ -209,6 +209,7 @@ function prerenderMapa(){
   c.fillStyle = relva; tracarIlha(c, 0.962); c.fill();
   if(SPR.ok('hub_relva')){ c.save(); tracarIlha(c,0.962); c.clip(); tileFill(c,'hub_relva',0,0,W,H,176); c.restore(); }
   else if(SPR.ok('cf_grass')){ c.save(); tracarIlha(c,0.962); c.clip(); tileFill(c,'cf_grass',0,0,W,H,24); c.restore(); }
+  c.strokeStyle='rgba(196,190,155,.55)'; c.lineWidth=3*s; tracarIlha(c,0.974); c.stroke();
   // textura da relva (salpicos)
   c.save(); tracarIlha(c, 0.962); c.clip();
   for(let i=0;i<700;i++){
@@ -234,7 +235,7 @@ function prerenderMapa(){
     if(l.id==='npc') continue;
     const tx=l.x*W, ty=l.y*H+10*s;
     const mx=(px0+tx)/2 + (rndM()-0.5)*40*s, my=(py0+ty)/2 + (rndM()-0.5)*24*s;
-    for(const [cor,lw] of [['#332b25',18*s],['#665a48',13*s],['#897b61',5*s]]){
+    for(const [cor,lw] of [['#28221e',20*s],['#665a48',14*s],['#a18d6b',6*s]]){
       c.strokeStyle=cor; c.lineWidth=lw; c.lineCap='round';
       c.beginPath(); c.moveTo(px0,py0); c.quadraticCurveTo(mx,my,tx,ty); c.stroke();
     }
@@ -242,7 +243,7 @@ function prerenderMapa(){
       const texCaminho=texturaHubEspelhada('hub_caminho');
       const padrao=texCaminho&&c.createPattern(texCaminho,'repeat');
       if(padrao){
-        c.save(); c.globalAlpha=0.55; c.strokeStyle=padrao; c.lineWidth=9*s; c.lineCap='round';
+        c.save(); c.globalAlpha=0.70; c.strokeStyle=padrao; c.lineWidth=10*s; c.lineCap='round';
         c.beginPath(); c.moveTo(px0,py0); c.quadraticCurveTo(mx,my,tx,ty); c.stroke(); c.restore();
       }
     }
@@ -270,14 +271,17 @@ function prerenderMapa(){
     [.93,.66],[.34,.52],[.68,.46],[.26,.64],
   ];
   for(const [ax,ay] of arvores){
+    const base=ajustarBaseIlha(ax*W,ay*H,0.88);
     const opcoes=['hub_arvore_1','hub_arvore_2'].filter(n=>SPR.ok(n));
     if(opcoes.length){
       const nome=rndM()<0.12&&SPR.ok('hub_arvore_morta')?'hub_arvore_morta':opcoes[Math.floor(rndM()*opcoes.length)];
       const o=SPR.reg[nome], h=(nome==='hub_arvore_1'?86:76)*s*(0.88+rndM()*0.28), w=h*(o.w/o.h);
-      crisp.push({ img:o.img, x:ax*W-w/2, y:ay*H-h*0.88, w, h });
+      crisp.push({ img:o.img, x:base.x-w/2, y:base.y-h*0.88, w, h,
+                   baseX:base.x,baseY:base.y,sombra:[w*.27,h*.075,w*.04],solo:'relva' });
     } else if(SPR.ok('cf_tree')){
       const o=SPR.reg.cf_tree, h=70*s*(0.85+rndM()*0.4), w=h*(o.w/o.h);
-      crisp.push({ img:o.img, x:ax*W-w/2, y:ay*H-h*0.88, w, h });
+      crisp.push({ img:o.img, x:base.x-w/2, y:base.y-h*0.88, w, h,
+                   baseX:base.x,baseY:base.y,sombra:[w*.27,h*.075,w*.04],solo:'relva' });
     } else desenharArvore(c, ax*W, ay*H, s*(0.8+rndM()*0.5), rndM);
   }
 
@@ -309,14 +313,34 @@ function prerenderMapa(){
   /* ampliar o cenário pixelado para o cache e pôr os sprites nítidos por cima */
   mc.imageSmoothingEnabled = false;
   mc.drawImage(loCv, 0, 0, lw, lh, 0, 0, BW, BH);
+  crisp.sort((a,b)=>(a.baseY??a.y+a.h)-(b.baseY??b.y+b.h));
+  for(const sp of crisp) if(sp.sombra){
+    const [rx,ry,dx]=sp.sombra;
+    mc.fillStyle='rgba(6,8,7,.34)'; mc.beginPath();
+    mc.ellipse(sp.baseX+dx,sp.baseY+2*s,rx,ry,0,0,Math.PI*2); mc.fill();
+  }
   for(const sp of crisp) mc.drawImage(sp.img, sp.x, sp.y, sp.w, sp.h);
+  for(const sp of crisp) if(sp.solo){
+    const x=sp.baseX,y=sp.baseY;
+    mc.fillStyle=sp.solo==='terra'?'rgba(95,74,49,.70)':sp.solo==='pedra'?'rgba(104,101,91,.72)':'rgba(55,75,39,.82)';
+    mc.fillRect(x-10*s,y-1*s,7*s,3*s); mc.fillRect(x+3*s,y,9*s,3*s);
+    mc.fillStyle='rgba(112,126,67,.70)';
+    mc.fillRect(x-7*s,y-5*s,2*s,5*s); mc.fillRect(x+7*s,y-4*s,2*s,5*s);
+  }
 
   /* --- luz quente global + vinheta (sobre tudo; é iluminação, fica suave) --- */
   const luz = mc.createRadialGradient(W*0.5, H*0.40, Math.min(W,H)*0.18, W*0.5, H*0.55, Math.max(W,H)*0.75);
   luz.addColorStop(0,'rgba(255,220,150,0.10)');
   luz.addColorStop(0.55,'rgba(0,0,0,0)');
-  luz.addColorStop(1,'rgba(8,6,16,0.42)');
+  luz.addColorStop(1,'rgba(8,6,16,0.28)');
   mc.fillStyle=luz; mc.fillRect(0,0,W,H);
+}
+
+function ajustarBaseIlha(x,y,margem=0.88){
+  const cx=HUB.W*0.55,cy=HUB.H*0.62,rx=HUB.W*0.52,ry=HUB.H*0.46;
+  let nx=(x-cx)/rx,ny=(y-cy)/ry,q=Math.hypot(nx,ny);
+  if(q>margem){ const k=margem/q; nx*=k; ny*=k; }
+  return {x:cx+nx*rx,y:cy+ny*ry};
 }
 
 function desenharArvore(c, x, y, s, rndM){
@@ -379,9 +403,11 @@ function desenharBarril(c, x, y, s){
 /* edifícios detalhados (parte estática, vai para o cache) */
 function desenharLocalCache(c, l, s, rndM, crisp){
   const x = l.x*HUB.W, y = l.y*HUB.H;
+  const sombras={portais:[37,10,4],ferreiro:[48,13,6],loja:[43,12,5],base:[50,14,5],quadro:[32,9,3],npc:[16,5,2]};
+  const [srx,sry,sdx]=sombras[l.id]||[40,11,4];
   c.save(); c.translate(x,y);
   c.fillStyle='rgba(0,0,0,.35)';
-  c.beginPath(); c.ellipse(2*s, 10*s, 52*s, 14*s, 0, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.ellipse(sdx*s,10*s,srx*s,sry*s,0,0,Math.PI*2); c.fill();
 
   const novos={portais:'hub_portal',ferreiro:'hub_ferreiro',loja:'hub_mercador',base:'hub_base',quadro:'hub_quadro'};
   const novo=novos[l.id];
@@ -389,7 +415,8 @@ function desenharLocalCache(c, l, s, rndM, crisp){
     const o=SPR.reg[novo];
     const alturaBase=l.id==='portais'?118:l.id==='base'?115:l.id==='quadro'?72:108;
     const h=alturaBase*s, w=h*(o.w/o.h), baseY=y+10*s;
-    crisp.push({img:o.img,x:x-w/2,y:baseY-h,w,h});
+    crisp.push({img:o.img,x:x-w/2,y:baseY-h,w,h,baseX:x,baseY,
+                sombra:[srx*s,sry*s,sdx*s],solo:l.id==='portais'?'pedra':'terra'});
     if(l.id==='ferreiro') chamines.push([x-w*0.24,baseY-h+8*s]);
     c.restore();
     return;
@@ -398,7 +425,8 @@ function desenharLocalCache(c, l, s, rndM, crisp){
   if(l.tipo==='casa' && SPR.ok('cf_house')){
     const o=SPR.reg.cf_house, h=108*s, w=h*(o.w/o.h);
     // sprite nítido por cima do cenário pixelado (preserva a textura original)
-    crisp.push({ img:o.img, x:x - w/2, y:y + 8*s - h, w, h });
+    crisp.push({ img:o.img, x:x - w/2, y:y + 8*s - h, w, h,baseX:x,baseY:y+8*s,
+                 sombra:[srx*s,sry*s,sdx*s],solo:'terra' });
     // placa com o ícone do edifício (para distinguir loja/ferreiro/base)
     const py = 8*s - h + 6*s;
     c.fillStyle='#3a2d1d'; c.fillRect(-16*s, py-16*s, 32*s, 19*s);
@@ -589,6 +617,23 @@ function hubDesenhar(dt){
   hctx.beginPath(); hctx.ellipse(pxp, centroPortalY, 23*s, 31*s, 0, 0, Math.PI*2); hctx.fill();
   hctx.strokeStyle=`rgba(190,165,255,${0.65*fl})`; hctx.lineWidth=2.5;
   hctx.beginPath(); hctx.ellipse(pxp, centroPortalY, 20*s, 28*s, Math.sin(t*1.3)*0.1, 0, Math.PI*2); hctx.stroke();
+
+  /* janelas e forja: luz lenta, sem transformar a vila numa árvore de Natal */
+  for(const [id,offY,cor] of [['ferreiro',-34,'226,118,45'],['loja',-31,'232,184,92'],['base',-37,'224,178,90']]){
+    const l=LOCAIS.find(x=>x.id===id), lx=l.x*W,ly=l.y*H+offY*s;
+    const a=0.34+Math.sin(t*1.15+l.x*11)*0.08;
+    hctx.save(); hctx.globalCompositeOperation='lighter';
+    const g=hctx.createRadialGradient(lx,ly,1,lx,ly,20*s);
+    g.addColorStop(0,`rgba(${cor},${a})`); g.addColorStop(1,`rgba(${cor},0)`);
+    hctx.fillStyle=g; hctx.beginPath(); hctx.arc(lx,ly,20*s,0,Math.PI*2); hctx.fill();
+    hctx.restore();
+  }
+  const forja=LOCAIS.find(x=>x.id==='ferreiro');
+  for(let i=0;i<4;i++){
+    const f=(t*0.28+i*0.23)%1;
+    hctx.fillStyle=`rgba(238,126,42,${(1-f)*0.55})`;
+    hctx.fillRect(forja.x*W+(i-1.5)*4*s+Math.sin(t*3+i)*3*s,forja.y*H-18*s-f*24*s,2*s,2*s);
+  }
 
   /* NPC animado */
   const npcL = LOCAIS.find(l=>l.id==='npc');

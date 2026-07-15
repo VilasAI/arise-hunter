@@ -235,6 +235,55 @@ function correr(){
     afirmar('IA.7 — a investida fere com o dano fixado, não com e.atq', bruto===15, 'bruto='+bruto);
   }
 
+  /* ---- Feedback: composição diária, elites, fases e sincronização visual ---- */
+  {
+    novoCombate();
+    const d=masmorraDiaria();
+    const a=composicaoSala(d,2).map(x=>x.nome).join('|');
+    const b=composicaoSala(d,2).map(x=>x.nome).join('|');
+    afirmar('D036 — composição diária repete-se durante o mesmo dia',a===b,a);
+
+    const papeis=['frente','alcance','controlo'];
+    const composicoesCompletas=Object.entries(COMPOSICOES_SALA).every(([rank,comps])=>
+      comps.every(comp=>{
+        const presentes=new Set(comp.flatMap(i=>MONSTROS[rank][i].papeis||[]));
+        return papeis.every(p=>presentes.has(p));
+      }));
+    afirmar('Pressão — todas as composições misturam frente, alcance e controlo',composicoesCompletas);
+
+    const elite=criarInimigo({...MONSTROS.E[0],hab:null},'E','elite');
+    afirmar('Pressão — elite recebe comportamento próprio',elite.hab==='investida','hab='+elite.hab);
+
+    const boss=criarInimigo(BOSSES.E,'E','boss');
+    C.inimigos=[boss]; boss.faseBoss=1; boss.hp=boss.hpMax*.69;
+    atualizarFaseBoss(boss); const fase2=boss.faseBoss===2;
+    boss.hp=boss.hpMax*.34; atualizarFaseBoss(boss);
+    afirmar('Boss — padrões mudam aos 70% e 35%',fase2&&boss.faseBoss===3,'fase='+boss.faseBoss);
+  }
+
+  {
+    const j=novoCombate(); j.invul=0;
+    const e=inimigoTeste({x:j.x+30,y:j.y,atq:10});
+    iniciarAcaoInimigo(e,1,'attack');
+    let impactos=0; const ferirReal=ferirJogador;
+    ferirJogador=()=>{ impactos++; };
+    atualizar(.30); const antes=impactos;
+    atualizar(.36); const depois=impactos;
+    ferirJogador=ferirReal;
+    afirmar('Animação — impacto resolve a 65% da ação',antes===0&&depois===1,'antes='+antes+' depois='+depois);
+    iniciarAnimInimigo(e,'hurt',BAL.anim.inimigo.dano);
+    iniciarAnimInimigo(e,'attack',1);
+    afirmar('Animação — hurt não é imediatamente substituído',e.estadoAnim==='hurt','estado='+e.estadoAnim);
+  }
+
+  {
+    novoCombate();
+    const e=inimigoTeste({sprite:'esqueleto'});
+    for(let i=0;i<BAL.combate.maxProjeteisInimigos;i++) C.tiros.push({});
+    const saiu=tiroInimigo(e,0,10,100);
+    afirmar('Pressão — projéteis perigosos têm limite legível',saiu===false&&C.tiros.length===BAL.combate.maxProjeteisInimigos,'tiros='+C.tiros.length);
+  }
+
   /* ---- rajada e tremor resolvem nos efeitos certos ---- */
   {
     novoCombate();

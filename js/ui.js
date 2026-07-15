@@ -133,10 +133,20 @@ function refrescar(){
 
 /* ---------- separadores fixos (estilo Clash Royale) ---------- */
 let tabAtual = 'batalha';
+let vigiaSub = 'resumo';
+function htmlVigia(){
+  const corpo = vigiaSub==='poderes' ? htmlHeroi('poderes')
+              : vigiaSub==='base' ? htmlBase() : htmlHeroi('resumo');
+  return `<div class="sub-tabs vigia-tabs">
+    <button class="sub-tab ${vigiaSub==='resumo'?'ativa':''}" data-vigia-sub="resumo">${ic('heroi',18)}<span>Resumo</span></button>
+    <button class="sub-tab ${vigiaSub==='poderes'?'ativa':''}" data-vigia-sub="poderes">${ic('p_brasas',18)}<span>Poderes</span></button>
+    <button class="sub-tab ${vigiaSub==='base'?'ativa':''}" data-vigia-sub="base">${ic('base',18)}<span>Base</span></button>
+  </div><div class="vigia-corpo">${corpo}</div>`;
+}
 const TABS = {
   loja:    { html: ()=>htmlLoja(),                        eventos:['loja'] },
   ferreiro:{ html: ()=>htmlFerreiro(),                    eventos:['itens','ferreiro'] },
-  vigia:   { html: ()=>htmlHeroi()+htmlBase(),            eventos:['heroi','base'] },
+  vigia:   { html: htmlVigia,                             eventos:['vigia','heroi','base'] },
   missoes: { html: ()=>htmlQuadro(),                      eventos:['quadro'] },
 };
 
@@ -176,7 +186,7 @@ $('#btn-batalha').addEventListener('click', ()=> abrirPainel('portais'));
 function renderBatalha(){
   const c = $('#cartoes-batalha');
   let h = '';
-  if(!G.diario.feitoDiaria) h += `<button class="cartao-mini" data-acao="diaria">${ic('despertar',15)} Diária ×2</button>`;
+  h += `<button class="cartao-mini" data-acao="diaria">${ic('despertar',15)} ${G.diario.feitoDiaria?'Diária · treino':'Diária ×3'}</button>`;
   if(despertarDisponivel()) h += `<button class="cartao-mini brilho" data-acao="provacao">${ic('despertar',15)} Provação!</button>`;
   h += `<button class="cartao-mini" data-acao="npc">${ic('npc',15)} Aldric</button>`;
   c.innerHTML = h;
@@ -216,7 +226,7 @@ function htmlPortais(){
   const st = staminaAtual(), stMax = staminaMax();
   let h = `<div class="pilula-fila">
     <span class="pilula">${ic('stamina',15)} ${st}/${stMax}${st<stMax?` · +1 em ${minutosProximaStamina()} min`:''}</span>
-    <span class="pilula">${ic('portal',15)} custo ${BAL.stamina.custoPortal} · diária grátis</span>
+    <span class="pilula">${ic('portal',15)} risco E→S: 2/3/4/5/6/7 · diária grátis</span>
   </div>`;
   if(BAL.beta.ativa) h += `<div class="cartao nota">🧪 <b>BETA</b> — a campanha vai até ao rank ${BAL.beta.rankMax}.
     Os ranks seguintes e a Fenda chegam na versão completa.</div>`;
@@ -239,31 +249,33 @@ function cartaoPortal(m, feito, diaria){
   else if(bloqDespertar) info = `Requer Despertar ${BAL.despertar.rankExige[m.rank]} ★`;
   else info = `Monstros nv.${m.nivelMon} · ${m.salas} salas${clears?` · ${clears}×`:''}`;
   return `
-  <div class="cartao portal-cartao cartao-toque linha ${bloq||feito?'btn-bloq':''}" data-portal="${m.rank}" data-diaria="${diaria?1:0}">
+  <div class="cartao portal-cartao cartao-toque linha ${bloq?'btn-bloq':''}" data-portal="${m.rank}" data-diaria="${diaria?1:0}">
     <div class="portal-rank" style="color:${m.cor}">${bloq?'🔒':m.rank}</div>
     <div class="crescer">
       <div class="portal-nome">${m.nome}</div>
       <div class="portal-info">${info}</div>
-      <div class="portal-rec">${ic('ouro',12)} ${m.ouro[0]}–${m.ouro[1]}${diaria?' ×2':''}</div>
+      <div class="portal-rec">${ic('ouro',12)} ${m.ouro[0]}–${m.ouro[1]}${diaria?(feito?' · treino sem prémios':' ×3'):''}</div>
     </div>
-    ${diaria ? `<span class="etiqueta tempo">${feito?'FEITO':'24H'}</span>` : `<span class="etiqueta">${ic('stamina',11)}${BAL.stamina.custoPortal}</span>`}
+    ${diaria ? `<span class="etiqueta tempo">${feito?'TREINO':'24H'}</span>` : `<span class="etiqueta">${ic('stamina',11)}${custoStaminaMasmorra(m)}</span>`}
   </div>`;
 }
 
 function modalEntrarPortal(m){
-  const custo = m.diaria ? BAL.stamina.custoDiaria : m.despertar ? 0 : BAL.stamina.custoPortal;
+  const custo = custoStaminaMasmorra(m);
+  const treino = !!(m.diaria && G.diario.feitoDiaria);
   // 1.ª visita ao rank: o Aldric contextualiza o bioma (D008 — saltável, é só ler ou não)
   const fala = (!m.diaria && !m.despertar && !(G.clears[m.rank]) && NPC.porRank[m.rank])
     ? `<div class="npc-fala">${ic('npc',14)} «${NPC.porRank[m.rank]}»</div>` : '';
   abrirModal(`
     <div class="modal-titulo" style="color:${m.cor}">${ic('portal',20)} Portal Rank ${m.rank}</div>
-    <div class="modal-sub">${m.nome} · ${m.salas} sala${m.salas>1?'s':''} · monstros nv.${m.nivelMon}${m.diaria?' · recompensas ×2':''}</div>
+    <div class="modal-sub">${m.nome} · ${m.salas} sala${m.salas>1?'s':''} · monstros nv.${m.nivelMon}${m.diaria?(treino?' · treino sem prémios':' · ouro/XP/cristais ×3'):''}</div>
     ${m.tema?`<div class="nota" style="margin-bottom:8px">${m.tema}</div>`:''}
     ${fala}
     <div class="cartao">
       <div class="stat-linha"><span class="stat-nome">O teu poder</span><span class="stat-valor">${ic('ponto',14)} ${poderTotal()}</span></div>
       <div class="stat-linha"><span class="stat-nome">Dificuldade estimada</span><span class="stat-valor">${avaliarDificuldade(m)}</span></div>
-      <div class="stat-linha"><span class="stat-nome">Custo de stamina</span><span class="stat-valor">${ic('stamina',14)} ${custo}</span></div>
+      <div class="stat-linha"><span class="stat-nome">Energia em risco</span><span class="stat-valor">${ic('stamina',14)} ${custo}</span></div>
+      ${custo?`<div class="nota">Reservada à entrada. Vitória devolve ${Math.max(0,custo-1)}; derrota, fuga ou recarregar perde os ${custo}.</div>`:''}
     </div>
     <div class="modal-acoes">
       <button class="btn btn-sec" id="p-cancelar">Voltar</button>
@@ -273,7 +285,7 @@ function modalEntrarPortal(m){
   $('#p-entrar').addEventListener('click', ()=>{
     if(custo>0 && !gastarStamina(custo)){ toast(`Sem stamina — +1 em ${minutosProximaStamina()} min`); return; }
     fecharModal(); fecharPainel(); hubParar();
-    iniciarCombate(m);
+    iniciarCombate(m,custo);
   });
 }
 
@@ -605,9 +617,9 @@ function htmlBase(){
 }
 
 /* ============ HERÓI ============ */
-function htmlHeroi(){
+function htmlHeroi(secao='tudo'){
   const t = statsTotais();
-  let h = `<div class="cartao linha cartao-toque" id="h-stats">
+  let resumo = `<div class="cartao linha cartao-toque" id="h-stats">
     <div class="avatar">${ic('heroi',26)}</div>
     <div class="crescer">
       <div class="portal-nome">${G.nome} — Nv.${G.nivel} (Rank ${rankCacador()}${G.despertar?' '+'★'.repeat(G.despertar):''})</div>
@@ -617,21 +629,30 @@ function htmlHeroi(){
     <span class="etiqueta">ATRIBUTOS</span>
   </div>`;
 
+  const equipados=G.equipadosPoder.filter(id=>id&&PODERES[id]);
+  resumo += `<div class="cartao">
+    <div class="portal-nome">${ic('p_brasas',16)} Poderes equipados</div>
+    <div class="pilula-fila" style="margin-top:9px">${equipados.length
+      ? equipados.map((id,i)=>`<span class="pilula">${ic(PODERES[id].icone,15)} ${i+1}. ${PODERES[id].nome} · T${poderTier(id)}</span>`).join('')
+      : '<span class="nota">Ainda não tens poderes ativos equipados.</span>'}</div>
+  </div>`;
+
   if(despertarDisponivel()){
-    h += `<div class="cartao" style="border-color:var(--bronze)">
+    resumo += `<div class="cartao" style="border-color:var(--bronze)">
       <div class="portal-nome" style="color:var(--bronze)">${ic('despertar',18)} Despertar ${G.despertar+1} disponível!</div>
       <div class="portal-info">Supera a Provação para desbloqueares tiers superiores${G.despertar===0?', a tua ultimate':''}${G.despertar===0?' e portais rank A':' e portais rank S'}.</div>
       <button class="btn btn-primario" id="h-despertar" style="width:100%;margin-top:10px">INICIAR PROVAÇÃO</button>
     </div>`;
   } else if(G.despertar < BAL.despertar.niveis.length){
-    h += `<div class="cartao nota">${ic('despertar',14)} Próximo Despertar ao nível ${BAL.despertar.niveis[G.despertar]}.</div>`;
+    resumo += `<div class="cartao nota">${ic('despertar',14)} Próximo Despertar ao nível ${BAL.despertar.niveis[G.despertar]}.</div>`;
   }
 
   // ultimate da classe (D011/D012)
   const ult = ultimateClasse();
+  let poderes = '';
   if(ult){
     const bloq = G.despertar < 1;
-    h += `<div class="cartao ${bloq?'btn-bloq':''}" style="border-color:${ult.cor}">
+    poderes += `<div class="cartao ${bloq?'btn-bloq':''}" style="border-color:${ult.cor}">
       <div class="portal-nome" style="color:${ult.cor}">${ic(ult.icone,18)} ${ult.nome} <span class="nota">ULTIMATE</span></div>
       <div class="portal-info">${ult.desc}</div>
       <div class="nota" style="margin-top:6px">${bloq
@@ -640,12 +661,13 @@ function htmlHeroi(){
     </div>`;
   }
 
-  h += htmlArvore();
-  return h;
+  poderes += htmlArvore();
+  return secao==='resumo' ? resumo : secao==='poderes' ? poderes : resumo+poderes;
 }
 
 /* ============ ÁRVORE DE PODERES (D019/D021 — colunas por ramo) ============ */
 let ramoAtual = 0;
+let arvoreCompleta = false;
 
 function htmlArvore(){
   const arv = arvoreDaClasse();
@@ -653,8 +675,8 @@ function htmlArvore(){
   if(ramoAtual >= arv.ramos.length) ramoAtual = 0;
   const pts = pontosHabDisponiveis();
   let h = sec('p_brasas',`Árvore de Poderes — ${pts} ponto${pts!==1?'s':''}`);
-  h += `<div class="cartao nota">1 ponto a cada ${BAL.poderes.nivelPorPonto} níveis. Tiers custam pontos + ouro;
-    nós menores ${BAL.arvore.custoMenor} ponto; keystones ${BAL.arvore.custoKeystone} pontos (exigem Despertar 2).</div>`;
+  h += `<div class="cartao nota linha"><span class="crescer">Vista compacta: comprados, próximo tier e nós já acessíveis.</span>
+    <button class="btn btn-sec" id="btn-arvore-vista">${arvoreCompleta?'Compactar':'Ver árvore completa'}</button></div>`;
   h += `<div class="sub-tabs">` + arv.ramos.map((r,i)=>{
     const icone = r.dom ? ultimateClasse().icone : PODERES[r.poder].icone;
     const nome  = r.dom ? 'Dom' : PODERES[r.poder].nome.split(' ')[0];
@@ -699,6 +721,7 @@ function ramoPoderHtml(ramo){
   const c = custoPoder(id);
   for(let t2=1; t2<=5; t2++){
     const comprado = t2 <= tier, proximo = c && t2 === c.tier;
+    if(!arvoreCompleta && !comprado && !proximo) continue;
     const gate = BAL.tiersPoder[t2-1].despertar;
     h += `<div class="cartao linha no-arvore ${comprado?'no-on':''}" style="${comprado||proximo?'':'opacity:.55'}">
       <div class="crescer">
@@ -721,7 +744,9 @@ function ramoPoderHtml(ramo){
       h += linhaNo(ramoIdx, 'no', ramo.menores.indexOf(no), noComprado(no.id), noDisponivel(ramo,no), no.nome, descEfeito(no.ef), BAL.arvore.custoMenor);
     }
   }
-  h += linhaNo(ramoIdx, 'ks', 0, noComprado(ramo.keystone.id), keystoneDisponivel(ramo), ramo.keystone.nome+' (keystone)', ramo.keystone.desc, BAL.arvore.custoKeystone);
+  const ksComprada=noComprado(ramo.keystone.id), ksDisp=keystoneDisponivel(ramo);
+  if(arvoreCompleta || ksComprada || ksDisp.ok)
+    h += linhaNo(ramoIdx, 'ks', 0, ksComprada, ksDisp, ramo.keystone.nome+' (keystone)', ramo.keystone.desc, BAL.arvore.custoKeystone);
   return h;
 }
 
@@ -735,9 +760,13 @@ function ramoDomHtml(ramo){
     ${bloq?`<div class="nota" style="margin-top:6px">🔒 O ramo do Dom abre no 1.º Despertar (nível ${BAL.despertar.niveis[0]}).</div>`:''}
   </div>`;
   for(const no of ramo.menores){
-    h += linhaNo(ramoIdx, 'no', ramo.menores.indexOf(no), noComprado(no.id), noDisponivel(ramo,no), no.nome, descEfeito(no.ef), BAL.arvore.custoMenor);
+    const comprado=noComprado(no.id), disp=noDisponivel(ramo,no);
+    if(arvoreCompleta || comprado || disp.ok)
+      h += linhaNo(ramoIdx, 'no', ramo.menores.indexOf(no), comprado, disp, no.nome, descEfeito(no.ef), BAL.arvore.custoMenor);
   }
-  h += linhaNo(ramoIdx, 'ks', 0, noComprado(ramo.keystone.id), keystoneDisponivel(ramo), ramo.keystone.nome+' (keystone do Dom)', ramo.keystone.desc, BAL.arvore.custoKeystone);
+  const ksComprada=noComprado(ramo.keystone.id), ksDisp=keystoneDisponivel(ramo);
+  if(arvoreCompleta || ksComprada || ksDisp.ok)
+    h += linhaNo(ramoIdx, 'ks', 0, ksComprada, ksDisp, ramo.keystone.nome+' (keystone do Dom)', ramo.keystone.desc, BAL.arvore.custoKeystone);
   return h;
 }
 
@@ -792,6 +821,13 @@ function modalNPC(){
 
 /* ============ eventos dos painéis ============ */
 function ligarEventosPainel(tab, corpo){
+  if(tab==='vigia'){
+    corpo.querySelectorAll('[data-vigia-sub]').forEach(b=>b.addEventListener('click',()=>{
+      vigiaSub=b.dataset.vigiaSub;
+      renderTabConteudo();
+      document.getElementById('tab-conteudo').scrollTop=0;
+    }));
+  }
   if(tab==='portais'){
     corpo.querySelectorAll('[data-portal]').forEach(c=>{
       c.addEventListener('click', ()=>{
@@ -905,6 +941,10 @@ function ligarEventosPainel(tab, corpo){
     });
   }
   if(tab==='heroi'){
+    corpo.querySelector('#btn-arvore-vista')?.addEventListener('click',()=>{
+      arvoreCompleta=!arvoreCompleta;
+      refrescar();
+    });
     corpo.querySelector('#h-stats')?.addEventListener('click', modalStats);
     corpo.querySelector('#h-despertar')?.addEventListener('click', ()=>{
       const m = masmorraDespertar();
@@ -962,7 +1002,7 @@ function ligarEventosPainel(tab, corpo){
 /* ============ fim de combate ============ */
 function fimCombateUI(r){
   irParaHub();
-  if(r.fuga){ toast('Saíste do portal.'); return; }
+  if(r.fuga){ toast(r.energiaRisco?`Saíste do portal — perdeste ${r.energiaRisco} de energia.`:'Saíste do portal.'); return; }
   if(r.vitoria) AUDIO.sfx('loot');
   if(r.subiu) AUDIO.sfx('nivel');
   let h;
@@ -973,12 +1013,19 @@ function fimCombateUI(r){
       <div class="modal-sub">Despertar ${G.despertar} — sentes o teu dom crescer.</div>
     </div>
     <div class="lista-loot">
-      <div class="loot-linha">${ic('ponto',16)} +${r.xp} XP${r.subiu?' · subiste de nível!':''}</div>
-      <div class="loot-linha">${ic('cristal',16)} +${r.cristais} cristais</div>
+      <div class="loot-linha">${ic('despertar',16)} Provação concluída sem custos nem loot paralelo.</div>
       <div class="loot-linha">${ic('despertar',16)} Tiers superiores${G.despertar===1?' e portais rank A':' e portais rank S'} desbloqueados!</div>
       ${G.despertar===1 && ultimateClasse() ? `<div class="loot-linha" style="border-color:${ultimateClasse().cor}">${ic(ultimateClasse().icone,18)} O teu dom manifesta-se: <b>${ultimateClasse().nome}</b> desbloqueada!</div>` : ''}
       ${G.despertar===2 ? `<div class="loot-linha">${ic('forja',16)} O teu equipamento é reforjado pelo dom: <b>aspeto lendário</b> desbloqueado!</div>` : ''}
     </div>
+    <div class="modal-acoes"><button class="btn btn-primario" id="r-ok">Continuar</button></div>`;
+  } else if(r.vitoria && r.treino){
+    h = `<div class="recompensa-grande">
+      <span class="emoji">${ic('trofeu',56)}</span>
+      <div class="modal-titulo">Treino concluído!</div>
+      <div class="modal-sub">A recompensa diária já foi recolhida hoje.</div>
+    </div>
+    <div class="lista-loot"><div class="loot-linha">Sem ouro, XP, cristais ou itens em modo de treino.</div></div>
     <div class="modal-acoes"><button class="btn btn-primario" id="r-ok">Continuar</button></div>`;
   } else if(r.vitoria){
     h = `<div class="recompensa-grande">
@@ -989,6 +1036,7 @@ function fimCombateUI(r){
     <div class="lista-loot">
       <div class="loot-linha">${ic('ponto',16)} <b>+${r.xp} XP</b>${r.subiu?` <span class="t-epico">· SUBISTE ${r.subiu} NÍVEL${r.subiu>1?'EIS':''}! (+${r.subiu*PONTOS_POR_NIVEL} pts)</span>`:''}</div>
       <div class="loot-linha">${ic('ouro',16)} +${r.ouro} &nbsp; ${ic('cristal',16)} +${r.cristais}</div>
+      ${r.energiaRisco?`<div class="loot-linha">${ic('stamina',16)} ${r.energiaDevolvida} energia devolvida · custo líquido 1</div>`:''}
       ${r.itens.map(it=>`<div class="loot-linha t-${it.raridade}">${ARTE.imgItem(it,26)} <b>${it.nome}</b> · ${RARIDADES[IDX_RARIDADE[it.raridade]].nome}</div>`).join('')}
       ${r.sorteExtra?`<div class="loot-linha" style="color:var(--ouro)">${ic('sorte',16)} A tua <b>Sorte</b> rendeu um item extra!</div>`:''}
       ${r.runa?`<div class="loot-linha">${ic(r.runa.icone,18)} Runa obtida: <b>${r.runa.nome}</b>!</div>`:''}
@@ -1002,19 +1050,24 @@ function fimCombateUI(r){
       <div class="modal-titulo">Foste derrotado…</div>
       <div class="modal-sub">Mas cada queda torna-te mais forte.</div>
     </div>
-    <div class="lista-loot"><div class="loot-linha">${ic('ponto',16)} +${r.xp} XP de consolação${r.subiu?' · subiste de nível!':''}</div></div>
+    <div class="lista-loot">
+      ${r.masmorra.diaria||r.masmorra.despertar
+        ? `<div class="loot-linha">Tentativa gratuita: sem recompensas por derrota.</div>`
+        : `<div class="loot-linha">${ic('ponto',16)} +${r.xp} XP dos inimigos abatidos${r.subiu?' · subiste de nível!':''}</div>`}
+      ${r.energiaRisco?`<div class="loot-linha">${ic('stamina',16)} Perdeste os ${r.energiaRisco} de energia em risco.</div>`:''}
+    </div>
     <div class="modal-acoes">
       <button class="btn btn-sec" id="r-ok">Voltar à vila</button>
-      ${r.masmorra.despertar?'':`<button class="btn btn-primario" id="r-retry">Tentar de novo</button>`}
+      <button class="btn btn-primario" id="r-retry">Tentar de novo</button>
     </div>`;
   }
   abrirModal(h);
   $('#r-ok').addEventListener('click', ()=>{ fecharModal(); atualizarTopo(); if(G.pontos>0) modalStats(); });
   $('#r-retry')?.addEventListener('click', ()=>{
     const m = r.masmorra;
-    const custo = m.diaria||m.despertar ? 0 : BAL.stamina.custoPortal;
+    const custo = custoStaminaMasmorra(m);
     if(custo>0 && !gastarStamina(custo)){ toast('Sem stamina para repetir já.'); fecharModal(); return; }
-    fecharModal(); hubParar(); iniciarCombate(m);
+    fecharModal(); hubParar(); iniciarCombate(m,custo);
   });
 }
 
@@ -1091,14 +1144,16 @@ function modalStats(){
 $('#abrir-stats').addEventListener('click', modalStats);
 
 /* ============ ecrã de título (cena pintada) ============ */
-function pintarTitulo(){
+function pintarTitulo(t=performance.now()/1000){
   const cv = document.getElementById('titulo-canvas');
   if(!cv) return;
   const dpr = Math.min(window.devicePixelRatio||1, 2);
   const W = window.innerWidth, H = window.innerHeight;
-  cv.width = W*dpr; cv.height = H*dpr;
+  const rw=Math.round(W*dpr),rh=Math.round(H*dpr);
+  if(cv.width!==rw || cv.height!==rh){ cv.width=rw; cv.height=rh; }
   const c = cv.getContext('2d');
   c.setTransform(dpr,0,0,dpr,0,0);
+  c.clearRect(0,0,W,H);
   const rng = (function(seed){ let s=seed; return ()=>{ s=(s*9301+49297)%233280; return s/233280; }; })(77);
 
   const ceu = c.createLinearGradient(0,0,0,H*0.75);
@@ -1142,8 +1197,18 @@ function pintarTitulo(){
     c.fillRect(hx-hw/2, hy-hh, hw, hh);
     c.beginPath(); c.moveTo(hx-hw/2-4,hy-hh); c.lineTo(hx,hy-hh-12-rng()*6); c.lineTo(hx+hw/2+4,hy-hh); c.closePath(); c.fill();
     if(rng()<0.8){
-      c.fillStyle='rgba(240,180,80,0.9)';
+      c.fillStyle=`rgba(240,180,80,${0.72+Math.sin(t*1.4+i)*0.16})`;
       c.fillRect(hx-3, hy-hh+5, 5, 6);
+    }
+    if(i===2 || i===5){
+      const f=(t*0.12+i*.37)%1;
+      c.fillStyle=`rgba(205,200,190,${(1-f)*.18})`;
+      c.beginPath(); c.arc(hx+4+f*9,hy-hh-10-f*25,3+f*7,0,Math.PI*2); c.fill();
+    }
+    if(i===4) for(let k=0;k<3;k++){
+      const f=(t*.32+k*.29)%1;
+      c.fillStyle=`rgba(238,126,42,${(1-f)*.65})`;
+      c.fillRect(hx+(k-1)*4+Math.sin(t*3+k)*2,hy-hh-f*24,2,2);
     }
   }
   const px=W*0.84, py=H*0.665;
@@ -1152,11 +1217,12 @@ function pintarTitulo(){
   c.fillStyle='#0d0810';
   c.fillRect(px-36,py-20,9,24); c.fillRect(px+27,py-20,9,24);
   const pg = c.createRadialGradient(px,py-14,2, px,py-14,56);
-  pg.addColorStop(0,'rgba(170,140,240,0.75)');
-  pg.addColorStop(0.4,'rgba(138,111,200,0.35)');
+  const pulso=0.82+Math.sin(t*1.7)*0.14;
+  pg.addColorStop(0,`rgba(170,140,240,${0.75*pulso})`);
+  pg.addColorStop(0.4,`rgba(138,111,200,${0.35*pulso})`);
   pg.addColorStop(1,'rgba(138,111,200,0)');
   c.fillStyle=pg; c.beginPath(); c.arc(px,py-14,56,0,Math.PI*2); c.fill();
-  c.fillStyle='rgba(190,165,255,0.65)';
+  c.fillStyle=`rgba(190,165,255,${0.65*pulso})`;
   c.beginPath(); c.ellipse(px,py-14,20,26,0,0,Math.PI*2); c.fill();
 
   c.strokeStyle='rgba(20,13,20,0.85)'; c.lineWidth=1.6;
@@ -1171,7 +1237,14 @@ function pintarTitulo(){
   vin.addColorStop(0,'rgba(0,0,0,0)'); vin.addColorStop(1,'rgba(8,5,10,0.55)');
   c.fillStyle=vin; c.fillRect(0,0,W,H);
 }
+let tituloAnim=0,tituloUlt=0;
+function animarTitulo(ms){
+  if(!document.getElementById('ecra-titulo').classList.contains('ativo')){ tituloAnim=0; return; }
+  if(ms-tituloUlt>=50){ tituloUlt=ms; pintarTitulo(ms/1000); }
+  tituloAnim=requestAnimationFrame(animarTitulo);
+}
 pintarTitulo();
+tituloAnim=requestAnimationFrame(animarTitulo);
 window.addEventListener('resize', ()=>{
   if(document.getElementById('ecra-titulo').classList.contains('ativo')) pintarTitulo();
 });

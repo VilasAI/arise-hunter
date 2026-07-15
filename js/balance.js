@@ -75,6 +75,8 @@ const BAL = {
     habPorSeg: 1.5,      // tentativas de habilidade por segundo, independente dos FPS (cd pronto e à distância)
     habPorSegBoss: 3.0,  // idem para bosses
     alcanceHab: 320,     // distância máxima para usar habilidade (tremor exige ~140)
+    maxPerigosSimultaneos: 2, // ataques especiais telegrafados ao mesmo tempo
+    maxProjeteisInimigos: 4,  // evita sobreposição impossível de ler em ecrãs pequenos
     furia: { hp:0.35, vel:1.3, dano:1.25 }, // corpo-a-corpo enfurece abaixo de 35% de vida
   },
 
@@ -95,7 +97,7 @@ const BAL = {
      sheet (META), por isso trocar a arte não obriga a mexer aqui. */
   anim: {
     heroi:   { idleFps:6, walkFps:12, ataque:0.18, dano:0.24, skill:0.72, morte:0.60 },
-    inimigo: { idleFps:6, walkFps:11, golpe:0.55, disparo:0.60, dano:0.12, morte:0.60, caido:0.70 },
+    inimigo: { idleFps:6, walkFps:11, golpe:0.55, disparo:0.60, dano:0.18, morte:0.60, caido:0.70, impacto:0.65 },
     projetil:{ altHeroi:22, altInimigo:28, fps:10 },   // sprites *_proj em voo
   },
 
@@ -182,7 +184,8 @@ const BAL = {
   /* ---------- Stamina de masmorra ---------- */
   stamina: {
     max: 20,             // stamina máxima base (Reservatório da base aumenta)
-    custoPortal: 3,      // custo de entrar num portal normal
+    custoPorRank: { E:2, D:3, C:4, B:5, A:6, S:7 }, // risco reservado à entrada
+    custoVitoria: 1,     // numa vitória, o restante risco é devolvido
     custoDiaria: 0,      // a masmorra diária é grátis
     minutosPorPonto: 6,  // regenera 1 ponto a cada X minutos reais
   },

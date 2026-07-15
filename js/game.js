@@ -565,14 +565,16 @@ function verificarDiario(){
   return false;
 }
 
-/* Masmorra diária: rank baseado no nível, recompensas x2 (1x por dia) */
+/* Masmorra diária: rank mais alto realmente desbloqueado. A seed local fixa a
+   composição durante todas as tentativas do mesmo dia. */
 function masmorraDiaria(){
-  const elegiveis = MASMORRAS.filter(m=> m.nivelReq <= G.nivel && rankNaBeta(m.rank));
+  const elegiveis = MASMORRAS.filter(m=>
+    m.nivelReq <= G.nivel && rankNaBeta(m.rank) && rankPermitido(m.rank));
   const m = elegiveis[elegiveis.length-1] || MASMORRAS[0];
-  // seed simples pelo dia para variar o nome
   const dia = parseInt(hojeStr().replace(/-/g,''),10);
   const nomes = ['Fenda Instável','Portal Vermelho','Brecha Dimensional','Portal do Eclipse'];
-  return { ...m, nome:nomes[dia % nomes.length], diaria:true };
+  return { ...m, nome:nomes[dia % nomes.length], diaria:true,
+           seedDiaria:dia, recompensaMultiplicador:3 };
 }
 
 /* ---------- Stamina de masmorra ---------- */
@@ -599,6 +601,18 @@ function gastarStamina(n){
   G.stamina.v -= n;
   guardar();
   return true;
+}
+
+function custoStaminaMasmorra(m){
+  if(!m || m.diaria || m.despertar) return 0;
+  return BAL.stamina.custoPorRank[m.rank] ?? BAL.stamina.custoPorRank.S;
+}
+
+function devolverStamina(n){
+  if(MODO_TESTE || n<=0) return;
+  G.stamina.v = Math.min(staminaMax(), staminaAtual()+n);
+  if(G.stamina.v >= staminaMax()) G.stamina.ts = Date.now();
+  guardar();
 }
 
 function minutosProximaStamina(){

@@ -46,7 +46,13 @@ async function montar(){
   }
 
   const cols=4, cardW=392, cardH=88, linhas=Math.ceil(nomes.length/cols);
-  const ySheets=42, yIcons=ySheets+linhas*cardH+34;
+  const ySheets=42, yHerois=ySheets+linhas*cardH+54;
+  const classes=['guerreiro','mago','batedor','assassino','paladino'];
+  const herois=classes.flatMap(cl=>['heroi_'+cl,'heroi_'+cl+'2']);
+  const estadosHeroi=['idle','walk','attack','skill'];
+  for(const base of herois) for(const estado of estadosHeroi)
+    if(!meta.sheets[base+'_'+estado]) throw new Error('Herói em falta: '+base+'_'+estado);
+  const heroCardH=126, yIcons=yHerois+herois.length*heroCardH+42;
   const iconNames=Object.keys(meta.icons), texNames=Object.keys(meta.textures);
   const iconImgs=await Promise.all(iconNames.map(n=>carregarImagem('assets/2d/'+meta.icons[n].file)));
   const texImgs=await Promise.all(texNames.map(n=>carregarImagem('assets/2d/'+meta.textures[n].file)));
@@ -64,6 +70,26 @@ async function montar(){
     for(let f=0;f<sp.frames;f++) c.drawImage(o.img,f*sp.cell.w,0,sp.cell.w,sp.cell.h,x+6+f*(size+4),y+19,size,size);
   });
 
+  titulo('WATCHER — 10 aparências · esquerda/direita · idle / walk / attack / skill',yHerois-14);
+  herois.forEach((base,linha)=>{
+    const y=yHerois+linha*heroCardH;
+    fundo(8,y,1584,heroCardH-6);
+    c.fillStyle='#eadfc8';c.font='bold 13px ui-monospace,monospace';c.fillText(base.replace('heroi_',''),18,y+25);
+    estadosHeroi.forEach((estado,col)=>{
+      const nome=base+'_'+estado,sp=meta.sheets[nome],o=SPR.reg[nome];
+      const f=Math.min(sp.frames-1,Math.max(0,Math.floor(sp.frames*.65)));
+      const gx=210+col*342;
+      c.fillStyle='#cdbb99';c.font='11px ui-monospace,monospace';c.fillText(estado,gx,y+20);
+      for(const [dx,flip,rotulo] of [[68,false,'←'],[180,true,'→']]){
+        c.fillStyle='#9f8e72';c.fillText(rotulo,gx+dx-4,y+38);
+        c.save();c.translate(gx+dx,y+108);c.scale(flip?-1:1,1);
+        c.drawImage(o.img,f*sp.cell.w,0,sp.cell.w,sp.cell.h,-38,-76,76,76);
+        c.restore();
+      }
+    });
+  });
+  document.documentElement.dataset.a5Herois=String(herois.length);
+
   titulo('ÍCONES — 48 recortes',yIcons-12);
   iconNames.forEach((nome,i)=>{
     const col=i%12,row=Math.floor(i/12),x=12+col*132,y=yIcons+row*86;
@@ -77,7 +103,8 @@ async function montar(){
     c.drawImage(texImgs[i],x,y,142,142);c.fillStyle='#eadfc8';c.font='11px ui-monospace,monospace';c.fillText(nome,x+146,y+18);
   });
   estadoEl.textContent=`A5 pronto · ${nomes.length} sheets · ${iconNames.length} ícones · ${texNames.length} texturas`;
-  await a5Ready({sheets:nomes.length,icons:iconNames.length,textures:texNames.length,height:cv.height});
+  await a5Ready({sheets:nomes.length,heroAppearances:herois.length,heroStates:estadosHeroi.length,
+                 heroDirections:2,icons:iconNames.length,textures:texNames.length,height:cv.height});
 }
 montar().catch(e=>{ estadoEl.textContent='A5 erro: '+e.message; a5Fail(e.message); });
 </script>

@@ -38,6 +38,7 @@ const sandbox = {
   atob: s => Buffer.from(s,'base64').toString('binary'),
   requestAnimationFrame: () => 0,
   cancelAnimationFrame(){},
+  setTimeout(fn){ fn(); return 0; },
   performance: { now: () => 0 },
 };
 vm.createContext(sandbox);
@@ -50,11 +51,13 @@ const codigo = FICHEIROS.map(f => fs.readFileSync(path.join(RAIZ,f),'utf8')).joi
   get G(){ return G; }, set G(v){ G = v; },
   get C(){ return C; }, set C(v){ C = v; },
   novoJogo, migrarSave, normalizarSave, prepararSave, carregar, importarSave, exportarSave,
-  guardar, escolherClasse, staminaMax, multAltarUlt, ferirInimigo, pontosInvestidos,
+  guardar, escolherClasse, staminaMax, staminaAtual, gastarStamina, custoStaminaMasmorra, devolverStamina,
+  masmorraDiaria, multAltarUlt, ferirInimigo, pontosInvestidos,
+  terminarCombate, espelharSpriteHeroi,
   comprarSkin, baseHeroi,
   encantar, fundir, subirSombra, custoSombra, statsSombra, compensacaoSombra,
   rankCacador, despertarDisponivel, tabelaRanking, hojeStr,
-  BAL, PODERES, CLASSES, SOMBRAS_BASE, SAVE_KEY,
+  BAL, PODERES, CLASSES, SOMBRAS_BASE, MASMORRAS, SAVE_KEY,
 };`;
 vm.runInContext(codigo, sandbox, { filename:'jogo-concatenado.js' });
 const jogo = sandbox.jogo;
@@ -243,6 +246,88 @@ t('P2.8: o dia do diário é o dia local', () => {
   const d = new Date();
   const esperado = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   assert.equal(jogo.hojeStr(), esperado);
+});
+
+t('D034: o risco de energia cresce por rank', () => {
+  const esperado={E:2,D:3,C:4,B:5,A:6,S:7};
+  for(const m of jogo.MASMORRAS) assert.equal(jogo.custoStaminaMasmorra(m),esperado[m.rank]);
+  assert.equal(jogo.custoStaminaMasmorra({...jogo.MASMORRAS[0],diaria:true}),0);
+  assert.equal(jogo.custoStaminaMasmorra({...jogo.MASMORRAS[0],despertar:true}),0);
+});
+
+t('D034: devolver energia respeita o máximo', () => {
+  jogo.G=jogo.novoJogo();
+  jogo.G.stamina.v=jogo.staminaMax()-1; jogo.G.stamina.ts=Date.now();
+  jogo.devolverStamina(6);
+  assert.equal(jogo.G.stamina.v,jogo.staminaMax());
+});
+
+function resolverFim(m, {vitoria=false,fuga=false,risco=0,mortes=0,treino=false}={}){
+  jogo.G=jogo.novoJogo(); jogo.escolherClasse('guerreiro');
+  jogo.G.stamina.v=jogo.staminaMax()-risco; jogo.G.stamina.ts=Date.now();
+  jogo.C={fase:'luta',masmorra:m,energiaReservada:risco,mortes,lootPend:[],treinoDiaria:treino};
+  let resultado=null; sandbox.fimCombateUI=r=>{resultado=r;};
+  jogo.terminarCombate(vitoria,fuga);
+  return resultado;
+}
+
+t('D034: vitória devolve custo−1; derrota e fuga perdem a reserva', () => {
+  const m=jogo.MASMORRAS[0];
+  let r=resolverFim(m,{vitoria:true,risco:2});
+  assert.equal(r.energiaDevolvida,1); assert.equal(jogo.G.stamina.v,jogo.staminaMax()-1);
+  r=resolverFim(m,{vitoria:false,risco:2,mortes:2});
+  assert.equal(r.xp,2*(4+m.nivelMon)); assert.equal(r.ouro,0); assert.equal(r.itens.length,0);
+  assert.equal(jogo.G.stamina.v,jogo.staminaMax()-2);
+  r=resolverFim(m,{vitoria:false,fuga:true,risco:2});
+  assert.equal(r.fuga,true); assert.equal(jogo.G.stamina.v,jogo.staminaMax()-2);
+});
+
+t('D034: reserva gasta fica persistida após recarregar', () => {
+  jogo.G=jogo.novoJogo(); jogo.G.stamina.ts=Date.now(); jogo.guardar();
+  assert.equal(jogo.gastarStamina(2),true);
+  jogo.G=null; jogo.carregar();
+  assert.equal(jogo.G.stamina.v,jogo.staminaMax()-2);
+});
+
+t('D035: Provação é grátis e não paga XP, cristais ou loot', () => {
+  const m={...jogo.MASMORRAS[0],despertar:true,ouro:[0,0]};
+  const derrota=resolverFim(m,{vitoria:false,mortes:9});
+  assert.equal(derrota.xp,0);
+  const vitoria=resolverFim(m,{vitoria:true});
+  assert.equal(vitoria.despertou,true); assert.equal(vitoria.xp,0); assert.equal(vitoria.cristais,0);
+  assert.equal(vitoria.itens.length,0);
+});
+
+t('D035: diária paga ×3 uma vez; falha e treino pagam zero', () => {
+  jogo.G=jogo.novoJogo(); const m={...jogo.masmorraDiaria(),rank:'E',nivelMon:1,ouro:[10,20]};
+  let r=resolverFim(m,{vitoria:false,mortes:9});
+  assert.equal(r.xp,0); assert.equal(r.ouro,0);
+  r=resolverFim(m,{vitoria:true});
+  assert.ok(r.ouro>=30&&r.ouro<=60&&r.ouro%3===0); assert.equal(r.xp%3,0);
+  assert.ok(r.cristais>=3&&r.cristais<=9&&r.cristais%3===0); assert.ok(r.itens.length<=2);
+  r=resolverFim(m,{vitoria:true,treino:true});
+  assert.equal(r.treino,true); assert.equal(r.ouro,0); assert.equal(r.xp,0); assert.equal(r.itens.length,0);
+});
+
+t('D036: diária é estável no dia, ×3 e usa o rank desbloqueado', () => {
+  jogo.G=jogo.prepararSave({nivel:99,despertar:0});
+  const a=jogo.masmorraDiaria(),b=jogo.masmorraDiaria();
+  assert.equal(a.rank,'C');                 // corte da beta e requisitos respeitados
+  assert.equal(a.seedDiaria,b.seedDiaria);
+  assert.equal(a.recompensaMultiplicador,3);
+  assert.ok(a.salas>=3 && a.salas<=5);
+});
+
+t('Feedback: 10 aparências têm idle/walk/attack/skill e orientação bilateral', () => {
+  const meta=JSON.parse(fs.readFileSync(path.join(RAIZ,'assets/2d/sprites-meta.json'),'utf8'));
+  const classes=['guerreiro','mago','batedor','assassino','paladino'];
+  const aparencias=classes.flatMap(c=>['heroi_'+c,'heroi_'+c+'2']);
+  const estados=['idle','walk','attack','skill'];
+  assert.equal(aparencias.length,10);
+  for(const base of aparencias) for(const estado of estados)
+    assert.ok(meta.sheets[base+'_'+estado],base+'_'+estado+' em falta');
+  assert.equal(jogo.espelharSpriteHeroi(true,-1),false); // sheet original olha à esquerda
+  assert.equal(jogo.espelharSpriteHeroi(true,1),true);   // direita usa espelho
 });
 
 t('P2.13: a arma inicial só se oferece uma vez', () => {

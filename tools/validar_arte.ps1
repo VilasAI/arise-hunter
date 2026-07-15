@@ -1,4 +1,4 @@
-# Validacao A5 da Arte v2: contrato META, imagens e screenshots headless.
+﻿# Validacao A5 da Arte v2: contrato META, imagens e screenshots headless.
 param(
   [string]$Raiz = (Split-Path $PSScriptRoot -Parent),
   [string]$Saida = (Join-Path (Split-Path $PSScriptRoot -Parent) 'tests\screenshots')
@@ -114,7 +114,7 @@ try {
   }
   Confirmar $pronto 'Servidor A5 não arrancou em 127.0.0.1:4173.'
 
-  Invocar-Pagina 'http://127.0.0.1:4173/tests/sprites.html' 'contact-sheet.png' 1600 3600 | Out-Null
+  Invocar-Pagina 'http://127.0.0.1:4173/tests/sprites.html' 'contact-sheet.png' 1600 5000 | Out-Null
   for($bioma=0;$bioma -le 5;$bioma++){
     $urlBioma = 'http://127.0.0.1:4173/tests/cenario.html?bioma={0}&seed=123&static=1&loop=1' -f $bioma
     $ficheiroBioma = 'cenario-bioma-{0}.png' -f $bioma

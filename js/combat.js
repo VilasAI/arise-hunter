@@ -35,14 +35,19 @@ window.addEventListener('resize', ()=>{
   if(resizePendente) return;
   resizePendente=requestAnimationFrame(()=>{ resizePendente=0; redimensionar(); });
 });
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){ cancelAnimationFrame(rafId); rafId=0; }
+  else if(C && !rafId){ ultimoT=performance.now(); rafId=requestAnimationFrame(loop); }
+});
 
 /* ---------- arranque ---------- */
-function iniciarCombate(masmorra){
+function iniciarCombate(masmorra, energiaReservada=0){
   const t = statsTotais();
   redimensionar();
   const w = window.innerWidth, h = window.innerHeight;
   C = {
     masmorra, sala:1, totalSalas:masmorra.salas, seedCenario:0,
+    energiaReservada, treinoDiaria:!!(masmorra.diaria && G.diario.feitoDiaria),
     W:w, H:h, chaoTopo:h*0.36, chaoFundo:h*0.90,
     fase:'luta', tempoFase:0, shake:0, tempo:0,
     jogador:{
@@ -64,7 +69,7 @@ function iniciarCombate(masmorra){
     mortes:0, lootPend:[],
     auto:G.auto,
     regenClasse: (typeof passivaClasse==='function' ? passivaClasse().regenHp : 0),
-    buffBencao: null,
+    buffBencao: null, reforcoSala:null,
   };
   criarAliados();
   povoarSala();
@@ -92,6 +97,7 @@ function criarAliados(){
 
 function povoarSala(){
   C.inimigos.length = 0;
+  C.reforcoSala = null;
   prerenderCenario();                       // cada sala tem variação própria
   const m = C.masmorra, rank = m.rank;
   const ultima = C.sala === C.totalSalas;
@@ -101,18 +107,22 @@ function povoarSala(){
     const b = BOSSES[rank];
     const boss = criarInimigo(b, rank, 'boss');
     if(m.despertar){ boss.hp = Math.round(boss.hp*1.3); boss.hpMax = boss.hp; boss.nome = 'Guardião da Provação'; }
+    boss.faseBoss = 1;
     C.inimigos.push(boss);
     document.getElementById('hud-boss').hidden = false;
     document.getElementById('boss-nome').textContent = boss.nome;
   } else {
-    const qtd = 3 + Math.floor(C.sala*0.7);
-    for(let i=0;i<qtd;i++){
-      C.inimigos.push(criarInimigo(escolher(MONSTROS[rank]), rank, 'normal', i));
-    }
-    if(meio){
-      const elite = {...escolher(MONSTROS[rank])};
+    const modelos = composicaoSala(m, C.sala);
+    for(let i=0;i<modelos.length;i++)
+      C.inimigos.push(criarInimigo(modelos[i], rank, 'normal', i));
+    if(meio || m.diaria){
+      const elite = {...modelos[(C.sala+modelos.length-1)%modelos.length]};
       elite.nome = elite.nome + ' Alfa';
       C.inimigos.push(criarInimigo(elite, rank, 'elite'));
+    }
+    if(m.diaria){
+      const comp = composicaoSala(m, C.sala+17).slice(0,2);
+      C.reforcoSala = { modelos:comp, limiar:Math.max(2,Math.floor(C.inimigos.length/2)), usado:false };
     }
     document.getElementById('hud-boss').hidden = true;
   }
@@ -125,13 +135,14 @@ function criarInimigo(base, rank, classe, i=0){
   const lado = Math.random()<0.8 ? 1 : -1;
   const e = {
     tipo:'inimigo', classe, nome:base.nome,
-    sprite: base.sprite, adornos: base.adornos||null, hab: base.hab||null,
+    sprite:base.sprite, adornos:base.adornos||null,
+    hab:base.hab || (classe==='elite' ? (base.ranged?'rajada':'investida') : null),
     ranged: !!base.ranged, recupera:0, entrou:false, furia:false,
     x: lado>0 ? C.W + 40 + i*30 : -40 - i*30,
     y: rnd(C.chaoTopo+30, C.chaoFundo-10),
     hp:st.hp, hpMax:st.hp, atq:st.dano, def:st.def,
     vel: base.vel * (classe==='boss'?0.85:1),
-    cd: rnd(0.3,1.0), windup:0, habAtiva:null, investe:null,
+    cd:rnd(0.3,1.0), windup:0, windupDur:0, impactou:false, habAtiva:null, investe:null,
     raio: classe==='boss'?34 : classe==='elite'?24 : 16,
     flash:0, kbvx:0, kbvy:0,
     strafe: Math.random()<0.5?-1:1,   // sentido do passo lateral (arqueiros)
@@ -139,8 +150,21 @@ function criarInimigo(base, rank, classe, i=0){
     queimar:null,          // {t, dps}
     lento:null,            // {t, fator}
     congelado:0,           // segundos
+    estadoAnim:'idle', inicioAnim:C.tempo, durAnim:0,
   };
   return e;
+}
+
+function iniciarAnimInimigo(e, estado, dur){
+  if(e.estadoAnim==='death') return;
+  const ativa=C.tempo-e.inicioAnim < e.durAnim;
+  if(ativa && e.estadoAnim==='hurt' && estado!=='death') return;
+  e.estadoAnim=estado; e.inicioAnim=C.tempo; e.durAnim=dur;
+}
+
+function iniciarAcaoInimigo(e, dur, estado='attack'){
+  e.windup=dur; e.windupDur=dur; e.impactou=false;
+  iniciarAnimInimigo(e,estado,dur);
 }
 
 /* ---------- slots de poderes (HUD) ----------
@@ -274,6 +298,10 @@ document.getElementById('btn-auto').addEventListener('click', ()=>{
 });
 document.getElementById('btn-fugir').addEventListener('click', ()=>{
   if(!C) return;
+  const perda=C.energiaReservada||0;
+  if(!confirm(perda
+    ? `Sair agora perde os ${perda} pontos de energia reservados. Queres fugir?`
+    : 'Queres abandonar esta tentativa?')) return;
   terminarCombate(false, true);
 });
 
@@ -726,6 +754,7 @@ function ferirInimigo(e, dano, crit, cor){
   }
   if(arvKeystone('a_ks_sed') && e.hp/e.hpMax < 0.30) dano = Math.round(dano*1.15);
   e.hp -= dano; e.flash = BAL.anim.inimigo.dano;
+  iniciarAnimInimigo(e,'hurt',BAL.anim.inimigo.dano);
   // knockback com decaimento: impulso para longe do Watcher que trava suave (bosses quase imunes)
   const j2 = C.jogador;
   const kdx = e.x-j2.x, kdy = e.y-j2.y, kd = Math.hypot(kdx,kdy)||1;
@@ -744,6 +773,7 @@ function ferirInimigo(e, dano, crit, cor){
   if(e.hp<=0){
     e.morto = true;
     e.morteInicio = C.tempo;
+    e.estadoAnim='death'; e.inicioAnim=C.tempo; e.durAnim=BAL.anim.inimigo.morte;
     C.caidos ||= [];
     C.caidos.push(e);       // fica visível tempo suficiente para tocar a animação death
     C.mortes++;
@@ -1034,7 +1064,10 @@ function atualizar(dt){
     }
     else if(e.windup>0){
       if(e.congelado<=0) e.windup -= dt;
-      if(e.windup<=0){
+      const dur=e.windupDur || e.habAtiva?.dur || (e.ranged?BAL.anim.inimigo.disparo:BAL.anim.inimigo.golpe);
+      e.windupDur=dur;
+      if(!e.impactou && e.windup <= dur*(1-BAL.anim.inimigo.impacto)){
+        e.impactou=true;
         let dano = e.atq;
         if(noTerror) dano *= 1-terrorFraq;
         if(e.habAtiva){ resolverHab(e, dano); e.habAtiva=null; }
@@ -1043,6 +1076,8 @@ function atualizar(dt){
           tiroInimigo(e, Math.atan2((j.y-26)-(e.y-24), j.x-e.x), dano, BAL.combate.velProjInimigo);
         }
         else if(d < e.raio+52 && j.invul<=0) ferirJogador(dano, e);
+      }
+      if(e.windup<=0){
         e.cd = rnd(BAL.combate.cdAtq[0], BAL.combate.cdAtq[1]);
         e.recupera = BAL.combate.recuperar;   // pausa pós-golpe: não cola
       }
@@ -1055,7 +1090,8 @@ function atualizar(dt){
         // ainda a entrar na sala: caminha direto ao Watcher até pisar o ecrã
         if(e.x>24 && e.x<C.W-24) e.entrou = true;
         else { e.x += dx/d*e.vel*velMult*dt; e.y += dy/d*e.vel*velMult*dt; }
-      } else if(e.hab && e.cd<=0 && d < (e.hab==='tremor' ? 140 : B.alcanceHab)
+      } else if(e.hab && e.cd<=0 && perigosAtivos()<B.maxPerigosSimultaneos
+                && d < (e.hab==='tremor' ? 140 : B.alcanceHab)
                 && Math.random() < 1-Math.exp(-(e.classe==='boss' ? B.habPorSegBoss : B.habPorSeg)*dt)){
         prepararHab(e);
       } else if(e.recupera > 0){
@@ -1078,13 +1114,14 @@ function atualizar(dt){
           e.y += perpy*e.strafe*spd;
           if(e.y <= C.chaoTopo+8 || e.y >= C.chaoFundo-8) e.strafe *= -1;
         }
-        if(e.cd<=0 && d < alcance*1.05) e.windup = BAL.anim.inimigo.disparo;   // dispara assim que recarrega
+        if(e.cd<=0 && d < alcance*1.05 && C.tiros.length<B.maxProjeteisInimigos)
+          iniciarAcaoInimigo(e,BAL.anim.inimigo.disparo);   // dispara assim que recarrega
       } else if(d > alcance){
         // corpo-a-corpo: persegue o Watcher cercando-o por um ângulo de flanco
         const ang = Math.atan2(dy,dx) + e.flank;
         e.x += Math.cos(ang)*e.vel*velMult*dt; e.y += Math.sin(ang)*e.vel*velMult*dt;
       } else if(e.cd<=0){
-        e.windup = BAL.anim.inimigo.golpe;
+        iniciarAcaoInimigo(e,BAL.anim.inimigo.golpe);
       }
     }
 
@@ -1206,7 +1243,10 @@ function atualizar(dt){
     be.querySelector('.barra-fill').style.width = (C.escudo/C.escudoMax*100)+'%';
   } else be.hidden=true;
   const boss = C.inimigos.find(e=>e.classe==='boss');
-  if(boss) document.getElementById('boss-hp').style.width = (boss.hp/boss.hpMax*100)+'%';
+  if(boss){
+    atualizarFaseBoss(boss);
+    document.getElementById('boss-hp').style.width = (boss.hp/boss.hpMax*100)+'%';
+  }
   // botão de esquiva: recarga visível
   const beq = document.getElementById('btn-esquiva');
   const cdMaxE = BAL.combate.dashCd * (1 - t.cdr/100) * passivaClasse().dashMult;   // (P2.4)
@@ -1222,6 +1262,8 @@ function atualizar(dt){
   }
   atualizarSlotsPoder();
 
+  chamarReforco();
+
   // sala limpa?
   if(C.fase==='luta' && C.inimigos.length===0){
     if(C.sala >= C.totalSalas){ terminarCombate(true); }
@@ -1232,6 +1274,7 @@ function atualizar(dt){
 /* ---------- habilidades dos monstros (bosses e monstros com `hab` no data.js) ---------- */
 /* projétil inimigo: sprite real da prancha quando existe (D028), vetorial senão */
 function tiroInimigo(e, ang, dano, vp){
+  if(C.tiros.length>=BAL.combate.maxProjeteisInimigos) return false;
   const m2t = modelo2dDe(e.sprite), sprTiro = anim2d(m2t,'proj');
   C.tiros.push({
     x:e.x, y:e.y-24, vx:Math.cos(ang)*vp, vy:Math.sin(ang)*vp,
@@ -1239,6 +1282,27 @@ function tiroInimigo(e, ang, dano, vp){
     cor: e.sprite==='orcmago' ? '#b89ae8' : e.sprite==='sacerdote' ? '#d05c4e'
        : e.sprite==='draconiano' ? '#e2762d' : e.sprite==='aranha' ? '#9ad06a' : '#d8c38a',
   });
+  return true;
+}
+
+function atualizarFaseBoss(boss){
+  const r=boss.hp/boss.hpMax;
+  const fase=r<=0.35?3:r<=0.70?2:1;
+  if(fase<=(boss.faseBoss||1)) return;
+  boss.faseBoss=fase;
+  boss.hab=BOSS_FASES[C.masmorra.rank]?.[fase-2] || boss.hab;
+  boss.cd=Math.max(boss.cd,0.35);
+  numero(boss.x,boss.y-boss.raio-34,`FASE ${fase}`,'#e8c84a',18);
+  toast(`${boss.nome}: fase ${fase}`);
+  if(C.masmorra.diaria){
+    const base=composicaoSala(C.masmorra,C.sala+fase*29)[0];
+    const add=criarInimigo(base,C.masmorra.rank,fase===3?'elite':'normal',fase+6);
+    C.inimigos.push(add);
+  }
+}
+
+function perigosAtivos(){
+  return C.inimigos.reduce((n,x)=>n+((x.habAtiva&&x.windup>0)||x.investe?1:0),0);
 }
 
 function prepararHab(e){
@@ -1247,7 +1311,7 @@ function prepararHab(e){
                 rajada:0.7, poca:0.8, tremor:1.0 }[e.hab] || 0.9;
   e.habAtiva = { tipo:e.hab, alvoX:j.x, alvoY:j.y,
                  ang:Math.atan2(j.y-e.y, j.x-e.x), dur };
-  e.windup = dur;
+  iniciarAcaoInimigo(e,dur,'skill');
 }
 
 function resolverHab(e, dano){
@@ -1863,6 +1927,24 @@ function preencherTextura(c, nomeBase, nomeAlt, x0,y0,w,h,tam,camada, flipVertic
   }
 }
 
+function composicaoSala(m, sala){
+  const opcoes = COMPOSICOES_SALA[m.rank] || [[0]];
+  const indice = m.diaria
+    ? Math.abs(((m.seedDiaria||0)*31 + sala*17 + IDX_RARIDADE_RANK(m.rank)*13)) % opcoes.length
+    : Math.floor(Math.random()*opcoes.length);
+  const indices = opcoes[indice].slice();
+  if(sala>=3 && !m.diaria) indices.push(indices[0]);
+  return indices.map(i=>MONSTROS[m.rank][i % MONSTROS[m.rank].length]);
+}
+
+function chamarReforco(){
+  const r=C.reforcoSala;
+  if(!r || r.usado || C.inimigos.length>r.limiar) return;
+  r.usado=true;
+  r.modelos.forEach((base,i)=>C.inimigos.push(criarInimigo(base,C.masmorra.rank,'normal',i+5)));
+  toast('Reforços da Fenda!');
+}
+
 function desenharTransicaoParedeChao(c,tam,nomeParede,nomeTransicao){
   const {W}=C, topo=Math.round(C.chaoTopo), banda=clamp(Math.round(tam*0.24),12,34);
   if(nomeTransicao && SPR.ok(nomeTransicao)){
@@ -2164,7 +2246,8 @@ function desenharJogador(){
     if(j.invul>0 && Math.floor(C.tempo*20)%2) ctx.globalAlpha=0.45;
     // sheets novos: já coloridos (sem tinta), corpo até 92% da altura do frame
     const altHeroi = novo ? ALTURAS_SPRITE.basePx*ALTURAS_SPRITE.heroi : 210;
-    SPR.frameH(ctx, nome, idx, SPR.n(nome), altHeroi*s, (j.dirAtq||1)<0, null,
+    // o pack novo foi exportado a olhar para a esquerda; inverte a convenção antiga
+    SPR.frameH(ctx, nome, idx, SPR.n(nome), altHeroi*s, espelharSpriteHeroi(novo,j.dirAtq||1), null,
                novo?ALTURAS_SPRITE.ancoraY:0.74);
     ctx.restore();
   } else {
@@ -2184,6 +2267,8 @@ function desenharJogador(){
     ctx.beginPath(); ctx.ellipse(j.x, j.y-34*s, 30*s, 42*s, 0, 0, Math.PI*2); ctx.stroke();
   }
 }
+
+function espelharSpriteHeroi(novo, dir){ return novo ? dir>0 : dir<0; }
 
 function desenharAliado(a){
   const s=escalaProf(a.y)*0.8;
@@ -2228,9 +2313,7 @@ function desenharInimigo(e){
   if(SPR.ok(m2.base+'_idle')){
     let est, idx, nome;
     if(e.morto) est='death';
-    else if(e.flash>0) est='hurt';
-    else if(e.habAtiva && e.windup>0) est='skill';
-    else if(e.windup>0) est='attack';
+    else if(C.tempo-e.inicioAnim < e.durAnim) est=e.estadoAnim;
     else { const mov = (Math.abs(e.x-(e._dpx??e.x))+Math.abs(e.y-(e._dpy??e.y)))>0.4; est = mov?'walk':'idle'; }
     e._dpx=e.x; e._dpy=e.y;
     nome = anim2d(m2, est);
@@ -2240,9 +2323,8 @@ function desenharInimigo(e){
     }
     const nf = SPR.n(nome), A = BAL.anim.inimigo;
     if(est==='death')     idx = Math.floor(clamp((C.tempo-e.morteInicio)/A.morte,0,0.999)*nf);
-    else if(est==='skill') idx = Math.floor(clamp(1-e.windup/(e.habAtiva?.dur||1),0,0.999)*nf);
-    else if(est==='attack') idx = Math.floor(clamp(1 - e.windup/(e.ranged?A.disparo:A.golpe),0,1)*nf);
-    else if(est==='hurt') idx = Math.floor(clamp(1 - e.flash/A.dano,0,1)*nf);
+    else if(est==='skill' || est==='attack' || est==='hurt')
+      idx = Math.floor(clamp((C.tempo-e.inicioAnim)/(e.durAnim||1),0,0.999)*nf);
     else                  idx = Math.floor(C.tempo*(est==='walk'?A.walkFps:A.idleFps) + e.x*0.05);
     const alt = (m2.kind==='novo' ? ALTURAS_SPRITE.basePx*fatorPapel*prof
                                   : (m2.kind==='big'?200:112)*s) * (m2.esc||1);
@@ -2338,20 +2420,26 @@ function terminarCombate(vitoria, fuga=false){
   C.fase='fim';
   const m = C.masmorra;
   const resultado = { vitoria, fuga, masmorra:m, itens:[], ouro:0, xp:0, cristais:0,
-                      sombra:null, runa:null, subiu:0, despertou:false };
+                      sombra:null, runa:null, subiu:0, despertou:false,
+                      treino:!!C.treinoDiaria, energiaRisco:C.energiaReservada||0,
+                      energiaDevolvida:0 };
+
+  if(vitoria && resultado.energiaRisco>0){
+    resultado.energiaDevolvida=Math.max(0,resultado.energiaRisco-BAL.stamina.custoVitoria);
+    devolverStamina(resultado.energiaDevolvida);
+  }
 
   if(vitoria && m.despertar){
-    // Provação do Despertar: sem loot normal, dá o Despertar + cristais
+    // Provação: todas as tentativas são grátis e nunca geram loot paralelo.
     G.despertar++;
     G.contadores.despertar++;
     resultado.despertou = true;
-    resultado.cristais = 12;
-    resultado.xp = Math.round(m.nivelMon*30);
-    G.cristais += resultado.cristais;
-    resultado.subiu = darXP(resultado.xp);
+  } else if(vitoria && C.treinoDiaria){
+    // depois do primeiro fecho do dia, o portal fica aberto como treino sem prémios
+    resultado.treino=true;
   } else if(vitoria){
     const t = statsTotais();
-    const multDiaria = m.diaria ? 2 : 1;
+    const multDiaria = m.diaria ? (m.recompensaMultiplicador||3) : 1;
     resultado.ouro = rndInt(m.ouro[0], m.ouro[1]) * multDiaria;
     resultado.xp = Math.round((20 + m.nivelMon*9) * m.salas * 0.9) * multDiaria;
     resultado.cristais = rndInt(1,3) * multDiaria;
@@ -2375,7 +2463,8 @@ function terminarCombate(vitoria, fuga=false){
     if(IDX_RARIDADE_RANK(m.rank) >= 2 && Math.random() < BAL.runas.chanceDropBoss){
       resultado.runa = ganharRuna();
     }
-  } else if(!fuga){
+  } else if(!fuga && !m.diaria && !m.despertar){
+    // derrota normal: apenas a XP dos inimigos já abatidos; nunca ouro ou loot
     resultado.xp = Math.round(C.mortes * (4 + m.nivelMon));
     resultado.subiu = darXP(resultado.xp);
   }

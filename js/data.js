@@ -64,7 +64,7 @@ const MASMORRAS = [
    pelo motor de combate. */
 const ALTURAS_SPRITE = Object.freeze({
   basePx:176,
-  heroi:1.00,
+  heroi:0.88,
   inimigo:0.82,
   elite:1.07,
   boss:1.48,
@@ -90,13 +90,24 @@ const ARTE_CENARIO = Object.freeze({
    poca = cospe poça no alvo · tremor = anel de choque à volta de si */
 /* servos das legiões demoníacas (D017) — sprites reaproveitados, identidade nova */
 const MONSTROS = {
-  E:[{nome:'Diabrete',sprite:'goblin',mHp:1.0,mDano:1.0,vel:55},{nome:'Cão da Fenda',sprite:'lobo',mHp:0.8,mDano:1.2,vel:75,hab:'investida'},{nome:'Diabrete Fundeiro',sprite:'goblin',mHp:0.7,mDano:0.9,vel:50,ranged:true}],
-  D:[{nome:'Carraça do Enxame',sprite:'formiga',mHp:1.0,mDano:1.0,vel:65},{nome:'Tecelã Venenosa',sprite:'aranha',mHp:0.8,mDano:1.2,vel:80,ranged:true,hab:'poca'}],
-  C:[{nome:'Renegado Erguido',sprite:'esqueleto',mHp:1.0,mDano:0.9,vel:60},{nome:'Alma Cativa',sprite:'espectro',mHp:0.75,mDano:1.1,vel:90},{nome:'Arqueiro Erguido',sprite:'esqueleto',mHp:0.75,mDano:1.0,vel:52,ranged:true,hab:'rajada'}],
-  B:[{nome:'Bruto da Legião',sprite:'orc',mHp:1.0,mDano:0.85,vel:65,hab:'investida'},{nome:'Feiticeiro da Legião',sprite:'orcmago',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
-  A:[{nome:'Dracónida',sprite:'draconiano',mHp:0.85,mDano:0.85,vel:70},{nome:'Golem do Degelo',sprite:'golem',mHp:1.2,mDano:0.7,vel:45,hab:'tremor'},{nome:'Dracónida Cuspidor',sprite:'draconiano',mHp:0.8,mDano:1.0,vel:55,ranged:true}],
-  S:[{nome:'Cavaleiro do Vazio',sprite:'cavaleiro',mHp:0.8,mDano:0.7,vel:75,hab:'investida'},{nome:'Sacerdote da Fenda',sprite:'sacerdote',mHp:0.65,mDano:0.85,vel:60,ranged:true,hab:'rajada'}],
+  E:[{nome:'Diabrete',sprite:'goblin',mHp:1.0,mDano:1.0,vel:55,papeis:['frente']},{nome:'Cão da Fenda',sprite:'lobo',mHp:0.8,mDano:1.2,vel:75,hab:'investida',papeis:['frente','controlo']},{nome:'Diabrete Fundeiro',sprite:'goblin',mHp:0.7,mDano:0.9,vel:50,ranged:true,papeis:['alcance']}],
+  D:[{nome:'Carraça do Enxame',sprite:'formiga',mHp:1.0,mDano:1.0,vel:65,papeis:['frente']},{nome:'Tecelã Venenosa',sprite:'aranha',mHp:0.8,mDano:1.2,vel:80,ranged:true,hab:'poca',papeis:['alcance','controlo']}],
+  C:[{nome:'Renegado Erguido',sprite:'esqueleto',mHp:1.0,mDano:0.9,vel:60,papeis:['frente']},{nome:'Alma Cativa',sprite:'espectro',mHp:0.75,mDano:1.1,vel:90,papeis:['controlo']},{nome:'Arqueiro Erguido',sprite:'esqueleto',mHp:0.75,mDano:1.0,vel:52,ranged:true,hab:'rajada',papeis:['alcance']}],
+  B:[{nome:'Bruto da Legião',sprite:'orc',mHp:1.0,mDano:0.85,vel:65,hab:'investida',papeis:['frente','controlo']},{nome:'Feiticeiro da Legião',sprite:'orcmago',mHp:0.8,mDano:1.0,vel:55,ranged:true,papeis:['alcance']}],
+  A:[{nome:'Dracónida',sprite:'draconiano',mHp:0.85,mDano:0.85,vel:70,papeis:['frente']},{nome:'Golem do Degelo',sprite:'golem',mHp:1.2,mDano:0.7,vel:45,hab:'tremor',papeis:['controlo']},{nome:'Dracónida Cuspidor',sprite:'draconiano',mHp:0.8,mDano:1.0,vel:55,ranged:true,papeis:['alcance']}],
+  S:[{nome:'Cavaleiro do Vazio',sprite:'cavaleiro',mHp:0.8,mDano:0.7,vel:75,hab:'investida',papeis:['frente','controlo']},{nome:'Sacerdote da Fenda',sprite:'sacerdote',mHp:0.65,mDano:0.85,vel:60,ranged:true,hab:'rajada',papeis:['alcance']}],
 };
+
+/* Composições por papel: cada índice aponta para MONSTROS[rank]. A pressão vem
+   da mistura de linha da frente, alcance e controlo, não de multiplicar stats. */
+const COMPOSICOES_SALA = Object.freeze({
+  E:[[0,1,2],[0,0,1,2],[1,0,2]],
+  D:[[0,0,1],[0,1,1],[0,0,0,1]],
+  C:[[0,1,2],[0,0,1,2],[1,0,2]],
+  B:[[0,0,1],[0,1,1],[0,0,0,1]],
+  A:[[0,1,2],[0,0,1,2],[1,0,2]],
+  S:[[0,0,1],[0,1,1],[0,0,0,1]],
+});
 
 /* Bosses: stats de BAL.inimigosRank × BAL.inimigoClasse.boss
    adornos: camadas extra do art.js · hab: habilidade única
@@ -114,6 +125,13 @@ const BOSSES = {
   A:{nome:'Dragão Gélido',        sprite:'draconiano', adornos:['asas'],         hab:'sopro',     vel:58},
   S:{nome:'Senhor da Fenda',      sprite:'cavaleiro',  adornos:['capa','aura'],  hab:'aneis',     vel:70},
 };
+
+/* Alterações de padrão aos 70% e 35% de vida. Mantêm os mesmos números e
+   obrigam o jogador a reler a luta em vez de apenas absorver mais dano. */
+const BOSS_FASES = Object.freeze({
+  E:['rajada','investida'], D:['tremor','poca'], C:['rajada','tremor'],
+  B:['tremor','investida'], A:['investida','sopro'], S:['orbes','aneis'],
+});
 
 /* Sombras extraíveis (derrotar o boss dá hipótese de extração)
    sprite: espécie do boss de origem, tintada de violeta em combate */
