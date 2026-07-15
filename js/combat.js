@@ -1661,7 +1661,8 @@ if(typeof SPR!=='undefined' && SPR.aoCarregar){
   SPR.aoCarregar((nome, sucesso)=>{
     if(!sucesso || !C || !C.masmorra) return;
     const tx = C.masmorra.tex || {};
-    const relevantes = [tx.parede, tx.chao, 'hig_parede', 'hig_chao_pedra',
+    const relevantes = [tx.parede, tx.chao, tx.transicao, ...(tx.acentosParede||[]),
+      ...(tx.acentosChao||[]), 'hig_parede', 'hig_chao_pedra',
       'hig_chao_madeira', 'hig_barril', 'dungeon_tileset', ARTE_CENARIO.varianteParede,
       ARTE_CENARIO.varianteChao];
     if(['D','B'].includes(C.masmorra.rank)) relevantes.push(ARTE_CENARIO.grelha);
@@ -1820,11 +1821,18 @@ const MOTIVOS_INTEIROS = new Set(['tex_07','tex_08','tex_09']);
 function desenharTileVariado(c, nome, variante, dx,dy,tam, flipX,flipY,tom){
   const o=SPR.reg[nome], img=o.img;
   let sx=0,sy=0,sw=img.naturalWidth||o.w,sh=img.naturalHeight||o.h;
-  const podeRecortar = !MOTIVOS_INTEIROS.has(nome) && /^tex_\d\d$/.test(nome);
+  const ehBioma=/^bio_[edcbas]_(parede|chao)$/.test(nome);
+  const podeRecortar = variante>=0 && !MOTIVOS_INTEIROS.has(nome) &&
+    (/^tex_\d\d$/.test(nome) || /^bio_[edcbas]_(parede|chao)$/.test(nome));
   if(podeRecortar){
     const col=variante%3, lin=Math.floor(variante/3), iw=sw, ih=sh;
     sx=Math.floor(col*iw/3); sy=Math.floor(lin*ih/3);
     sw=Math.floor((col+1)*iw/3)-sx; sh=Math.floor((lin+1)*ih/3)-sy;
+  } else if(ehBioma){
+    // As imagens geradas trazem por vezes 1–2 px claros na margem do atlas.
+    // Retirá-los no recorte evita halos sem alterar os PNG originais.
+    const margem=Math.min(2,Math.floor(Math.min(sw,sh)/16));
+    sx=margem; sy=margem; sw-=margem*2; sh-=margem*2;
   }
   c.save(); c.imageSmoothingEnabled=false;
   c.translate(dx+tam/2,dy+tam/2); c.scale(flipX?-1:1,flipY?-1:1);
@@ -1839,19 +1847,45 @@ function desenharTileVariado(c, nome, variante, dx,dy,tam, flipX,flipY,tom){
 }
 
 function preencherTextura(c, nomeBase, nomeAlt, x0,y0,w,h,tam,camada, flipVertical=false){
-  const cols=Math.ceil(w/tam), lins=Math.ceil(h/tam);
   const nomeSala=nomeAlt && rndSala(camada+'-pool')<ARTE_CENARIO.pesoVariante ? nomeAlt : nomeBase;
+  const ehBioma=/^bio_[edcbas]_(parede|chao)$/.test(nomeSala);
+  // Cada PNG de bioma contém o motivo completo. Em vez de o cortar em nove
+  // quadrados incompatíveis, repete-se inteiro e espelhado: a aresta direita
+  // encontra a mesma aresta no tile seguinte, eliminando a grelha visível.
+  const tamTile=ehBioma ? tam*3 : tam;
+  const cols=Math.ceil(w/tamTile), lins=Math.ceil(h/tamTile);
   for(let lin=0;lin<lins;lin++) for(let col=0;col<cols;col++){
-    const variante=Math.floor(rndSala(camada,col,lin,2)*9);
-    const fx=rndSala(camada,col,lin,3)<0.5;
-    const fy=flipVertical && rndSala(camada,col,lin,4)<0.5;
-    const tom=(rndSala(camada,col,lin,5)-0.5)*0.08; // ±4%
-    desenharTileVariado(c,nomeSala,variante,x0+col*tam,y0+lin*tam,tam,fx,fy,tom);
+    const variante=ehBioma ? -1 : Math.floor(rndSala(camada,col,lin,2)*9);
+    const fx=ehBioma ? col%2===1 : rndSala(camada,col,lin,3)<0.5;
+    const fy=ehBioma ? lin%2===1 : flipVertical && rndSala(camada,col,lin,4)<0.5;
+    const tom=ehBioma ? 0 : (rndSala(camada,col,lin,5)-0.5)*0.08; // sem quadrados de luminosidade nos kits novos
+    desenharTileVariado(c,nomeSala,variante,x0+col*tamTile,y0+lin*tamTile,tamTile,fx,fy,tom);
   }
 }
 
-function desenharTransicaoParedeChao(c,tam,nomeParede){
+function desenharTransicaoParedeChao(c,tam,nomeParede,nomeTransicao){
   const {W}=C, topo=Math.round(C.chaoTopo), banda=clamp(Math.round(tam*0.24),12,34);
+  if(nomeTransicao && SPR.ok(nomeTransicao)){
+    const o=SPR.reg[nomeTransicao], img=o.img;
+    const iw=img.naturalWidth||o.w, ih=img.naturalHeight||o.h;
+    // Os recortes de transição mantêm uma moldura clara/transparente de
+    // cerca de 4 px do atlas. O inset maior elimina-a antes da repetição.
+    const margem=Math.min(8,Math.floor(Math.min(iw,ih)/16));
+    const altura=clamp(Math.round(tam*0.78),48,118);
+    const bloco=Math.max(Math.round(tam*2.25),Math.round(altura*(iw-margem*2)/(ih-margem*2)));
+    const y=topo-Math.round(altura*0.54);
+    for(let i=0,x=-Math.round(bloco*0.12);x<W;i++,x+=bloco){
+      c.save(); c.imageSmoothingEnabled=false;
+      // Alternar o espelho junta sempre a mesma aresta à sua cópia.
+      if(i%2===1){ c.translate(x+bloco,0); c.scale(-1,1); c.translate(-x,0); }
+      c.drawImage(img,margem,margem,iw-margem*2,ih-margem*2,x,y,bloco,altura);
+      c.restore();
+    }
+    const sombra=c.createLinearGradient(0,topo+altura*0.30,0,topo+tam*0.58);
+    sombra.addColorStop(0,'rgba(0,0,0,0.44)'); sombra.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=sombra; c.fillRect(0,topo+altura*0.18,W,tam*0.48);
+    return;
+  }
   const img=SPR.reg[nomeParede].img, sw=img.naturalWidth||SPR.reg[nomeParede].w;
   const sh=img.naturalHeight||SPR.reg[nomeParede].h, bloco=Math.round(tam*0.72);
   c.fillStyle='rgba(16,11,8,0.78)'; c.fillRect(0,topo-banda*0.55,W,banda*1.1);
@@ -1880,9 +1914,40 @@ function desenharTransicaoParedeChao(c,tam,nomeParede){
   }
 }
 
+function desenharAcentosBioma(c,tam,tx){
+  const {W,H}=C, topo=Math.round(C.chaoTopo);
+  const pintar=(nomes,zona)=>{
+    if(!nomes?.length) return;
+    const qtd=Math.min(2,nomes.length);
+    for(let i=0;i<qtd;i++){
+      const nome=nomes[Math.floor(rndSala('acento-'+zona,i,0)*nomes.length)];
+      if(!SPR.ok(nome)) continue;
+      const o=SPR.reg[nome], iw=o.img.naturalWidth||o.w, ih=o.img.naturalHeight||o.h;
+      const altura=tam*(zona==='parede' ? 0.58+rndSala('acento-'+zona,i,1)*0.26
+                                        : 0.46+rndSala('acento-'+zona,i,1)*0.25);
+      const largura=altura*iw/ih;
+      const x=W*(0.16+rndSala('acento-'+zona,i,2)*0.68);
+      const y=zona==='parede'
+        ? Math.max(altura,topo*(0.32+rndSala('acento-'+zona,i,3)*0.40))
+        : Math.min(H-altura*0.15,topo+tam*(1.15+rndSala('acento-'+zona,i,3)*2.25));
+      c.save(); c.imageSmoothingEnabled=false; c.globalAlpha=0.78;
+      if(rndSala('acento-'+zona,i,4)<0.5){ c.translate(x,0); c.scale(-1,1); c.translate(-x,0); }
+      if(zona==='chao'){
+        c.fillStyle='rgba(0,0,0,0.24)'; c.beginPath();
+        c.ellipse(x,y,largura*0.42,altura*0.16,0,0,Math.PI*2); c.fill();
+      }
+      c.drawImage(o.img,x-largura/2,y-altura,largura,altura);
+      c.restore();
+    }
+  };
+  pintar(tx.acentosParede,'parede');
+  pintar(tx.acentosChao,'chao');
+}
+
 function desenharMotivosCenario(c,tam){
   const {W}=C, topo=Math.round(C.chaoTopo), rank=C.masmorra.rank;
-  if(['D','B'].includes(rank) && SPR.ok(ARTE_CENARIO.grelha)){
+  const tx=C.masmorra.tex||{}, temAcentos=(tx.acentosParede?.length||tx.acentosChao?.length);
+  if(!temAcentos && ['D','B'].includes(rank) && SPR.ok(ARTE_CENARIO.grelha)){
     const qtd=rank==='B'?2:1;
     for(let i=0;i<qtd;i++){
       const s=tam*(0.72+rndSala('grelha',i,0)*0.22);
@@ -1899,6 +1964,7 @@ function desenharMotivosCenario(c,tam){
     c.globalCompositeOperation='screen'; c.globalAlpha=0.78;
     c.drawImage(img,x-w/2,y-h/2,w,h); c.restore();
   }
+  desenharAcentosBioma(c,tam,tx);
 }
 
 /* Cenário pintado v2: cerca de oito tiles por largura, nove recortes por
@@ -1909,16 +1975,17 @@ function prerenderCenarioHig(c){
   const paredeNome=(tx.parede&&SPR.ok(tx.parede))?tx.parede:'hig_parede';
   const chaoNome=(C.masmorra.piso==='madeira'&&SPR.ok('hig_chao_madeira'))?'hig_chao_madeira'
     :(tx.chao&&SPR.ok(tx.chao))?tx.chao:'hig_chao_pedra';
-  const altParede=SPR.ok(ARTE_CENARIO.varianteParede)?ARTE_CENARIO.varianteParede:null;
-  const altChao=SPR.ok(ARTE_CENARIO.varianteChao)?ARTE_CENARIO.varianteChao:null;
+  const arteTematica=/^bio_[edcbas]_/.test(paredeNome);
+  const altParede=!arteTematica&&SPR.ok(ARTE_CENARIO.varianteParede)?ARTE_CENARIO.varianteParede:null;
+  const altChao=!arteTematica&&SPR.ok(ARTE_CENARIO.varianteChao)?ARTE_CENARIO.varianteChao:null;
   const tam=clamp(Math.round(W/8),48,192);
   c.fillStyle='#17120f'; c.fillRect(0,0,W,H);
   preencherTextura(c,paredeNome,altParede,0,0,W,topo,tam,'parede',false);
   preencherTextura(c,chaoNome,altChao,0,topo,W,H-topo,tam,'chao',true);
-  desenharTransicaoParedeChao(c,tam,paredeNome);
+  desenharTransicaoParedeChao(c,tam,paredeNome,tx.transicao);
   desenharMotivosCenario(c,tam);
 
-  if(SPR.ok('hig_barril')){
+  if(SPR.ok('hig_barril') && ['E','C','B'].includes(C.masmorra.rank)){
     const b=SPR.reg.hig_barril, nB=1+Math.floor(rndSala('barris-count')*2);
     const zonas=[[0.06,0.20],[0.42,0.56],[0.78,0.88]], z0=Math.floor(rndSala('barris-zona')*3);
     for(let i=0;i<nB;i++){

@@ -1,6 +1,6 @@
 /* ============ VILA DE PEDRAVELHA — hub navegável ============
-   Mapa ilustrado top-down: água turquesa, ilha com falésias,
-   relva texturizada, casas de telhado quente, fumo, espuma.
+   Refúgio de fronteira em pixel-art sombria: água azul-aço, ilha rochosa,
+   vegetação fria, edifícios únicos dos Watchers, fumo e espuma.
    O cenário estático é PRÉ-RENDERIZADO (offscreen) por
    performance; só a animação é desenhada a cada frame.        */
 'use strict';
@@ -27,6 +27,15 @@ let mapaCache = null;        // cenário pré-renderizado
 let costaPts = [];           // contorno da ilha (para espuma)
 let chamines = [];           // bocas de fumo
 let fumos = [];              // partículas de fumo
+
+const ASSETS_HUB_NOVOS = new Set(['hub_portal','hub_ferreiro','hub_mercador','hub_base','hub_quadro',
+  'hub_aldrico','hub_ponte','hub_arvore_1','hub_arvore_2','hub_arvore_morta',
+  'hub_relva','hub_caminho','hub_praca','hub_agua']);
+SPR.aoCarregar((nome,sucesso)=>{
+  if(!sucesso || !ASSETS_HUB_NOVOS.has(nome)) return;
+  mapaDim='';
+  if(HUB.ativo) hubRedimensionar();
+});
 
 /* PRNG determinístico para detalhe do mapa (igual em todos os frames) */
 function criarRnd(seed){ let s=seed; return ()=>{ s=(s*9301+49297)%233280; return s/233280; }; }
@@ -84,12 +93,46 @@ function hubLoop(t){
 /* ============================================================
    PRÉ-RENDERIZAÇÃO DO MAPA
    ============================================================ */
-/* preenche uma área com um tile repetido (pixel art, nearest-neighbor) */
+/* preenche uma área com um tile repetido (pixel art, nearest-neighbor).
+   Os quatro terrenos novos não vieram seamless: alternar espelho X/Y faz
+   cada aresta encontrar uma cópia idêntica e remove as linhas quadradas. */
 function tileFill(c, nome, x0, y0, x1, y1, dsize){
   const o = SPR.reg[nome]; if(!o || !o.ok) return false;
+  const espelhar=/^hub_(agua|relva|praca)$/.test(nome);
+  const iw=o.img.naturalWidth||o.w, ih=o.img.naturalHeight||o.h;
+  const margem=espelhar?Math.min(2,Math.floor(Math.min(iw,ih)/16)):0;
   c.imageSmoothingEnabled = false;
-  for(let y=y0; y<y1; y+=dsize) for(let x=x0; x<x1; x+=dsize) c.drawImage(o.img, x, y, dsize, dsize);
+  let lin=0;
+  for(let y=y0; y<y1; y+=dsize,lin++){
+    let col=0;
+    for(let x=x0; x<x1; x+=dsize,col++){
+      if(!espelhar){ c.drawImage(o.img,x,y,dsize+1,dsize+1); continue; }
+      c.save(); c.translate(x+dsize/2,y+dsize/2);
+      c.scale(col%2?-1:1,lin%2?-1:1);
+      c.drawImage(o.img,margem,margem,iw-margem*2,ih-margem*2,-dsize/2,-dsize/2,dsize+1,dsize+1);
+      c.restore();
+    }
+  }
   return true;
+}
+
+const hubTilesEspelhados = new Map();
+function texturaHubEspelhada(nome){
+  if(hubTilesEspelhados.has(nome)) return hubTilesEspelhados.get(nome);
+  const o=SPR.reg[nome]; if(!o || !o.ok) return null;
+  const iw=o.img.naturalWidth||o.w, ih=o.img.naturalHeight||o.h;
+  const margem=Math.min(2,Math.floor(Math.min(iw,ih)/16));
+  const sw=iw-margem*2, sh=ih-margem*2;
+  const cv=document.createElement('canvas'); cv.width=sw*2; cv.height=sh*2;
+  const pc=cv.getContext('2d'); pc.imageSmoothingEnabled=false;
+  for(let lin=0;lin<2;lin++) for(let col=0;col<2;col++){
+    pc.save(); pc.translate(col*sw+sw/2,lin*sh+sh/2);
+    pc.scale(col?-1:1,lin?-1:1);
+    pc.drawImage(o.img,margem,margem,sw,sh,-sw/2,-sh/2,sw,sh);
+    pc.restore();
+  }
+  hubTilesEspelhados.set(nome,cv);
+  return cv;
 }
 function prerenderMapa(){
   const {W,H} = HUB;
@@ -120,9 +163,10 @@ function prerenderMapa(){
 
   /* --- água --- */
   const agua = c.createLinearGradient(0,0,0,H);
-  agua.addColorStop(0,'#1c6a74'); agua.addColorStop(.5,'#1a5f6e'); agua.addColorStop(1,'#123f4e');
+  agua.addColorStop(0,'#183b49'); agua.addColorStop(.5,'#12313e'); agua.addColorStop(1,'#0b202b');
   c.fillStyle = agua; c.fillRect(0,0,BW,BH);
-  if(SPR.ok('cf_water')) tileFill(c,'cf_water',0,0,W,H,24);
+  if(SPR.ok('hub_agua')) tileFill(c,'hub_agua',0,0,W,H,192);
+  else if(SPR.ok('cf_water')) tileFill(c,'cf_water',0,0,W,H,24);
   // manchas de profundidade
   for(let i=0;i<10;i++){
     c.fillStyle = `rgba(10,40,52,${0.12+rndM()*0.12})`;
@@ -155,25 +199,26 @@ function prerenderMapa(){
     tracarIlha(c, 1.05+k*0.05); c.stroke();
   }
   // falésia (lado de baixo da ilha)
-  c.fillStyle = '#4a3826'; tracarIlha(c, 1, 14*s); c.fill();
-  c.fillStyle = '#5d4a30'; tracarIlha(c, 1, 8*s); c.fill();
-  // areia
-  c.fillStyle = '#c9a86a'; tracarIlha(c, 1); c.fill();
+  c.fillStyle = '#242329'; tracarIlha(c, 1, 14*s); c.fill();
+  c.fillStyle = '#37363a'; tracarIlha(c, 1, 8*s); c.fill();
+  // praia de cascalho frio
+  c.fillStyle = '#716d62'; tracarIlha(c, 1); c.fill();
   // relva
   const relva = c.createLinearGradient(0,0,0,H);
-  relva.addColorStop(0,'#5d7a34'); relva.addColorStop(1,'#41602a');
+  relva.addColorStop(0,'#4d5630'); relva.addColorStop(1,'#303d28');
   c.fillStyle = relva; tracarIlha(c, 0.962); c.fill();
-  if(SPR.ok('cf_grass')){ c.save(); tracarIlha(c,0.962); c.clip(); tileFill(c,'cf_grass',0,0,W,H,24); c.restore(); }
+  if(SPR.ok('hub_relva')){ c.save(); tracarIlha(c,0.962); c.clip(); tileFill(c,'hub_relva',0,0,W,H,176); c.restore(); }
+  else if(SPR.ok('cf_grass')){ c.save(); tracarIlha(c,0.962); c.clip(); tileFill(c,'cf_grass',0,0,W,H,24); c.restore(); }
   // textura da relva (salpicos)
   c.save(); tracarIlha(c, 0.962); c.clip();
   for(let i=0;i<700;i++){
     const x = rndM()*W, y = rndM()*H;
-    c.fillStyle = rndM()<0.5 ? 'rgba(120,160,70,0.18)' : 'rgba(30,50,20,0.15)';
+    c.fillStyle = rndM()<0.5 ? 'rgba(118,126,70,0.15)' : 'rgba(18,30,18,0.18)';
     c.fillRect(x, y, 2+rndM()*2, 1.5);
   }
   // clareiras mais claras
   for(let i=0;i<6;i++){
-    c.fillStyle = 'rgba(150,180,90,0.10)';
+    c.fillStyle = 'rgba(125,135,80,0.08)';
     c.beginPath();
     c.ellipse(rndM()*W, rndM()*H, 50+rndM()*90, 30+rndM()*50, rndM()*3, 0, Math.PI*2);
     c.fill();
@@ -189,19 +234,29 @@ function prerenderMapa(){
     if(l.id==='npc') continue;
     const tx=l.x*W, ty=l.y*H+10*s;
     const mx=(px0+tx)/2 + (rndM()-0.5)*40*s, my=(py0+ty)/2 + (rndM()-0.5)*24*s;
-    for(const [cor,lw] of [['#6b5232',17*s],['#a8854f',12*s],['#c2a26a',5*s]]){
+    for(const [cor,lw] of [['#332b25',18*s],['#665a48',13*s],['#897b61',5*s]]){
       c.strokeStyle=cor; c.lineWidth=lw; c.lineCap='round';
       c.beginPath(); c.moveTo(px0,py0); c.quadraticCurveTo(mx,my,tx,ty); c.stroke();
     }
+    if(SPR.ok('hub_caminho')){
+      const texCaminho=texturaHubEspelhada('hub_caminho');
+      const padrao=texCaminho&&c.createPattern(texCaminho,'repeat');
+      if(padrao){
+        c.save(); c.globalAlpha=0.55; c.strokeStyle=padrao; c.lineWidth=9*s; c.lineCap='round';
+        c.beginPath(); c.moveTo(px0,py0); c.quadraticCurveTo(mx,my,tx,ty); c.stroke(); c.restore();
+      }
+    }
   }
   // praça de pedra
-  c.fillStyle='#8a7a5a';
+  c.fillStyle='#5f5b54';
   c.beginPath(); c.ellipse(px0,py0+4*s, 64*s, 30*s, 0, 0, Math.PI*2); c.fill();
-  c.fillStyle='#9c8c6a';
-  c.beginPath(); c.ellipse(px0,py0+2*s, 56*s, 25*s, 0, 0, Math.PI*2); c.fill();
+  c.save(); c.beginPath(); c.ellipse(px0,py0+2*s,56*s,25*s,0,0,Math.PI*2); c.clip();
+  if(SPR.ok('hub_praca')) tileFill(c,'hub_praca',px0-60*s,py0-26*s,px0+60*s,py0+30*s,92*s);
+  else { c.fillStyle='#777269'; c.fillRect(px0-60*s,py0-26*s,120*s,56*s); }
+  c.restore();
   for(let i=0;i<26;i++){
     const a=rndM()*Math.PI*2, r=rndM()*0.85;
-    c.fillStyle=`rgba(70,60,40,${0.15+rndM()*0.15})`;
+    c.fillStyle=`rgba(30,28,26,${0.16+rndM()*0.14})`;
     c.beginPath();
     c.ellipse(px0+Math.cos(a)*52*s*r, py0+2*s+Math.sin(a)*22*s*r, 5*s+rndM()*4*s, 3*s+rndM()*2*s, rndM()*3, 0, Math.PI*2);
     c.fill();
@@ -215,14 +270,22 @@ function prerenderMapa(){
     [.93,.66],[.34,.52],[.68,.46],[.26,.64],
   ];
   for(const [ax,ay] of arvores){
-    if(SPR.ok('cf_tree')){
+    const opcoes=['hub_arvore_1','hub_arvore_2'].filter(n=>SPR.ok(n));
+    if(opcoes.length){
+      const nome=rndM()<0.12&&SPR.ok('hub_arvore_morta')?'hub_arvore_morta':opcoes[Math.floor(rndM()*opcoes.length)];
+      const o=SPR.reg[nome], h=(nome==='hub_arvore_1'?86:76)*s*(0.88+rndM()*0.28), w=h*(o.w/o.h);
+      crisp.push({ img:o.img, x:ax*W-w/2, y:ay*H-h*0.88, w, h });
+    } else if(SPR.ok('cf_tree')){
       const o=SPR.reg.cf_tree, h=70*s*(0.85+rndM()*0.4), w=h*(o.w/o.h);
       crisp.push({ img:o.img, x:ax*W-w/2, y:ay*H-h*0.88, w, h });
     } else desenharArvore(c, ax*W, ay*H, s*(0.8+rndM()*0.5), rndM);
   }
 
   /* --- doca e barco (água, lado esquerdo) --- */
-  desenharDoca(c, W*0.045, H*0.70, s);
+  if(SPR.ok('hub_ponte')){
+    const o=SPR.reg.hub_ponte, w=92*s, h=w*(o.h/o.w);
+    crisp.push({img:o.img,x:W*0.035,y:H*0.70-h*0.45,w,h});
+  } else desenharDoca(c, W*0.045, H*0.70, s);
 
   /* --- edifícios e adereços --- */
   chamines = [];
@@ -231,13 +294,17 @@ function prerenderMapa(){
   }
   // barris e caixas junto ao mercador
   const lj = LOCAIS.find(l=>l.id==='loja');
-  desenharBarril(c, lj.x*W-58*s, lj.y*H+6*s, s);
-  desenharBarril(c, lj.x*W-46*s, lj.y*H+12*s, s*0.85);
+  if(!SPR.ok('hub_mercador')){
+    desenharBarril(c, lj.x*W-58*s, lj.y*H+6*s, s);
+    desenharBarril(c, lj.x*W-46*s, lj.y*H+12*s, s*0.85);
+  }
   // bigorna junto ao ferreiro
   const fe = LOCAIS.find(l=>l.id==='ferreiro');
-  c.fillStyle='#3a3a40';
-  c.fillRect(fe.x*W+34*s, fe.y*H-2*s, 16*s, 7*s);
-  c.fillRect(fe.x*W+38*s, fe.y*H+5*s, 8*s, 6*s);
+  if(!SPR.ok('hub_ferreiro')){
+    c.fillStyle='#3a3a40';
+    c.fillRect(fe.x*W+34*s, fe.y*H-2*s, 16*s, 7*s);
+    c.fillRect(fe.x*W+38*s, fe.y*H+5*s, 8*s, 6*s);
+  }
 
   /* ampliar o cenário pixelado para o cache e pôr os sprites nítidos por cima */
   mc.imageSmoothingEnabled = false;
@@ -315,6 +382,18 @@ function desenharLocalCache(c, l, s, rndM, crisp){
   c.save(); c.translate(x,y);
   c.fillStyle='rgba(0,0,0,.35)';
   c.beginPath(); c.ellipse(2*s, 10*s, 52*s, 14*s, 0, 0, Math.PI*2); c.fill();
+
+  const novos={portais:'hub_portal',ferreiro:'hub_ferreiro',loja:'hub_mercador',base:'hub_base',quadro:'hub_quadro'};
+  const novo=novos[l.id];
+  if(novo && SPR.ok(novo)){
+    const o=SPR.reg[novo];
+    const alturaBase=l.id==='portais'?118:l.id==='base'?115:l.id==='quadro'?72:108;
+    const h=alturaBase*s, w=h*(o.w/o.h), baseY=y+10*s;
+    crisp.push({img:o.img,x:x-w/2,y:baseY-h,w,h});
+    if(l.id==='ferreiro') chamines.push([x-w*0.24,baseY-h+8*s]);
+    c.restore();
+    return;
+  }
 
   if(l.tipo==='casa' && SPR.ok('cf_house')){
     const o=SPR.reg.cf_house, h=108*s, w=h*(o.w/o.h);
@@ -496,19 +575,20 @@ function hubDesenhar(dt){
   /* brilho do portal (animado) */
   const pl = LOCAIS.find(l=>l.id==='portais');
   const pxp = pl.x*W, pyp = pl.y*H;
+  const centroPortalY=pyp-(SPR.ok('hub_portal')?48:24)*s;
   const fl = 0.6+Math.sin(t*2.2)*0.25;
   hctx.save();
   hctx.globalCompositeOperation = 'lighter';
-  const halo = hctx.createRadialGradient(pxp, pyp-24*s, 2, pxp, pyp-24*s, 52*s);
+  const halo = hctx.createRadialGradient(pxp, centroPortalY, 2, pxp, centroPortalY, 46*s);
   halo.addColorStop(0, `rgba(150,120,220,${0.30*fl})`);
   halo.addColorStop(1, 'rgba(150,120,220,0)');
   hctx.fillStyle=halo;
-  hctx.beginPath(); hctx.arc(pxp, pyp-24*s, 52*s, 0, Math.PI*2); hctx.fill();
+  hctx.beginPath(); hctx.arc(pxp, centroPortalY, 46*s, 0, Math.PI*2); hctx.fill();
   hctx.restore();
   hctx.fillStyle=`rgba(150,120,220,${0.30*fl})`;
-  hctx.beginPath(); hctx.ellipse(pxp, pyp-22*s, 26*s, 34*s, 0, 0, Math.PI*2); hctx.fill();
+  hctx.beginPath(); hctx.ellipse(pxp, centroPortalY, 23*s, 31*s, 0, 0, Math.PI*2); hctx.fill();
   hctx.strokeStyle=`rgba(190,165,255,${0.65*fl})`; hctx.lineWidth=2.5;
-  hctx.beginPath(); hctx.ellipse(pxp, pyp-22*s, 22*s, 30*s, Math.sin(t*1.3)*0.1, 0, Math.PI*2); hctx.stroke();
+  hctx.beginPath(); hctx.ellipse(pxp, centroPortalY, 20*s, 28*s, Math.sin(t*1.3)*0.1, 0, Math.PI*2); hctx.stroke();
 
   /* NPC animado */
   const npcL = LOCAIS.find(l=>l.id==='npc');
@@ -551,6 +631,13 @@ function desenharAldric(x, y, s, t){
   hctx.save(); hctx.translate(x,y);
   hctx.fillStyle='rgba(0,0,0,.4)';
   hctx.beginPath(); hctx.ellipse(0,4*s,15*s,5*s,0,0,Math.PI*2); hctx.fill();
+  if(SPR.ok('hub_aldrico')){
+    const o=SPR.reg.hub_aldrico, h=72*s, w=h*(o.w/o.h);
+    hctx.imageSmoothingEnabled=false;
+    hctx.drawImage(o.img,-w/2,-h+5*s+bob,w,h);
+    hctx.restore();
+    return;
+  }
   // manto verde-escuro com debrum laranja
   hctx.fillStyle='#2e4632';
   hctx.beginPath();

@@ -145,6 +145,20 @@ const SPR = (function(){
   carregar('dungeon_tileset','dungeon_tileset.png');
   for(let i=1;i<=4;i++) carregar('torch_'+i,'torch_'+i+'.png');
 
+  // Ambientes temáticos gerados em 2026-07-14: cada bioma tem parede,
+  // chão e transição próprias; E não usa os acentos porque o atlas veio
+  // com fundo opaco nessa zona.
+  for(const r of ['e','d','c','b','a','s']){
+    for(const p of ['parede','chao','transicao']) carregar(`bio_${r}_${p}`,`bio_${r}_${p}.png`);
+    if(r!=='e') for(let i=1;i<=4;i++) carregar(`bio_${r}_acento_${i}`,`bio_${r}_acento_${i}.png`);
+  }
+
+  // Pedravelha v2: edifícios únicos, Aldric, terreno e vegetação sombria.
+  for(const nome of ['portal','ferreiro','mercador','base','quadro','aldrico','ponte',
+    'arvore_1','arvore_2','arvore_morta','relva','caminho','praca','agua']){
+    carregar('hub_'+nome,'hub_'+nome+'.png');
+  }
+
   // pack do dono (recorte v2): seis ações e contagens vindas do META/naturalWidth
   for(const a of ['idle','walk','attack','skill','hurt','death']){
     for(const cl of ['guerreiro','mago','batedor','assassino','paladino']){
@@ -158,7 +172,7 @@ const SPR = (function(){
   for(const m of ['idle','walk','attack','hurt','death']){ carregar('soldier_'+m,'soldier_'+m+'.png'); carregar('orc_'+m,'orc_'+m+'.png'); }
   // inimigos pixel (32x32)
   for(const e of ['skeleton1','skeleton2','vampire']) for(const a of ['idle','walk','attack','death','take_damage']) carregar('enemy_'+e+'_'+a,'enemy_'+e+'_'+a+'.png');
-  // vila (Cute Fantasy)
+  // vila antiga (Cute Fantasy) — fallback enquanto um asset novo carrega/falha
   for(const t of ['grass','water','path','water_tile','path_tile','cliff_tile','house','tree','tree_small','decor','chest','fences','bridge']) carregar('cf_'+t,'cf_'+t+'.png');
 
   return { carregar, esperar, aoCarregar, ok, n, spec, tingir, frameH, tile, imagem, reg,

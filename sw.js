@@ -1,7 +1,7 @@
 /* Service worker — Vigília
    Código (HTML/CSS/JS): network-first → atualizações aplicam-se logo.
    Assets (spritesheets, ícones): cache-first → offline rápido. */
-const CACHE = 'vigilia-v25';
+const CACHE = 'vigilia-v29';
 const PREFIXO = 'vigilia-';   // só limpamos as NOSSAS caches antigas
 const NUCLEO = [
   './', './index.html', './css/style.css',
@@ -16,6 +16,15 @@ const NUCLEO = [
   './assets/2d/hig_parede.jpg', './assets/2d/hig_chao_pedra.jpg', './assets/2d/hig_chao_madeira.jpg',
   './assets/2d/hig_barril.png', './assets/2d/hig_tocha.png',
 ];
+
+for(const r of ['e','d','c','b','a','s']){
+  for(const p of ['parede','chao','transicao']) NUCLEO.push(`./assets/2d/bio_${r}_${p}.png`);
+  if(r!=='e') for(let i=1;i<=4;i++) NUCLEO.push(`./assets/2d/bio_${r}_acento_${i}.png`);
+}
+for(const nome of ['portal','ferreiro','mercador','base','quadro','aldrico','ponte',
+  'arvore_1','arvore_2','arvore_morta','relva','caminho','praca','agua']){
+  NUCLEO.push(`./assets/2d/hub_${nome}.png`);
+}
 
 self.addEventListener('install', e => {
   // transacional: se um único ficheiro falhar, esta versão NÃO instala
