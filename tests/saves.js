@@ -51,7 +51,7 @@ const codigo = FICHEIROS.map(f => fs.readFileSync(path.join(RAIZ,f),'utf8')).joi
   get G(){ return G; }, set G(v){ G = v; },
   get C(){ return C; }, set C(v){ C = v; },
   novoJogo, migrarSave, normalizarSave, prepararSave, carregar, importarSave, exportarSave,
-  guardar, escolherClasse, staminaMax, staminaAtual, gastarStamina, custoStaminaMasmorra, devolverStamina,
+  guardar, escolherClasse, trocarClasseTeste, novoJogoTeste, staminaMax, staminaAtual, gastarStamina, custoStaminaMasmorra, devolverStamina,
   masmorraDiaria, multAltarUlt, ferirInimigo, pontosInvestidos,
   terminarCombate, espelharSpriteHeroi,
   comprarSkin, baseHeroi,
@@ -71,6 +71,20 @@ t('jogo novo: valores base sãos', () => {
   assert.equal(jogo.G.nivel, 1);
   assert.equal(jogo.staminaMax(), jogo.BAL.stamina.max);
   assert.ok(isFinite(jogo.multAltarUlt()));
+});
+
+t('conta de teste: perfil completo e troca entre as cinco classes', () => {
+  jogo.novoJogoTeste('guerreiro');
+  assert.equal(jogo.G.nivel, 40);
+  assert.equal(jogo.G.despertar, 2);
+  assert.equal(Object.keys(jogo.G.clears).length, jogo.MASMORRAS.length);
+  for(const id of Object.keys(jogo.CLASSES)){
+    assert.equal(jogo.trocarClasseTeste(id, false), true);
+    assert.equal(jogo.G.classe, id);
+    assert.equal(Object.keys(jogo.G.poderes).length, jogo.CLASSES[id].poderes.length);
+  }
+  jogo.trocarClasseTeste('assassino', false);
+  assert.equal(jogo.G.sombras.length, Object.keys(jogo.SOMBRAS_BASE).length);
 });
 
 t('P1.1: save antigo (stats) recebe os pontos de volta', () => {

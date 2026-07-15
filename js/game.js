@@ -1,12 +1,12 @@
 /* ============ ESTADO E REGRAS DO JOGO ============ */
 'use strict';
 
-const SAVE_KEY = 'arise-hunter-save-v1';
 const SCHEMA_VERSAO = 4;   // versão da forma do save (migrações correm por comparação)
 
 /* Modo de teste: abrir o link com ?teste (ou ?test) dá energia ilimitada,
    para poder jogar em contínuo à caça de bugs. Não afeta jogadores normais. */
 const MODO_TESTE = /[?&](teste|test|debug)\b/i.test(location.search);
+const SAVE_KEY = MODO_TESTE ? 'arise-hunter-save-teste-v1' : 'arise-hunter-save-v1';
 
 let G = null; // estado global do jogador
 
@@ -41,6 +41,25 @@ function novoJogo(){
     armaInicialDada:false,   // a Adaga do Watcher só se oferece uma vez (P2.13)
     criadoEm: Date.now(),
   };
+}
+
+/* Perfil isolado para testar todo o jogo sem alterar o progresso real. */
+function novoJogoTeste(classe='guerreiro'){
+  const g = novoJogo();
+  g.nome = 'Watcher de Teste';
+  g.nivel = 40; g.xp = 0; g.despertar = 2;
+  g.ouro = 999999999; g.cristais = 999999999; g.pontos = 0;
+  g.basicas = { for:80, vit:80, agi:80 };
+  g.avancadas = { crit:20, critDano:40, sorte:20, roubo:10, pen:20, cdr:20 };
+  g.clears = Object.fromEntries(MASMORRAS.map(m=>[m.rank, 1]));
+  g.skins = SKINS.map(s=>s.id); g.skinAtiva = 'padrao';
+  g.runas = Object.fromEntries(RUNAS.map(r=>[r.id, 9]));
+  g.runasEq = RUNAS.slice(0,2).map(r=>r.id);
+  g.base = { forja:BAL.base.maxNivel, altar:BAL.base.maxNivel, reservatorio:BAL.base.maxNivel };
+  g.stamina = { v:BAL.stamina.max, ts:Date.now() };
+  G = g;
+  trocarClasseTeste(classe, false);
+  return G;
 }
 
 /* ---------- Gravação (local + exportável) ---------- */

@@ -238,9 +238,9 @@ function htmlPortais(){
 }
 
 function cartaoPortal(m, feito, diaria){
-  const bloqNivel = G.nivel < m.nivelReq;
-  const bloqDespertar = !rankPermitido(m.rank);
-  const bloqBeta = !rankNaBeta(m.rank);
+  const bloqNivel = !MODO_TESTE && G.nivel < m.nivelReq;
+  const bloqDespertar = !MODO_TESTE && !rankPermitido(m.rank);
+  const bloqBeta = !MODO_TESTE && !rankNaBeta(m.rank);
   const bloq = bloqNivel || bloqDespertar || bloqBeta;
   const clears = G.clears[m.rank]||0;
   let info;
@@ -637,6 +637,16 @@ function htmlHeroi(secao='tudo'){
       : '<span class="nota">Ainda não tens poderes ativos equipados.</span>'}</div>
   </div>`;
 
+  if(MODO_TESTE){
+    resumo += `<div class="cartao" style="border-color:var(--bronze)">
+      <div class="portal-nome">🧪 Conta de teste — trocar classe</div>
+      <div class="portal-info">A troca repõe o kit completo da classe e não toca no teu save normal.</div>
+      <div class="modal-acoes" style="margin-top:9px">${ORDEM_CLASSES.map(id=>
+        `<button class="btn btn-sec" data-teste-classe="${id}" ${G.classe===id?'disabled':''}>${CLASSES[id].nome}</button>`
+      ).join('')}</div>
+    </div>`;
+  }
+
   if(despertarDisponivel()){
     resumo += `<div class="cartao" style="border-color:var(--bronze)">
       <div class="portal-nome" style="color:var(--bronze)">${ic('despertar',18)} Despertar ${G.despertar+1} disponível!</div>
@@ -941,6 +951,14 @@ function ligarEventosPainel(tab, corpo){
     });
   }
   if(tab==='heroi'){
+    corpo.querySelectorAll('[data-teste-classe]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        if(trocarClasseTeste(b.dataset.testeClasse)){
+          toast(`Classe de teste: ${CLASSES[b.dataset.testeClasse].nome}`);
+          refrescar();
+        }
+      });
+    });
     corpo.querySelector('#btn-arvore-vista')?.addEventListener('click',()=>{
       arvoreCompleta=!arvoreCompleta;
       refrescar();
@@ -1303,4 +1321,5 @@ $('#btn-som-c').addEventListener('click', ()=>{ AUDIO.alternarMudo(); atualizarB
 atualizarBotoesSom();
 AUDIO.musica('calma');   // tema do título/vila — começa a tocar no 1.º toque
 
-carregar();
+const tinhaSave = carregar();
+if(MODO_TESTE && !tinhaSave){ novoJogoTeste(); guardar(); }

@@ -118,3 +118,23 @@ function escolherClasse(id){
   guardar();
   return true;
 }
+
+/* Troca segura do perfil ?teste: repõe sempre um kit completo e equivalente. */
+function trocarClasseTeste(id, persistir=true){
+  if(!CLASSES[id] || (!MODO_TESTE && persistir)) return false;
+  const cl = CLASSES[id];
+  G.classe = id;
+  G.basicas = { for:80, vit:80, agi:80 };
+  G.poderes = {};
+  for(const pid of cl.poderes) G.poderes[pid] = { tier:5, talento:0 };
+  G.equipadosPoder = cl.poderes.filter(pid=>PODERES[pid].tipo==='ativo').slice(0,3);
+  while(G.equipadosPoder.length<3) G.equipadosPoder.push(null);
+  G.pontosHabUsados = 0;
+  G.arvore = { nos:{}, respecs:0 };
+  G.sombras = id==='assassino' ? Object.keys(SOMBRAS_BASE).map(rank=>({
+    rank, nome:SOMBRAS_BASE[rank].nome, sprite:SOMBRAS_BASE[rank].sprite,
+    nivel:10, ativa:true,
+  })) : [];
+  if(persistir) guardar();
+  return true;
+}
