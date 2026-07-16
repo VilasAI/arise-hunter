@@ -1,12 +1,16 @@
 /* ============ DADOS DO JOGO ============ */
 'use strict';
 
+/* Escada de 7 raridades (D039). Pesos calibrados com BAL.loot.crescimento
+   para, no rank S com Sorte no cap: lendário ~4,5% · mítico ~1,1% · divino ~0,3%. */
 const RARIDADES = [
-  { id:'comum',    nome:'Comum',    cor:'#9aa3ad', mult:1.0, peso:100 },
-  { id:'raro',     nome:'Raro',     cor:'#3b82f6', mult:1.6, peso:40  },
-  { id:'epico',    nome:'Épico',    cor:'#a855f7', mult:2.4, peso:12  },
-  { id:'lendario', nome:'Lendário', cor:'#f59e0b', mult:3.6, peso:3   },
-  { id:'mitico',   nome:'Mítico',   cor:'#ef4444', mult:5.2, peso:0.6 },
+  { id:'comum',    nome:'Comum',    cor:'#9aa3ad', mult:1.0, peso:100  },
+  { id:'incomum',  nome:'Incomum',  cor:'#22c55e', mult:1.3, peso:55   },
+  { id:'raro',     nome:'Raro',     cor:'#3b82f6', mult:1.7, peso:25   },
+  { id:'epico',    nome:'Épico',    cor:'#a855f7', mult:2.5, peso:8    },
+  { id:'lendario', nome:'Lendário', cor:'#f59e0b', mult:3.6, peso:2    },
+  { id:'mitico',   nome:'Mítico',   cor:'#ef4444', mult:5.2, peso:0.3  },
+  { id:'divino',   nome:'Divino',   cor:'#a5f3fc', mult:7.5, peso:0.05 },
 ];
 const IDX_RARIDADE = Object.fromEntries(RARIDADES.map((r,i)=>[r.id,i]));
 
@@ -16,10 +20,42 @@ const TIPOS_ITEM = [
   { id:'anel',     nome:'Anel',     icone:'💍', statBase:'pdr' }, // poder (atq+int)
 ];
 
+/* Nomes por escalão de raridade (D037): comuns modestos, divinos grandiosos.
+   O nome é só sabor — nunca muda stats. */
 const NOMES_ITEM = {
-  arma:     ['Adaga do Watcher','Lâmina Sombria','Espada do Eco','Foice Lunar','Katana do Vazio','Lança Astral','Gládio Rúnico','Machado do Abismo'],
-  armadura: ['Casaco Reforçado','Cota de Malha Élfica','Manto do Crepúsculo','Couraça Dracónica','Armadura Espectral','Véu do Monarca'],
-  anel:     ['Anel de Ferro','Anel do Caçador','Selo Arcano','Aliança do Eclipse','Anel do Soberano','Olho da Tempestade'],
+  arma: {
+    comum:    ['Adaga do Watcher','Espada Gasta','Machado Lascado','Lança de Milícia','Arco de Treino'],
+    incomum:  ['Lâmina Temperada','Gládio do Vigia','Martelo de Ronda','Arco do Batedor','Faca de Caçador'],
+    raro:     ['Espada do Eco','Foice Lunar','Lança Astral','Gládio Rúnico','Sabre da Maré'],
+    epico:    ['Lâmina Sombria','Katana do Vazio','Machado do Abismo','Presa do Crepúsculo','Cetro da Tormenta'],
+    lendario: ['Foice do Eclipse','Espada do Juramento','Devoradora de Fendas','Asa do Dragão','Estilhaço da Aurora'],
+    mitico:   ['Lâmina do Monarca','Fim das Legiões','Última Vigília','Ceifa do Vazio','Voz da Fenda'],
+    divino:   ['Alvorada Eterna','Lâmina da Criação','Juízo do Primeiro Watcher','Estrela Caída','Fio do Destino'],
+  },
+  armadura: {
+    comum:    ['Casaco Reforçado','Gibão de Couro','Cota Remendada','Manto de Viagem','Peitoral de Sentinela'],
+    incomum:  ['Cota de Malha','Couraça de Ronda','Manto do Vigia','Placas Ligeiras','Capa de Batedor'],
+    raro:     ['Cota de Malha Élfica','Manto do Crepúsculo','Couraça Rúnica','Vestes da Maré','Armadura do Eco'],
+    epico:    ['Armadura Espectral','Couraça Dracónica','Manto do Vazio','Placas do Abismo','Vestes da Tormenta'],
+    lendario: ['Véu do Monarca','Couraça do Juramento','Manto da Aurora','Escama do Dragão Gélido','Guarda da Fenda'],
+    mitico:   ['Pele da Última Vigília','Manto das Legiões Caídas','Couraça do Vazio Eterno','Égide Sombria','Armadura do Fim'],
+    divino:   ['Égide da Criação','Manto do Primeiro Watcher','Armadura da Alvorada','Véu das Estrelas','Casca do Destino'],
+  },
+  anel: {
+    comum:    ['Anel de Ferro','Anel de Cobre','Aro Simples','Anel de Recruta','Selo de Milícia'],
+    incomum:  ['Anel do Caçador','Selo do Vigia','Aro de Prata','Anel de Ronda','Selo Gravado'],
+    raro:     ['Selo Arcano','Anel da Maré','Aro Rúnico','Olho de Gato','Anel do Eco'],
+    epico:    ['Olho da Tempestade','Aliança do Eclipse','Anel do Vazio','Selo do Abismo','Coração de Âmbar'],
+    lendario: ['Anel do Soberano','Selo do Juramento','Aliança da Aurora','Olho do Dragão','Marca da Fenda'],
+    mitico:   ['Anel do Monarca','Selo da Última Vigília','Círculo do Fim','Olho das Legiões','Lágrima do Vazio'],
+    divino:   ['Anel da Criação','Selo do Primeiro Watcher','Alvorada Cristalizada','Círculo do Destino','Olho das Estrelas'],
+  },
+};
+
+/* Catalisadores de fusão (D042): dropam dos bosses e destravam o topo da escada. */
+const CATALISADORES = {
+  nucleo:  { nome:'Núcleo da Fenda',   icone:'cristal',   desc:'Pulsa com o frio da Garganta. Necessário para fundir um Mítico.' },
+  coracao: { nome:'Coração da Fenda',  icone:'despertar', desc:'Ainda bate. Necessário para fundir um Divino.' },
 };
 
 const ENCANTAMENTOS = [
@@ -31,29 +67,30 @@ const ENCANTAMENTOS = [
 ];
 
 /* Masmorras/biomas por rank (D017: um bioma por rank, servos das legiões).
-   pesoLoot desloca a tabela de raridade para cima · luz = tinte ambiente do bioma ·
+   pesoLoot desloca a tabela de raridade para cima · teto = raridade máxima que
+   o rank pode dropar (D041) · luz = tinte ambiente do bioma ·
    piso:'madeira' troca a textura do chão no cenário pintado (por defeito: pedra). */
 const MASMORRAS = [
-  { rank:'E', nome:'Bosque Profanado',    nivelReq:1,  nivelMon:1,  salas:3, cor:'#9aa3ad', luz:'#4a6a3a', pesoLoot:0,   ouro:[20,45],
+  { rank:'E', nome:'Bosque Profanado',    nivelReq:1,  nivelMon:1,  salas:3, cor:'#9aa3ad', luz:'#4a6a3a', pesoLoot:0,   teto:'raro', ouro:[20,45],
     tex:{ chao:'bio_e_chao', parede:'bio_e_parede', transicao:'bio_e_transicao' },
     tema:'Onde a primeira brecha se abriu. A mata apodrece e os diabretes escavam.' },
-  { rank:'D', nome:'Túneis do Enxame',    nivelReq:5,  nivelMon:6,  salas:3, cor:'#22c55e', luz:'#6a5a2a', pesoLoot:.5,  ouro:[45,90],
+  { rank:'D', nome:'Túneis do Enxame',    nivelReq:5,  nivelMon:6,  salas:3, cor:'#22c55e', luz:'#6a5a2a', pesoLoot:.5,  teto:'epico', ouro:[45,90],
     tex:{ chao:'bio_d_chao', parede:'bio_d_parede', transicao:'bio_d_transicao',
       acentosParede:['bio_d_acento_2'], acentosChao:['bio_d_acento_1','bio_d_acento_3','bio_d_acento_4'] },
     tema:'Galerias vivas roídas pelo Enxame — a legião rastejante da Fenda.' },
-  { rank:'C', nome:'Cripta dos Renegados',nivelReq:10, nivelMon:12, salas:4, cor:'#3b82f6', luz:'#3a5a7a', pesoLoot:1,   ouro:[90,170],
+  { rank:'C', nome:'Cripta dos Renegados',nivelReq:10, nivelMon:12, salas:4, cor:'#3b82f6', luz:'#3a5a7a', pesoLoot:1,   teto:'lendario', ouro:[90,170],
     tex:{ chao:'bio_c_chao', parede:'bio_c_parede', transicao:'bio_c_transicao',
       acentosParede:['bio_c_acento_1','bio_c_acento_2'], acentosChao:['bio_c_acento_3','bio_c_acento_4'] },
     tema:'Os mortos erguidos pela Fenda guardam a cripta dos que a serviram primeiro.' },
-  { rank:'B', nome:'Fortaleza da Legião', nivelReq:16, nivelMon:19, salas:4, cor:'#a855f7', luz:'#5a3a6a', pesoLoot:1.6, ouro:[170,300],
+  { rank:'B', nome:'Fortaleza da Legião', nivelReq:16, nivelMon:19, salas:4, cor:'#a855f7', luz:'#5a3a6a', pesoLoot:1.6, teto:'lendario', ouro:[170,300],
     tex:{ chao:'bio_b_chao', parede:'bio_b_parede', transicao:'bio_b_transicao',
       acentosParede:['bio_b_acento_1','bio_b_acento_2','bio_b_acento_3'], acentosChao:['bio_b_acento_4'] },
     tema:'O quartel dos brutos da Legião. Daqui partem as incursões ao mundo.' },
-  { rank:'A', nome:'Garganta Gélida',     nivelReq:24, nivelMon:28, salas:5, cor:'#f59e0b', luz:'#3a5a6a', pesoLoot:2.3, ouro:[300,520],
+  { rank:'A', nome:'Garganta Gélida',     nivelReq:24, nivelMon:28, salas:5, cor:'#f59e0b', luz:'#3a5a6a', pesoLoot:2.3, teto:'mitico', ouro:[300,520],
     tex:{ chao:'bio_a_chao', parede:'bio_a_parede', transicao:'bio_a_transicao',
       acentosParede:['bio_a_acento_1','bio_a_acento_4'], acentosChao:['bio_a_acento_2','bio_a_acento_3'] },
     tema:'O frio antinatural que precede a Fenda. Os demónios puros começam aqui.' },
-  { rank:'S', nome:'A Fenda',             nivelReq:34, nivelMon:40, salas:5, cor:'#ef4444', luz:'#6a2a3a', pesoLoot:3.2, ouro:[520,900],
+  { rank:'S', nome:'A Fenda',             nivelReq:34, nivelMon:40, salas:5, cor:'#ef4444', luz:'#6a2a3a', pesoLoot:3.2, teto:'divino', ouro:[520,900],
     tex:{ chao:'bio_s_chao', parede:'bio_s_parede', transicao:'bio_s_transicao',
       acentosParede:['bio_s_acento_1','bio_s_acento_2'], acentosChao:['bio_s_acento_3','bio_s_acento_4'] },
     tema:'O portal-mãe. Entra, fecha-a — e que o mundo se lembre do teu nome.' },

@@ -19,10 +19,12 @@
   --raio:#e8c84a;
   --sombra-cor:#8a6fc8;
   --c-comum:#a89f8d;
+  --c-incomum:#5aa864;
   --c-raro:#5a8fc0;
   --c-epico:#9a6fd0;
   --c-lendario:#d8973c;
   --c-mitico:#c04438;
+  --c-divino:#8fd8e8;
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
   --safe-left:env(safe-area-inset-left,0px);    /* notch lateral em landscape (P2.19) */
@@ -266,12 +268,14 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .item-cel.sel{box-shadow:0 0 0 2px var(--bronze) inset}
 .item-cel.incompat{opacity:.3;filter:grayscale(.7);pointer-events:none}
 .r-comum{border-color:var(--c-comum)}
+.r-incomum{border-color:var(--c-incomum);box-shadow:0 0 8px rgba(90,168,100,.28)}
 .r-raro{border-color:var(--c-raro);box-shadow:0 0 9px rgba(90,143,192,.3)}
 .r-epico{border-color:var(--c-epico);box-shadow:0 0 11px rgba(154,111,208,.35)}
 .r-lendario{border-color:var(--c-lendario);box-shadow:0 0 13px rgba(216,151,60,.4)}
 .r-mitico{border-color:var(--c-mitico);box-shadow:0 0 15px rgba(192,68,56,.5)}
-.t-comum{color:var(--c-comum)}.t-raro{color:var(--c-raro)}.t-epico{color:var(--c-epico)}
-.t-lendario{color:var(--c-lendario)}.t-mitico{color:var(--c-mitico)}
+.r-divino{border-color:var(--c-divino);box-shadow:0 0 17px rgba(143,216,232,.55)}
+/* utilitárias t-* de cor por raridade: vivem no FIM do ficheiro para ganharem
+   a regras como .modal-titulo na cascata */
 
 .equipado-fila{display:flex;gap:8px;margin-bottom:12px}
 .slot-eq{
@@ -598,3 +602,8 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 /* ---------- árvore de poderes ---------- */
 .no-arvore{padding:8px 10px}
 .no-arvore.no-on{border-color:var(--bronze);background:linear-gradient(180deg,#2a2218,#1e1810)}
+
+/* ---------- cor por raridade (utilitárias; ficam no fim para vencerem a cascata) ---------- */
+.t-comum{color:var(--c-comum)}.t-incomum{color:var(--c-incomum)}.t-raro{color:var(--c-raro)}
+.t-epico{color:var(--c-epico)}.t-lendario{color:var(--c-lendario)}.t-mitico{color:var(--c-mitico)}
+.t-divino{color:var(--c-divino)}

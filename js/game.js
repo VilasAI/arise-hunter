@@ -35,6 +35,9 @@ function novoJogo(){
     runas:{}, runasEq:[null, null],
     stamina:{ v:BAL.stamina.max, ts:Date.now() },
     base:{ forja:0, altar:0, reservatorio:0 },
+    // caça (D042/D043): troféus dos elites e catalisadores de fusão dos bosses
+    marcas:0,
+    catalisadores:{ nucleo:0, coracao:0 },
     // missões
     contadores:{ mortes:0, forjas:0, fusoes:0, sombras:0, poderes:0, despertar:0 },
     missoesFeitas:[],
@@ -57,6 +60,8 @@ function novoJogoTeste(classe='guerreiro'){
   g.runasEq = RUNAS.slice(0,2).map(r=>r.id);
   g.base = { forja:BAL.base.maxNivel, altar:BAL.base.maxNivel, reservatorio:BAL.base.maxNivel };
   g.stamina = { v:BAL.stamina.max, ts:Date.now() };
+  g.marcas = 999;                                   // Bloco 7: loja e fusão testáveis
+  g.catalisadores = { nucleo:99, coracao:99 };
   G = g;
   trocarClasseTeste(classe, false);
   return G;
@@ -178,6 +183,8 @@ function normalizarSave(o){
   g.avancadas  = vNums(o.avancadas, g.avancadas);
   g.base       = vNums(o.base, g.base);
   g.contadores = vNums(o.contadores, g.contadores);
+  g.marcas       = vInt(o.marcas, 0, 0);
+  g.catalisadores= vNums(o.catalisadores, g.catalisadores);
   g.auto = !!o.auto;
 
   // inventário: só itens com tipo e raridade reconhecidos
@@ -186,7 +193,7 @@ function normalizarSave(o){
     g.inventario.push({
       id: vInt(it.id, 0, 0),
       tipo: it.tipo,
-      nome: vTexto(it.nome, NOMES_ITEM[it.tipo][0], 40),
+      nome: vTexto(it.nome, NOMES_ITEM[it.tipo][it.raridade][0], 40),
       raridade: it.raridade,
       base: vNum(it.base, 6, 1, 9999),
       nivel: vInt(it.nivel, 0, 0, 99),
@@ -402,22 +409,21 @@ function valorItem(it){
   return Math.round(it.base * r.mult * (1 + it.nivel*0.18));
 }
 
-function gerarItem(pesoLoot, nivelMon){
-  // tabela de raridade deslocada pelo pesoLoot da masmorra:
-  // ranks altos sobem o peso das raridades altas e despromovem as baixas
+function gerarItem(pesoLoot, nivelMon, teto){
+  // tabela inclinada pelo pesoLoot (D039) e cortada no teto do rank (D041)
+  const iTeto = IDX_RARIDADE[teto] !== undefined ? IDX_RARIDADE[teto] : RARIDADES.length-1;
+  const topo = RARIDADES.length-1;
   const pesos = RARIDADES.map((r,i)=>
-    r.peso
-    * Math.pow(2.1, Math.max(0, pesoLoot - (4-i)*0.4))
-    * Math.pow(0.45, Math.max(0, pesoLoot - i))
-    * (i<=pesoLoot+1.5 ? 1 : 0.15));
+    i > iTeto ? 0 : r.peso * Math.pow(BAL.loot.crescimento, pesoLoot * i/topo));
   let total = pesos.reduce((a,b)=>a+b,0), tiro = Math.random()*total, idx = 0;
   for(let i=0;i<pesos.length;i++){ tiro -= pesos[i]; if(tiro<=0){ idx=i; break; } }
   const tipo = escolher(TIPOS_ITEM);
+  const raridade = RARIDADES[idx].id;
   return {
     id: G.proxId++,
     tipo: tipo.id,
-    nome: escolher(NOMES_ITEM[tipo.id]),
-    raridade: RARIDADES[idx].id,
+    nome: escolher(NOMES_ITEM[tipo.id][raridade]),
+    raridade,
     base: Math.round(6 + nivelMon*2.4 + rnd(0,4)),
     nivel: 0,
     encante: null,
@@ -471,20 +477,35 @@ function encantar(it){
   return {ok:true, msg:`Encantado: ${it.nome} ${e.nome} (+${it.encante.valor})`};
 }
 
+/* Regras para fundir A PARTIR de uma raridade (D042): quantidade, ouro e
+   catalisador dependem da raridade-alvo. Devolve null no topo da escada. */
+function regrasFusao(raridade){
+  const ri = IDX_RARIDADE[raridade];
+  if(ri === undefined || ri >= RARIDADES.length-1) return null;
+  const alvo = RARIDADES[ri+1].id;
+  return { alvo, ...BAL.economia.fusao[alvo] };
+}
+
 function fundir(ids){
-  if(new Set(ids).size !== FUSAO_QTD) return {ok:false, msg:`Escolhe ${FUSAO_QTD} itens diferentes.`};
-  const itens = ids.map(itemPorId).filter(Boolean);
-  if(itens.length !== FUSAO_QTD) return {ok:false, msg:`Escolhe ${FUSAO_QTD} itens.`};
+  const itens = [...new Set(ids)].map(itemPorId).filter(Boolean);
+  if(!itens.length) return {ok:false, msg:'Escolhe itens para fundir.'};
   const r = itens[0].raridade, tipo = itens[0].tipo;
   if(!itens.every(i=>i.raridade===r && i.tipo===tipo)) return {ok:false, msg:'Têm de ser do mesmo tipo e raridade.'};
-  const ri = IDX_RARIDADE[r];
-  if(ri >= RARIDADES.length-1) return {ok:false, msg:'Raridade máxima — não dá para fundir.'};
+  const regra = regrasFusao(r);
+  if(!regra) return {ok:false, msg:'Raridade máxima — não dá para fundir.'};
+  if(itens.length !== regra.qtd) return {ok:false, msg:`Escolhe ${regra.qtd} itens iguais.`};
+  if(G.ouro < regra.ouro) return {ok:false, msg:'Ouro insuficiente.'};
+  if(regra.catalisador && (G.catalisadores[regra.catalisador]||0) < 1)
+    return {ok:false, msg:`Falta 1 ${CATALISADORES[regra.catalisador].nome}.`};
+  const usados = itens.map(i=>i.id);
   const base = Math.max(...itens.map(i=>i.base));
-  G.inventario = G.inventario.filter(i=>!ids.includes(i.id));
-  for(const s of Object.keys(G.equipado)) if(ids.includes(G.equipado[s])) G.equipado[s]=null;
+  G.ouro -= regra.ouro;
+  if(regra.catalisador) G.catalisadores[regra.catalisador]--;
+  G.inventario = G.inventario.filter(i=>!usados.includes(i.id));
+  for(const s of Object.keys(G.equipado)) if(usados.includes(G.equipado[s])) G.equipado[s]=null;
   const novo = {
-    id:G.proxId++, tipo, nome:escolher(NOMES_ITEM[tipo]),
-    raridade:RARIDADES[ri+1].id, base:Math.round(base*1.15), nivel:0, encante:null,
+    id:G.proxId++, tipo, nome:escolher(NOMES_ITEM[tipo][regra.alvo]),
+    raridade:regra.alvo, base:Math.round(base*1.15), nivel:0, encante:null,
   };
   G.inventario.push(novo);
   G.contadores.fusoes++;
@@ -736,35 +757,51 @@ function reclamarMissao(m){
   return true;
 }
 
-/* ---------- Loja (stock diário, semeado pelo dia) ---------- */
-function stockLoja(){
-  const dia = parseInt(hojeStr().replace(/-/g,''),10);
+/* ---------- Loja (stock diário, semeado pelo dia) ----------
+   Teto a ouro: Épico (D043). Em dias especiais da seed aparece um Lendário
+   pago só em Marcas de Caça. O parâmetro dia existe para os testes. */
+function stockLoja(dia = parseInt(hojeStr().replace(/-/g,''),10)){
   let semente = dia * 9301 + 49297;                 // PRNG determinístico do dia
   const rndS = ()=>{ semente = (semente*9301+49297) % 233280; return semente/233280; };
   const elegiveis = MASMORRAS.filter(m=> m.nivelReq <= G.nivel+4 && rankNaBeta(m.rank));   // (P2.1)
   const m = elegiveis[elegiveis.length-1] || MASMORRAS[0];
-  const stock = [];
-  for(let i=0;i<4;i++){
+  const itemLoja = (id, ri)=>{
     const tipo = TIPOS_ITEM[Math.floor(rndS()*TIPOS_ITEM.length)];
-    const ri = Math.min(RARIDADES.length-1, Math.floor(rndS()*rndS()*3) + (m.pesoLoot>1.5?1:0));
-    const it = {
-      id:'loja'+dia+'_'+i, tipo:tipo.id,
-      nome:NOMES_ITEM[tipo.id][Math.floor(rndS()*NOMES_ITEM[tipo.id].length)],
+    const nomes = NOMES_ITEM[tipo.id][RARIDADES[ri].id];
+    return {
+      id, tipo:tipo.id,
+      nome:nomes[Math.floor(rndS()*nomes.length)],
       raridade:RARIDADES[ri].id,
       base:Math.round(6 + m.nivelMon*2.4 + rndS()*4),
       nivel:0, encante:null,
     };
+  };
+  const stock = [];
+  for(let i=0;i<4;i++){
+    const ri = Math.min(IDX_RARIDADE.epico, IDX_RARIDADE[m.teto],
+                        Math.floor(rndS()*rndS()*3) + (m.pesoLoot>1.5?1:0));
+    stock.push(itemLoja('loja'+dia+'_'+i, ri));
+  }
+  if(rndS() < BAL.loot.lojaDiaEspecial && IDX_RARIDADE[m.teto] >= IDX_RARIDADE.lendario){
+    const it = itemLoja('loja'+dia+'_m', IDX_RARIDADE.lendario);
+    it.precoMarcas = BAL.loot.lojaLendarioMarcas;
     stock.push(it);
   }
   return stock;
 }
 
 function comprarItem(item){
-  const preco = Math.round(valorItem(item) * BAL.economia.lojaMargem);
-  if(G.ouro < preco) return {ok:false, msg:'Ouro insuficiente.'};
   if(G.diario.comprados && G.diario.comprados.includes(item.id)) return {ok:false, msg:'Esgotado por hoje.'};
-  G.ouro -= preco;
+  if(item.precoMarcas){          // o Lendário do dia especial paga-se em Marcas (D043)
+    if(G.marcas < item.precoMarcas) return {ok:false, msg:'Marcas de Caça insuficientes.'};
+    G.marcas -= item.precoMarcas;
+  } else {
+    const preco = Math.round(valorItem(item) * BAL.economia.lojaMargem);
+    if(G.ouro < preco) return {ok:false, msg:'Ouro insuficiente.'};
+    G.ouro -= preco;
+  }
   const novo = { ...item, id:G.proxId++ };
+  delete novo.precoMarcas;
   G.inventario.push(novo);
   (G.diario.comprados = G.diario.comprados || []).push(item.id);
   guardar();

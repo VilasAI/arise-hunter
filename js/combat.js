@@ -2435,7 +2435,8 @@ function terminarCombate(vitoria, fuga=false){
   C.fase='fim';
   const m = C.masmorra;
   const resultado = { vitoria, fuga, masmorra:m, itens:[], ouro:0, xp:0, cristais:0,
-                      sombra:null, runa:null, subiu:0, despertou:false,
+                      sombra:null, runa:null, marcas:0, catalisador:null,
+                      subiu:0, despertou:false,
                       treino:!!C.treinoDiaria, energiaRisco:C.energiaReservada||0,
                       energiaDevolvida:0 };
 
@@ -2464,10 +2465,13 @@ function terminarCombate(vitoria, fuga=false){
       nItens++;
       resultado.sorteExtra = true;
     }
-    for(let i=0;i<nItens;i++) resultado.itens.push(gerarItem(pesoLoot, m.nivelMon));
+    for(let i=0;i<nItens;i++) resultado.itens.push(gerarItem(pesoLoot, m.nivelMon, m.teto));
     G.ouro += resultado.ouro;
     G.cristais += resultado.cristais;
     G.inventario.push(...resultado.itens);
+    // Marcas de Caça: cada elite abatido pode largar uma (D043)
+    resultado.marcas = C.lootPend.filter(x=> x==='elite' && Math.random() < BAL.loot.marcaChanceElite).length;
+    G.marcas += resultado.marcas;
     resultado.subiu = darXP(resultado.xp);
     // só a campanha conta clears — a diária e a Provação não consomem o 1.º clear narrativo (P2.2)
     if(!m.diaria && !m.despertar) G.clears[m.rank] = (G.clears[m.rank]||0)+1;
@@ -2477,6 +2481,12 @@ function terminarCombate(vitoria, fuga=false){
     // runa: drop dos bosses de rank C+
     if(IDX_RARIDADE_RANK(m.rank) >= 2 && Math.random() < BAL.runas.chanceDropBoss){
       resultado.runa = ganharRuna();
+    }
+    // catalisadores de fusão (D042): Núcleo no boss A, Coração no boss S
+    if(m.rank==='A' && Math.random() < BAL.loot.nucleoChanceBoss){
+      G.catalisadores.nucleo++; resultado.catalisador = 'nucleo';
+    } else if(m.rank==='S' && Math.random() < BAL.loot.coracaoChanceBoss){
+      G.catalisadores.coracao++; resultado.catalisador = 'coracao';
     }
   } else if(!fuga && !m.diaria && !m.despertar){
     // derrota normal: apenas a XP dos inimigos já abatidos; nunca ouro ou loot

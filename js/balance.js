@@ -45,8 +45,21 @@ const BAL = {
 
   /* ---------- Efeitos da Sorte (por unidade de valor final) ---------- */
   sorte: {
-    raridadePorPonto: 0.02,  // cada ponto de Sorte sobe 0,02 o "peso de loot" da masmorra
+    raridadePorPonto: 0.01,  // D040: no cap (100) vale +1.0 de pesoLoot — um rank de salto
     dropExtraPorPonto: 0.01, // cada ponto de Sorte dá +1% de chance de item extra
+  },
+
+  /* ---------- Loot (D039–D043) ----------
+     A tabela de raridades inclina-se com o pesoLoot da masmorra:
+     peso_i × crescimento^(pesoLoot · i / topo). Calibrado para, no rank S
+     com Sorte no cap: lendário ~4,5% · mítico ~1,1% · divino ~0,3%. */
+  loot: {
+    crescimento: 2,          // inclinação da tabela por unidade de pesoLoot
+    marcaChanceElite: 0.5,   // chance de um elite abatido largar uma Marca de Caça
+    nucleoChanceBoss: 0.35,  // boss do rank A: Núcleo da Fenda (funde mítico)
+    coracaoChanceBoss: 0.20, // boss do rank S: Coração da Fenda (funde divino)
+    lojaDiaEspecial: 1/7,    // fração dos dias em que o Mercador expõe um Lendário
+    lojaLendarioMarcas: 12,  // preço desse Lendário, em Marcas de Caça (nunca ouro)
   },
 
   /* ---------- Habilidade principal (gesto de segurar) ---------- */
@@ -161,8 +174,17 @@ const BAL = {
   economia: {
     forjaBase: 60,       // ouro por nível de melhoria (escala com nível e raridade)
     encanteOuro: 180,    // custo de um encantamento (D032: poder compra-se com ouro)
-    fusaoQtd: 3,         // itens iguais necessários para fundir
     lojaMargem: 8,       // preço de compra = valor do item × esta margem
+    /* Fusão (D042), por raridade-ALVO: nº de itens iguais, ouro e catalisador.
+       Determinística; custos sempre em ouro (D032: cristais nunca compram poder). */
+    fusao: {
+      incomum:  { qtd:3, ouro:0 },
+      raro:     { qtd:3, ouro:0 },
+      epico:    { qtd:3, ouro:0 },
+      lendario: { qtd:4, ouro:1500 },
+      mitico:   { qtd:5, ouro:6000,  catalisador:'nucleo' },
+      divino:   { qtd:6, ouro:20000, catalisador:'coracao' },
+    },
   },
 
   /* ---------- Poderes ---------- */
@@ -229,7 +251,6 @@ const BAL = {
 const PONTOS_POR_NIVEL  = BAL.jogador.pontosPorNivel;
 const CUSTO_FORJA_BASE  = BAL.economia.forjaBase;
 const CUSTO_ENCANTE     = BAL.economia.encanteOuro;
-const FUSAO_QTD         = BAL.economia.fusaoQtd;
 
 /* ============================================================
    FÓRMULAS CENTRAIS

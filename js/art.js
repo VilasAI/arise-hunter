@@ -419,10 +419,12 @@ const ARTE = (function(){
      ============================================================ */
   const CORES_RARIDADE = {
     comum:    ['#9aa3a8','#cdd5d8','#5d6468'],
+    incomum:  ['#5aa864','#a8e0b0','#357042'],
     raro:     ['#4a90c8','#9ed2f0','#2e5f88'],
     epico:    ['#9a6fd0','#d0b4f0','#5e3f8a'],
     lendario: ['#e8a83a','#f7d98a','#a06a1e'],
     mitico:   ['#d84a3a','#f59a80','#8a2a20'],
+    divino:   ['#8fd8e8','#eafcff','#4a97ad'],
   };
 
   function itemSprite(tipo, raridade, variante=0){

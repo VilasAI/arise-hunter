@@ -55,9 +55,11 @@ const codigo = FICHEIROS.map(f => fs.readFileSync(path.join(RAIZ,f),'utf8')).joi
   masmorraDiaria, multAltarUlt, ferirInimigo, pontosInvestidos,
   terminarCombate, espelharSpriteHeroi,
   comprarSkin, baseHeroi,
-  encantar, fundir, subirSombra, custoSombra, statsSombra, compensacaoSombra,
+  encantar, fundir, regrasFusao, gerarItem, stockLoja, comprarItem,
+  subirSombra, custoSombra, statsSombra, compensacaoSombra,
   rankCacador, despertarDisponivel, tabelaRanking, hojeStr,
   BAL, PODERES, CLASSES, SOMBRAS_BASE, MASMORRAS, ESCALA_HEROI_SPRITE, SAVE_KEY,
+  RARIDADES, IDX_RARIDADE, NOMES_ITEM, CATALISADORES,
 };`;
 vm.runInContext(codigo, sandbox, { filename:'jogo-concatenado.js' });
 const jogo = sandbox.jogo;
@@ -363,6 +365,114 @@ t('P3: fundir rejeita o mesmo item repetido', () => {
   jogo.G = jogo.novoJogo();
   jogo.G.inventario.push({ id:1, tipo:'arma', nome:'X', raridade:'comum', base:6, nivel:0, encante:null });
   assert.equal(jogo.fundir([1,1,1]).ok, false);
+});
+
+/* ---------- Bloco 7 (D037–D043): escada de 7, tetos, fusão, loja ---------- */
+
+t('D039/D040: escada de 7 raridades e Sorte a metade', () => {
+  assert.deepEqual(jogo.RARIDADES.map(r=>r.id),
+    ['comum','incomum','raro','epico','lendario','mitico','divino']);
+  for(let i=1;i<jogo.RARIDADES.length;i++)
+    assert.ok(jogo.RARIDADES[i].mult > jogo.RARIDADES[i-1].mult);
+  assert.equal(jogo.BAL.sorte.raridadePorPonto, 0.01);
+  for(const m of jogo.MASMORRAS) assert.ok(jogo.IDX_RARIDADE[m.teto] !== undefined);
+});
+
+t('D039/D041: drops respeitam o teto do rank e batem nos alvos', () => {
+  jogo.G = jogo.novoJogo();
+  const conta = (pesoLoot, teto, n)=>{
+    const c = {};
+    for(let i=0;i<n;i++){ const it = jogo.gerarItem(pesoLoot, 10, teto); c[it.raridade]=(c[it.raridade]||0)+1; }
+    return c;
+  };
+  const e = conta(0, 'raro', 3000);                          // rank E: teto Raro
+  assert.equal((e.epico||0)+(e.lendario||0)+(e.mitico||0)+(e.divino||0), 0);
+  const s = conta(4.2, 'divino', 40000);                     // rank S com Sorte no cap
+  const pct = id => (s[id]||0)/400;
+  assert.ok(pct('lendario') > 2.5 && pct('lendario') < 7,  'lendário ~4,5%, saiu '+pct('lendario'));
+  assert.ok(pct('mitico')   > 0.4 && pct('mitico')   < 2.2,'mítico ~1,1%, saiu '+pct('mitico'));
+  assert.ok(pct('divino')   > 0.05 && pct('divino')  < 0.8,'divino ~0,3%, saiu '+pct('divino'));
+  const it = jogo.gerarItem(0, 1, 'raro');                   // D037: nome do escalão certo
+  assert.ok(jogo.NOMES_ITEM[it.tipo][it.raridade].includes(it.nome));
+});
+
+t('D042: fusão — quantidades, ouro e catalisadores por escalão', () => {
+  jogo.G = jogo.novoJogo();
+  const put = (n, raridade)=>{ const ids=[]; for(let i=0;i<n;i++){
+    const id = jogo.G.proxId++;
+    jogo.G.inventario.push({ id, tipo:'arma', nome:'X', raridade, base:10, nivel:0, encante:null });
+    ids.push(id); } return ids; };
+  jogo.G.ouro = 0;
+  let r = jogo.fundir(put(3,'comum'));                       // base da escada: 3, grátis
+  assert.equal(r.ok, true); assert.equal(r.item.raridade, 'incomum');
+  assert.ok(jogo.NOMES_ITEM.arma.incomum.includes(r.item.nome));
+  assert.equal(jogo.fundir(put(3,'epico')).ok, false);       // lendário pede 4…
+  assert.equal(jogo.fundir(put(4,'epico')).ok, false);       // …e ouro
+  jogo.G.ouro = jogo.BAL.economia.fusao.lendario.ouro;
+  r = jogo.fundir(put(4,'epico'));
+  assert.equal(r.ok, true); assert.equal(r.item.raridade, 'lendario'); assert.equal(jogo.G.ouro, 0);
+  jogo.G.ouro = 999999;
+  assert.equal(jogo.fundir(put(5,'lendario')).ok, false);    // mítico exige o Núcleo
+  jogo.G.catalisadores.nucleo = 1;
+  r = jogo.fundir(put(5,'lendario'));
+  assert.equal(r.ok, true); assert.equal(r.item.raridade, 'mitico');
+  assert.equal(jogo.G.catalisadores.nucleo, 0);              // catalisador consumido
+  jogo.G.catalisadores.coracao = 1;
+  r = jogo.fundir(put(6,'mitico'));
+  assert.equal(r.ok, true); assert.equal(r.item.raridade, 'divino');
+  assert.equal(jogo.G.catalisadores.coracao, 0);
+  assert.equal(jogo.fundir(put(6,'divino')).ok, false);      // topo da escada
+});
+
+t('D043: loja com teto Épico a ouro; Lendário do dia especial só em Marcas', () => {
+  jogo.G = jogo.prepararSave({ nivel:99 });                  // beta corta no C (teto Lendário)
+  let especial = null;
+  for(let dia=20260701; dia<20260790; dia++){
+    for(const it of jogo.stockLoja(dia)){
+      if(it.precoMarcas){ especial = it; assert.equal(it.raridade, 'lendario'); }
+      else assert.ok(jogo.IDX_RARIDADE[it.raridade] <= jogo.IDX_RARIDADE.epico,
+                     'a loja a ouro vendeu '+it.raridade);
+    }
+  }
+  assert.ok(especial, 'nenhum dia especial em 89 dias de seed');
+  jogo.G.ouro = 999999; jogo.G.marcas = especial.precoMarcas - 1;
+  assert.equal(jogo.comprarItem(especial).ok, false);        // Marcas insuficientes; ouro não vale
+  jogo.G.marcas = especial.precoMarcas;
+  const r = jogo.comprarItem(especial);
+  assert.equal(r.ok, true);
+  assert.equal(jogo.G.marcas, 0);
+  assert.equal(r.item.precoMarcas, undefined);               // o item comprado é um item normal
+});
+
+t('D043/D042: elites rendem Marcas e os bosses A/S largam catalisadores', () => {
+  const fim = (m, lootPend, vitoria=true)=>{
+    jogo.G = jogo.novoJogo(); jogo.escolherClasse('guerreiro');
+    jogo.C = { fase:'luta', masmorra:m, energiaReservada:0, mortes:3, lootPend, treinoDiaria:false };
+    let resultado = null; sandbox.fimCombateUI = r => { resultado = r; };
+    jogo.terminarCombate(vitoria, false);
+    return resultado;
+  };
+  const B = jogo.BAL.loot;
+  const guardadas = { marca:B.marcaChanceElite, nucleo:B.nucleoChanceBoss, coracao:B.coracaoChanceBoss };
+  B.marcaChanceElite = 1; B.nucleoChanceBoss = 1; B.coracaoChanceBoss = 1;
+  let r = fim(jogo.MASMORRAS[0], ['elite','elite','elite']);
+  assert.equal(r.marcas, 3); assert.equal(jogo.G.marcas, 3);
+  r = fim(jogo.MASMORRAS[4], []);                            // rank A: Núcleo
+  assert.equal(r.catalisador, 'nucleo'); assert.equal(jogo.G.catalisadores.nucleo, 1);
+  r = fim(jogo.MASMORRAS[5], []);                            // rank S: Coração
+  assert.equal(r.catalisador, 'coracao'); assert.equal(jogo.G.catalisadores.coracao, 1);
+  r = fim(jogo.MASMORRAS[4], ['elite'], false);              // derrota: nada disto
+  assert.equal(r.marcas, 0); assert.equal(r.catalisador, null); assert.equal(jogo.G.marcas, 0);
+  B.marcaChanceElite = guardadas.marca; B.nucleoChanceBoss = guardadas.nucleo; B.coracaoChanceBoss = guardadas.coracao;
+});
+
+t('D039: save antigo entra na escada nova sem migração', () => {
+  jogo.G = jogo.prepararSave({ nivel:20,
+    inventario:[{ id:1, tipo:'arma', nome:'Espada do Eco', raridade:'mitico', base:20, nivel:2 }] });
+  assert.equal(jogo.G.inventario[0].raridade, 'mitico');     // o escalão não muda
+  assert.equal(jogo.G.inventario[0].nome, 'Espada do Eco');  // o nome antigo mantém-se
+  assert.equal(jogo.G.marcas, 0);                            // campos novos com default
+  assert.deepEqual(jogo.G.catalisadores, { nucleo:0, coracao:0 });
 });
 
 console.log('\nPASS — ' + passaram + ' testes verdes');

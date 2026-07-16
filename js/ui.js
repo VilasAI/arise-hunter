@@ -437,25 +437,30 @@ function blocoRunas(){
 }
 
 function blocoFusao(){
-  let h = `<p class="ferreiro-desc">Junta <b>${FUSAO_QTD} itens iguais</b> (mesmo tipo e raridade) para criar 1 de raridade acima.</p>`;
+  let h = `<p class="ferreiro-desc">Junta <b>itens iguais</b> (mesmo tipo e raridade) para criar 1 de raridade acima. Os escalões altos pedem mais itens, ouro e um catalisador dos bosses.</p>`;
+  h += `<div class="nota" style="margin-bottom:8px">${ic('cristal',13)} ${CATALISADORES.nucleo.nome} ×${G.catalisadores.nucleo} · ${ic('despertar',13)} ${CATALISADORES.coracao.nome} ×${G.catalisadores.coracao}</div>`;
   // o 1º item selecionado fixa tipo+raridade; os incompatíveis ficam bloqueados
   const refFus = selFusao.length ? itemPorId(selFusao[0]) : null;
+  const regra = refFus ? regrasFusao(refFus.raridade) : null;
   const compatFus = i => !refFus || (i.tipo===refFus.tipo && i.raridade===refFus.raridade);
   // agrupa conjuntos fundíveis lado a lado (por tipo, depois raridade)
   const itensFus = [...G.inventario].sort((a,b)=>
     a.tipo.localeCompare(b.tipo) || IDX_RARIDADE[a.raridade]-IDX_RARIDADE[b.raridade]);
-  // pistas: quantos conjuntos completos existem
+  // pistas: quantos conjuntos completos existem (a quantidade depende do alvo — D042)
   const grupos = {};
-  for(const i of G.inventario){ if(IDX_RARIDADE[i.raridade]<RARIDADES.length-1){ const k=i.tipo+'|'+i.raridade; grupos[k]=(grupos[k]||0)+1; } }
-  const prontos = Object.values(grupos).filter(n=>n>=FUSAO_QTD).length;
+  for(const i of G.inventario){ if(regrasFusao(i.raridade)){ const k=i.tipo+'|'+i.raridade; grupos[k]=(grupos[k]||0)+1; } }
+  const prontos = Object.keys(grupos).filter(k=> grupos[k] >= regrasFusao(k.split('|')[1]).qtd).length;
   h += `<div class="nota" style="margin-bottom:8px">${
     prontos ? `Tens ${prontos} conjunto${prontos>1?'s':''} pronto${prontos>1?'s':''} para fundir.`
-            : `Ainda não tens ${FUSAO_QTD} itens iguais (abaixo da raridade máxima).`}</div>`;
+            : `Ainda não tens itens iguais suficientes (abaixo da raridade máxima).`}</div>`;
+  const custoTxt = regra
+    ? `${regra.ouro?` — ${ic('ouro',13)} ${regra.ouro}`:''}${regra.catalisador?` + 1 ${CATALISADORES[regra.catalisador].nome}`:''}`
+    : '';
   h += `<div class="grelha-itens" data-modo="fusao">${itensFus.map(i=>{
     const cls = (selFusao.includes(i.id)?'sel ':'') + (refFus && !compatFus(i)?'incompat':'');
     return celulaItem(i, cls);
   }).join('')}</div>
-  <button class="btn btn-primario" id="btn-fundir" style="width:100%;margin-top:12px" ${selFusao.length!==FUSAO_QTD?'disabled':''}>Fundir (${selFusao.length}/${FUSAO_QTD})</button>`;
+  <button class="btn btn-primario" id="btn-fundir" style="width:100%;margin-top:12px" ${!regra||selFusao.length!==regra.qtd?'disabled':''}>Fundir (${selFusao.length}/${regra?regra.qtd:'—'})${custoTxt}</button>`;
   return h;
 }
 
@@ -500,16 +505,19 @@ function htmlLoja(){
   const comprados = G.diario.comprados || [];
   let h = `<div class="npc-fala">«Mercadoria fresca todos os dias, Watcher. Vê o que a caravana trouxe.»</div>`;
   h += sec('loja','Stock do dia');
+  h += `<div class="nota" style="margin-bottom:8px">${ic('trofeu',13)} Marcas de Caça: <b>${G.marcas}</b> — largam-nas os elites dos portais.</div>`;
   for(const it of stock){
-    const preco = Math.round(valorItem(it)*BAL.economia.lojaMargem);
     const esgotado = comprados.includes(it.id);
+    const preco = it.precoMarcas
+      ? `${ic('trofeu',13)} ${it.precoMarcas}`
+      : `${ic('ouro',13)} ${Math.round(valorItem(it)*BAL.economia.lojaMargem)}`;
     h += `<div class="cartao linha ${esgotado?'btn-bloq':''}">
       <div class="item-cel r-${it.raridade}" style="width:54px;flex:none;aspect-ratio:1">${ARTE.imgItem(it,36)}</div>
       <div class="crescer">
         <div class="portal-nome t-${it.raridade}">${it.nome}</div>
-        <div class="portal-info">${RARIDADES[IDX_RARIDADE[it.raridade]].nome} · valor ${valorItem(it)}</div>
+        <div class="portal-info">${RARIDADES[IDX_RARIDADE[it.raridade]].nome} · valor ${valorItem(it)}${it.precoMarcas?' · caça do dia':''}</div>
       </div>
-      <button class="btn btn-sec" data-compra="${it.id}">${esgotado?'Esgotado':`${ic('ouro',13)} ${preco}`}</button>
+      <button class="btn btn-sec" data-compra="${it.id}">${esgotado?'Esgotado':preco}</button>
     </div>`;
   }
   h += `<div class="cartao nota">Para vender, abre o ${ic('mochila',13)} Inventário e toca num item.</div>`;
@@ -872,9 +880,10 @@ function ligarEventosPainel(tab, corpo){
         if(selFusao.includes(id)){ selFusao = selFusao.filter(x=>x!==id); }
         else {
           const it = itemPorId(id), ref = selFusao.length ? itemPorId(selFusao[0]) : null;
-          if(IDX_RARIDADE[it.raridade] >= RARIDADES.length-1){ toast('Raridade máxima — não dá para fundir.'); return; }
+          const regra = regrasFusao((ref||it).raridade);
+          if(!regra){ toast('Raridade máxima — não dá para fundir.'); return; }
           if(ref && (it.tipo!==ref.tipo || it.raridade!==ref.raridade)){ toast('Só itens do mesmo tipo e raridade.'); return; }
-          if(selFusao.length < FUSAO_QTD) selFusao.push(id);
+          if(selFusao.length < regra.qtd) selFusao.push(id);
         }
         refrescar();
       });
@@ -1058,6 +1067,8 @@ function fimCombateUI(r){
       ${r.itens.map(it=>`<div class="loot-linha t-${it.raridade}">${ARTE.imgItem(it,26)} <b>${it.nome}</b> · ${RARIDADES[IDX_RARIDADE[it.raridade]].nome}</div>`).join('')}
       ${r.sorteExtra?`<div class="loot-linha" style="color:var(--ouro)">${ic('sorte',16)} A tua <b>Sorte</b> rendeu um item extra!</div>`:''}
       ${r.runa?`<div class="loot-linha">${ic(r.runa.icone,18)} Runa obtida: <b>${r.runa.nome}</b>!</div>`:''}
+      ${r.marcas?`<div class="loot-linha">${ic('trofeu',16)} +${r.marcas} Marca${r.marcas>1?'s':''} de Caça — troféu dos elites</div>`:''}
+      ${r.catalisador?`<div class="loot-linha t-lendario">${ic(CATALISADORES[r.catalisador].icone,18)} O boss largou: <b>${CATALISADORES[r.catalisador].nome}</b>!</div>`:''}
       ${r.sombra?`<div class="loot-linha" style="border-color:var(--sombra-cor)">${sombraImg(r.sombra.rank,26)} <b>«LEVANTA-TE!»</b> — extraíste a sombra <b>${r.sombra.nome}</b>!</div>`:''}
     </div>
     ${r.primeiroClear && NPC.aposRank[r.masmorra.rank] ? `<div class="npc-fala">${ic('npc',14)} «${NPC.aposRank[r.masmorra.rank]}»</div>` : ''}
