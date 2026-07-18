@@ -568,6 +568,28 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .classe-passiva{font-size:11px;color:#d8c9a8;line-height:1.3}
 .classe-poderes{font-size:11px;color:#a8c98a;margin-top:3px}
 
+/* ---------- perfil, três personagens e criação ---------- */
+.slots-personagens{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.slot-personagem{position:relative;display:flex;align-items:stretch;gap:8px;border:1px solid var(--borda);border-radius:12px;background:linear-gradient(180deg,#241c14,#17110c);padding:8px}
+.slot-principal{border:0;background:none;color:var(--texto);display:flex;align-items:center;gap:10px;min-width:0;flex:1;text-align:left;cursor:pointer}
+.slot-info{display:flex;flex:1;min-width:0;flex-direction:column}.slot-info b{overflow:hidden;text-overflow:ellipsis;font-size:16px}.slot-info small,.slot-vazio small,.criacao-topo small,.skin-criacao small{display:block;color:var(--texto2);font-size:11px;margin-top:3px}
+.slot-numero{width:28px;height:28px;border:1px solid var(--borda);border-radius:50%;display:grid;place-items:center;color:var(--ouro)}
+.slot-seta{font-size:30px;color:var(--bronze)}
+.slot-vazio{min-height:82px;width:100%;color:var(--texto);cursor:pointer;text-align:left}.slot-mais{font-size:32px;color:var(--bronze)}
+.slot-eliminar{align-self:center;padding:8px 10px;font-size:11px}
+.btn-perigo{background:linear-gradient(180deg,#7a322d,#4b1e1b);border:1px solid #b9574f;color:#ffe0dc;border-radius:8px;padding:10px 14px;font-weight:800}
+.btn-perigo:disabled{opacity:.38;cursor:not-allowed}
+.personagem-preview{--frames:6;--passos:5;width:150px;height:150px;display:inline-block;flex:0 0 auto;background-image:var(--sheet);background-size:calc(var(--frames) * 100%) 100%;background-position:0 0;background-repeat:no-repeat;image-rendering:pixelated;animation:personagem-idle 1s steps(var(--passos)) infinite;filter:drop-shadow(0 8px 6px rgba(0,0,0,.45))}
+.personagem-preview.pequeno{width:64px;height:64px}
+@keyframes personagem-idle{to{background-position:100% 0}}
+.criacao-topo,.confirmar-personagem{display:flex;align-items:center;justify-content:center;gap:16px;margin:4px 0 12px}.criacao-topo>div,.confirmar-personagem>div{display:flex;flex-direction:column;font-size:18px}.confirmar-personagem>div b{font-size:22px}
+.campo-nome{display:flex;flex-direction:column;gap:6px;margin:10px 0}.campo-nome>span{font-size:12px;font-weight:800;color:var(--texto2)}
+.campo-nome input{width:100%;border:1px solid var(--borda);border-radius:8px;background:#100c09;color:var(--texto);padding:12px;font-family:inherit;font-size:16px;font-weight:700;outline:none}.campo-nome input:focus{border-color:var(--bronze);box-shadow:0 0 0 2px rgba(224,178,90,.13)}
+.campo-nome small{color:var(--texto2);font-size:11px}.erro-campo{margin:8px 0;border:1px solid #8d3c36;border-radius:8px;background:rgba(120,40,34,.22);color:#ffc4be;padding:9px;font-size:12px}
+.criacao-classes{max-height:none}.criacao-classes .classe-cartao{padding:7px}.criacao-classes .classe-info>span{display:block}.classe-cartao.selecionada,.skin-criacao.selecionada{box-shadow:0 0 0 2px var(--ouro),0 0 18px rgba(224,178,90,.2)}
+.skins-criacao{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.skin-criacao{display:flex;align-items:center;text-align:left;gap:8px;border:1px solid var(--borda);border-radius:9px;background:#1b1510;color:var(--texto);padding:7px;cursor:pointer}.skin-criacao.bloqueada{opacity:.58;cursor:not-allowed}.skin-criacao>span:last-child{min-width:0}.skin-criacao .personagem-preview{width:54px;height:54px}
+@media (max-width:420px){.personagem-preview{width:118px;height:118px}.criacao-classes .personagem-preview.pequeno{width:52px;height:52px}.skins-criacao{grid-template-columns:1fr}.slot-eliminar{padding:7px;font-size:10px}}
+
 /* botao de som em mudo (combate) */
 .hud-btn.mudo{opacity:.45;text-decoration:line-through}
 

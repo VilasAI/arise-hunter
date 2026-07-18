@@ -88,6 +88,7 @@ function poderesDaClasse(){
    em saves já começados, só garante a classe e o poder inicial. */
 function escolherClasse(id){
   const cl = CLASSES[id]; if(!cl) return false;
+  if(!MODO_TESTE && G.classe && G.classe!==id) return false;
   G.classe = id;
   const novo = (G.nivel===1 && G.xp===0);
   if(novo){

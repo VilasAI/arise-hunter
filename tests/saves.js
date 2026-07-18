@@ -49,17 +49,22 @@ const FICHEIROS = ['js/balance.js','js/data.js','js/powers.js','js/classes.js','
 const codigo = FICHEIROS.map(f => fs.readFileSync(path.join(RAIZ,f),'utf8')).join('\n;\n') + `
 ;globalThis.jogo = {
   get G(){ return G; }, set G(v){ G = v; },
+  get PERFIL(){ return PERFIL; }, set PERFIL(v){ PERFIL = v; },
+  get SLOT_ATIVO(){ return SLOT_ATIVO; }, set SLOT_ATIVO(v){ SLOT_ATIVO = v; },
   get C(){ return C; }, set C(v){ C = v; },
   novoJogo, migrarSave, normalizarSave, prepararSave, carregar, importarSave, exportarSave,
+  novoPerfil, normalizarPerfil, extrairCosmeticosLegados, validarNomePersonagem,
+  criarPersonagem, selecionarPersonagem, listarPersonagens, eliminarPersonagem, definirNomeMigrado,
+  cosmeticosDoPerfil, temCosmetico, escaparHtml,
   guardar, escolherClasse, trocarClasseTeste, novoJogoTeste, staminaMax, staminaAtual, gastarStamina, custoStaminaMasmorra, devolverStamina,
   masmorraDiaria, multAltarUlt, ferirInimigo, pontosInvestidos,
-  terminarCombate, espelharSpriteHeroi,
-  comprarSkin, baseHeroi,
+  terminarCombate, espelharSpriteHeroi, espelharSpriteInimigo,
+  comprarSkin, ativarSkin, baseHeroi,
   encantar, fundir, regrasFusao, gerarItem, stockLoja, comprarItem,
   subirSombra, custoSombra, statsSombra, compensacaoSombra,
   rankCacador, despertarDisponivel, tabelaRanking, hojeStr,
   BAL, PODERES, CLASSES, SOMBRAS_BASE, MASMORRAS, ESCALA_HEROI_SPRITE, SAVE_KEY,
-  RARIDADES, IDX_RARIDADE, NOMES_ITEM, CATALISADORES,
+  RARIDADES, IDX_RARIDADE, NOMES_ITEM, CATALISADORES, PROFILE_KEY,
 };`;
 vm.runInContext(codigo, sandbox, { filename:'jogo-concatenado.js' });
 const jogo = sandbox.jogo;
@@ -113,13 +118,14 @@ t('P1.2: save parcial não produz NaN nem perde defaults', () => {
   assert.ok(jogo.G.stamina.ts > 0);
 });
 
-t('P1.3: importação hostil fica sem HTML', () => {
+t('P1.3/D050: nome visível é guardado mas renderizado como texto seguro', () => {
   const mau = { nivel:3, nome:'<img src=x onerror=alert(1)>',
     inventario:[{ id:1, tipo:'arma', nome:'<script>x</script>', raridade:'comum', base:6, nivel:0, encante:null }],
     sombras:[{ rank:'E', nome:'<b>xss</b>', nivel:1, ativa:true }] };
   const cod = Buffer.from(unescape(encodeURIComponent(JSON.stringify(mau))),'binary').toString('base64');
   assert.equal(jogo.importarSave(cod), true);
-  assert.ok(!/[<>]/.test(jogo.G.nome));
+  assert.ok(!/<img/i.test(jogo.escaparHtml(jogo.G.nome)));
+  assert.ok(jogo.escaparHtml(jogo.G.nome).includes('&lt;'));
   assert.ok(!/[<>]/.test(jogo.G.inventario[0].nome));
   assert.equal(jogo.G.sombras[0].nome, jogo.SOMBRAS_BASE.E.nome);
 });
@@ -180,13 +186,15 @@ t('P2.12: falha de gravação não crasha o jogo', () => {
 });
 
 t('schema 3: paletas antigas reembolsadas em cristais', () => {
-  jogo.G = jogo.prepararSave({ nivel:6, cristais:10, skins:['padrao','carmesim','gelo'], skinAtiva:'carmesim' });
+  const bruto={ nivel:6, cristais:10, skins:['padrao','carmesim','gelo'], skinAtiva:'carmesim' };
+  jogo.G = jogo.prepararSave(bruto);
   assert.equal(jogo.G.cristais, 10 + 120 + 150);
-  assert.deepEqual(jogo.G.skins, ['padrao']);
+  assert.deepEqual(jogo.extrairCosmeticosLegados(bruto), ['padrao']);
   assert.equal(jogo.G.skinAtiva, 'padrao');
 });
 
 t('skins v2: comprar exige a classe certa', () => {
+  jogo.PERFIL=null; jogo.SLOT_ATIVO=-1;
   jogo.G = jogo.prepararSave({ nivel:6, cristais:999 });
   jogo.escolherClasse('mago');
   assert.equal(jogo.comprarSkin('guerreiro2').ok, false);
@@ -306,6 +314,7 @@ t('D034: vitória devolve custo−1; derrota e fuga perdem a reserva', () => {
 });
 
 t('D034: reserva gasta fica persistida após recarregar', () => {
+  sandbox.localStorage.removeItem(jogo.PROFILE_KEY); jogo.PERFIL=null; jogo.SLOT_ATIVO=-1;
   jogo.G=jogo.novoJogo(); jogo.G.stamina.ts=Date.now(); jogo.guardar();
   assert.equal(jogo.gastarStamina(2),true);
   jogo.G=null; jogo.carregar();
@@ -341,16 +350,31 @@ t('D036: diária é estável no dia, ×3 e usa o rank desbloqueado', () => {
   assert.ok(a.salas>=3 && a.salas<=5);
 });
 
-t('Feedback: 10 aparências têm idle/walk/attack/skill e orientação bilateral', () => {
+t('Feedback: Mago e monstros S cobrem seis ações e orientação bilateral', () => {
   const meta=JSON.parse(fs.readFileSync(path.join(RAIZ,'assets/2d/sprites-meta.json'),'utf8'));
   const classes=['guerreiro','mago','batedor','assassino','paladino'];
   const aparencias=classes.flatMap(c=>['heroi_'+c,'heroi_'+c+'2']);
-  const estados=['idle','walk','attack','skill'];
+  const estados=['idle','walk','attack','skill','hurt','death'];
   assert.equal(aparencias.length,10);
   for(const base of aparencias) for(const estado of estados)
     assert.ok(meta.sheets[base+'_'+estado],base+'_'+estado+' em falta');
-  assert.equal(jogo.espelharSpriteHeroi(true,-1),false); // sheet original olha à esquerda
-  assert.equal(jogo.espelharSpriteHeroi(true,1),true);   // direita usa espelho
+  for(const base of ['en_corrupted','en_necro']) for(const estado of estados)
+    assert.ok(meta.sheets[base+'_'+estado],base+'_'+estado+' em falta');
+  assert.equal(jogo.espelharSpriteHeroi(true,-1,'heroi_guerreiro'),false); // pack normal olha à esquerda
+  assert.equal(jogo.espelharSpriteHeroi(true,1,'heroi_guerreiro'),true);
+  assert.equal(jogo.espelharSpriteHeroi(true,-1,'heroi_mago'),true);       // Mago olha à direita
+  assert.equal(jogo.espelharSpriteHeroi(true,1,'heroi_mago2'),false);
+  assert.equal(jogo.espelharSpriteInimigo({},true),true); // restantes monstros mantêm a convenção
+  assert.equal(jogo.espelharSpriteInimigo({orientacaoInvertida:true},true),false);
+  assert.equal(jogo.espelharSpriteInimigo({orientacaoInvertida:true},false),true);
+});
+
+t('Feedback: as 16 texturas fornecidas entram nos seis biomas', () => {
+  const usadas=new Set();
+  for(const m of jogo.MASMORRAS){
+    for(const nome of [...(m.tex.motivosParede||[]),...(m.tex.motivosChao||[])]) usadas.add(nome);
+  }
+  for(let i=1;i<=16;i++) assert.ok(usadas.has('tex_'+String(i).padStart(2,'0')),'tex_'+i+' sem bioma');
 });
 
 t('P2.13: a arma inicial só se oferece uma vez', () => {
@@ -473,6 +497,64 @@ t('D039: save antigo entra na escada nova sem migração', () => {
   assert.equal(jogo.G.inventario[0].nome, 'Espada do Eco');  // o nome antigo mantém-se
   assert.equal(jogo.G.marcas, 0);                            // campos novos com default
   assert.deepEqual(jogo.G.catalisadores, { nucleo:0, coracao:0 });
+});
+
+t('D045–D059: perfil com três personagens independentes e skins partilhadas', () => {
+  jogo.PERFIL=jogo.novoPerfil(); jogo.SLOT_ATIVO=-1; jogo.G=jogo.novoJogo();
+  assert.equal(jogo.validarNomePersonagem('Ária😀').ok,true);
+  assert.equal(jogo.validarNomePersonagem('12345678901234567').ok,false);
+  assert.equal(jogo.validarNomePersonagem('fuck').msg,'Este nome não é permitido.');
+  assert.equal(jogo.validarNomePersonagem('f.u.c.k').msg,'Este nome não é permitido.');
+  assert.equal(jogo.validarNomePersonagem('A\u200Bria').ok,false);
+  assert.equal(jogo.validarNomePersonagem('Aria\u202E').ok,false);
+
+  let r=jogo.criarPersonagem(0,'Ária😀','mago'); assert.equal(r.ok,true);
+  jogo.G.nivel=9; jogo.G.cristais=999; jogo.guardar();
+  assert.equal(jogo.comprarSkin('mago2').ok,true);
+  assert.ok(jogo.PERFIL.cosmeticos.includes('mago2'));
+  assert.equal(jogo.validarNomePersonagem('aria😀').ok,false); // acentos/maiúsculas não contornam a unicidade local
+
+  r=jogo.criarPersonagem(1,'Bruno','guerreiro'); assert.equal(r.ok,true);
+  assert.equal(jogo.G.nivel,1);                  // nada do progresso da Ária passou para o Bruno
+  assert.equal(jogo.temCosmetico('mago2'),true); // só a coleção do perfil é comum
+  assert.equal(jogo.ativarSkin('mago2'),false);  // skin incompatível com Guerreiro
+  r=jogo.criarPersonagem(2,'Cora','batedor'); assert.equal(r.ok,true);
+  assert.equal(jogo.criarPersonagem(3,'Duarte','paladino').ok,false);
+  assert.equal(jogo.escolherClasse('guerreiro'),false); // classe permanente fora de ?teste
+  assert.equal(jogo.G.classe,'batedor');
+
+  assert.equal(jogo.selecionarPersonagem(0).ok,true);
+  assert.equal(jogo.G.nivel,9);
+  assert.equal(jogo.tabelaRanking().find(x=>x.eu).classe,'Mago');
+  assert.equal(jogo.eliminarPersonagem(1,'bruno').ok,false);
+  assert.equal(jogo.eliminarPersonagem(1,'Bruno').ok,true);
+  assert.equal(jogo.PERFIL.personagens[1],null);
+  assert.ok(jogo.PERFIL.cosmeticos.includes('mago2'));
+});
+
+t('D057: save legado migra uma vez para o slot 1 com backup e nome em falta', () => {
+  sandbox.localStorage.removeItem(jogo.PROFILE_KEY);
+  sandbox.localStorage.removeItem(jogo.SAVE_KEY);
+  jogo.PERFIL=null; jogo.SLOT_ATIVO=-1;
+  sandbox.localStorage.setItem(jogo.SAVE_KEY,JSON.stringify({
+    nivel:12,nome:'Caçador',classe:'mago',ouro:777,skins:['padrao','mago2'],skinAtiva:'mago2'
+  }));
+  assert.equal(jogo.carregar(),true);
+  assert.equal(jogo.PERFIL.personagens[0].ouro,777);
+  assert.equal(jogo.PERFIL.personagens[0]._precisaNome,true);
+  assert.equal(jogo.PERFIL.personagens[1],null);
+  assert.equal(jogo.PERFIL.personagens[2],null);
+  assert.ok(jogo.PERFIL.cosmeticos.includes('mago2'));
+  assert.ok(sandbox.localStorage.getItem(jogo.SAVE_KEY+'-backup-migracao-perfil'));
+  assert.equal(jogo.eliminarPersonagem(0,'Caçador').ok,false);
+  assert.equal(jogo.eliminarPersonagem(0,'Nome por escolher').ok,true);
+  assert.ok(jogo.PERFIL.cosmeticos.includes('mago2'));
+  jogo.PERFIL.personagens[0]=jogo.normalizarSave({
+    nivel:12,nome:'Caçador',classe:'mago',ouro:777,skinAtiva:'mago2',_precisaNome:true
+  });
+  assert.equal(jogo.definirNomeMigrado(0,'Mago Antigo').ok,true);
+  assert.equal(jogo.G.nome,'Mago Antigo');
+  assert.equal(jogo.PERFIL.migracaoLegacy.estado,'validada');
 });
 
 console.log('\nPASS — ' + passaram + ' testes verdes');

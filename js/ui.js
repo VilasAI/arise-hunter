@@ -36,6 +36,7 @@ function abrirModal(html){
 }
 function fecharModal(){ $('#modal').hidden = true; }
 $('#modal').addEventListener('click', e=>{ if(e.target.id==='modal') fecharModal(); });
+function falaComJogador(texto){ return escaparHtml(String(texto).replace(/\bWatcher\b/g,()=>G.nome)); }
 
 /* ---------- topo do hub ---------- */
 function atualizarTopo(){
@@ -85,6 +86,146 @@ function modalEscolherClasse(aoConcluir){
       toast(`Classe escolhida: ${CLASSES[id].nome}!`);
       if(aoConcluir) aoConcluir();
     });
+  });
+}
+
+/* ---------- perfil geral, três personagens e criação ---------- */
+let criacaoRascunho = null;
+function baseVisualPersonagem(classe,skin='padrao'){
+  return 'heroi_'+classe+(skin===classe+'2'?'2':'');
+}
+function previewPersonagem(classe,skin='padrao',pequeno=false){
+  const base=baseVisualPersonagem(classe,skin), nome=base+'_idle';
+  const frames=Math.max(1,SPR.n(nome)||6);
+  return `<span class="personagem-preview ${pequeno?'pequeno':''}" style="--sheet:url('../assets/2d/${nome}.png');--frames:${frames};--passos:${Math.max(1,frames-1)}"></span>`;
+}
+function nomeVisivelPersonagem(g){ return g._precisaNome ? 'Nome por escolher' : escaparHtml(g.nome); }
+function concluirEntradaPersonagem(){
+  if(!G.classe){ modalEscolherClasse(entrarNoJogo); return; }
+  entrarNoJogo();
+}
+
+function abrirSeletorPersonagens(){
+  const slots=listarPersonagens();
+  const cards=slots.map((g,i)=>{
+    if(!g) return `<button class="slot-personagem slot-vazio" data-slot-criar="${i}">
+      <span class="slot-numero">${i+1}</span><span class="slot-mais">＋</span>
+      <span><b>Criar personagem</b><small>Nome, classe e aparência</small></span>
+    </button>`;
+    const cl=CLASSES[g.classe]||CLASSES.guerreiro;
+    return `<div class="slot-personagem">
+      <button class="slot-principal" data-slot-entrar="${i}">
+        ${previewPersonagem(g.classe||'guerreiro',g.skinAtiva,true)}
+        <span class="slot-info"><b>${nomeVisivelPersonagem(g)}</b><small>${escaparHtml(cl.nome)} · Nv.${g.nivel}${g._precisaNome?' · concluir migração':''}</small></span>
+        <span class="slot-seta">›</span>
+      </button>
+      <button class="btn btn-perigo slot-eliminar" data-slot-eliminar="${i}" aria-label="Eliminar ${nomeVisivelPersonagem(g)}">Eliminar</button>
+    </div>`;
+  }).join('');
+  abrirModal(`<div class="modal-titulo">As tuas personagens</div>
+    <div class="modal-sub">Escolhe uma personagem ou cria uma nova. Cada uma tem progresso próprio; as skins pertencem ao perfil.</div>
+    <div class="slots-personagens">${cards}</div>
+    <div class="modal-acoes"><button class="btn btn-sec" id="perfil-voltar">Voltar</button></div>`);
+  document.querySelectorAll('[data-slot-criar]').forEach(b=>b.addEventListener('click',()=>abrirCriacaoPersonagem(+b.dataset.slotCriar)));
+  document.querySelectorAll('[data-slot-entrar]').forEach(b=>b.addEventListener('click',()=>{
+    const i=+b.dataset.slotEntrar, r=selecionarPersonagem(i);
+    if(r.precisaNome){ abrirNomeMigrado(i); return; }
+    if(r.ok){ fecharModal(); concluirEntradaPersonagem(); }
+  }));
+  document.querySelectorAll('[data-slot-eliminar]').forEach(b=>b.addEventListener('click',()=>abrirEliminarPersonagem(+b.dataset.slotEliminar)));
+  $('#perfil-voltar').addEventListener('click',fecharModal);
+}
+
+function abrirCriacaoPersonagem(slot){
+  if(!criacaoRascunho || criacaoRascunho.slot!==slot)
+    criacaoRascunho={slot,nome:'',classe:'guerreiro',skin:'padrao',erro:''};
+  const r=criacaoRascunho, cl=CLASSES[r.classe];
+  if(!temCosmetico(r.skin) || (SKINS.find(s=>s.id===r.skin)?.classe||r.classe)!==r.classe) r.skin='padrao';
+  const classes=ORDEM_CLASSES.map(id=>{
+    const c=CLASSES[id];
+    return `<button class="classe-cartao ${r.classe===id?'selecionada':''}" data-criar-classe="${id}" style="border-color:${c.cor}">
+      ${previewPersonagem(id,'padrao',true)}<span class="classe-info"><span class="classe-nome" style="color:${c.cor}">${c.nome}</span>
+      <span class="classe-estilo">${c.estilo}</span><span class="classe-passiva"><b>${c.passiva.nome}:</b> ${c.passiva.desc}</span></span>
+    </button>`;
+  }).join('');
+  const skins=SKINS.filter(s=>!s.classe||s.classe===r.classe).map(s=>{
+    const tem=temCosmetico(s.id), ativa=r.skin===s.id;
+    return `<button class="skin-criacao ${ativa?'selecionada':''} ${tem?'':'bloqueada'}" ${tem?`data-criar-skin="${s.id}"`:'disabled'}>
+      ${previewPersonagem(r.classe,s.id,true)}<span><b>${s.nome}</b><small>${tem?'Disponível':`🔒 Desbloqueia na Base · ${s.preco} cristais`}</small></span>
+    </button>`;
+  }).join('');
+  abrirModal(`<div class="modal-titulo">Criar personagem</div>
+    <div class="criacao-topo">${previewPersonagem(r.classe,r.skin)}<div><b style="color:${cl.cor}">${cl.nome}</b><small>${cl.lema}</small></div></div>
+    <label class="campo-nome"><span>Nome permanente</span><input id="criar-nome" type="text" autocomplete="off" value="${escaparHtml(r.nome)}" aria-describedby="criar-nome-ajuda"><small id="criar-nome-ajuda"><b id="criar-nome-conta">${[...r.nome].length}</b>/16 · aparece nos rankings e nas falas</small></label>
+    ${r.erro?`<div class="erro-campo">${escaparHtml(r.erro)}</div>`:''}
+    <div class="seccao-titulo">Escolhe a classe · fica permanente</div><div class="classe-lista criacao-classes">${classes}</div>
+    <div class="seccao-titulo">Aparência</div><div class="skins-criacao">${skins}</div>
+    <div class="modal-acoes"><button class="btn btn-sec" id="criar-voltar">Voltar</button><button class="btn btn-primario" id="criar-rever">Rever criação</button></div>`);
+  const input=$('#criar-nome');
+  input.addEventListener('input',()=>{
+    const cortado=cortarPontosCodigo(input.value,16);
+    if(cortado!==input.value) input.value=cortado;
+    r.nome=input.value; r.erro=''; $('#criar-nome-conta').textContent=[...r.nome].length;
+  });
+  document.querySelectorAll('[data-criar-classe]').forEach(b=>b.addEventListener('click',()=>{
+    r.nome=input.value; r.classe=b.dataset.criarClasse; r.skin='padrao'; r.erro=''; abrirCriacaoPersonagem(slot);
+  }));
+  document.querySelectorAll('[data-criar-skin]').forEach(b=>b.addEventListener('click',()=>{
+    r.nome=input.value; r.skin=b.dataset.criarSkin; r.erro=''; abrirCriacaoPersonagem(slot);
+  }));
+  $('#criar-voltar').addEventListener('click',()=>{ criacaoRascunho=null; abrirSeletorPersonagens(); });
+  $('#criar-rever').addEventListener('click',async()=>{
+    r.nome=input.value;
+    const vn=await validarNomeServidor(r.nome);
+    if(!vn.ok){ r.erro=vn.msg; abrirCriacaoPersonagem(slot); return; }
+    r.nome=vn.nome; abrirConfirmacaoCriacao();
+  });
+}
+
+function abrirConfirmacaoCriacao(){
+  const r=criacaoRascunho, cl=CLASSES[r.classe];
+  abrirModal(`<div class="modal-titulo">Confirmar personagem</div>
+    <div class="confirmar-personagem">${previewPersonagem(r.classe,r.skin)}<div><b>${escaparHtml(r.nome)}</b><span style="color:${cl.cor}">${cl.nome}</span></div></div>
+    <div class="cartao nota">O nome e a classe ficam permanentes. Para os mudar, terás de eliminar por completo esta personagem e criar outra.</div>
+    <div class="modal-acoes"><button class="btn btn-sec" id="confirmar-voltar">Alterar</button><button class="btn btn-primario" id="confirmar-criar">Criar personagem</button></div>`);
+  $('#confirmar-voltar').addEventListener('click',()=>abrirCriacaoPersonagem(r.slot));
+  $('#confirmar-criar').addEventListener('click',()=>{
+    const res=criarPersonagem(r.slot,r.nome,r.classe,r.skin);
+    if(!res.ok){ r.erro=res.msg; abrirCriacaoPersonagem(r.slot); return; }
+    criacaoRascunho=null; fecharModal(); toast(`Bem-vindo à Ordem, ${escaparHtml(G.nome)}.`); entrarNoJogo();
+  });
+}
+
+function abrirNomeMigrado(slot){
+  const g=listarPersonagens()[slot];
+  abrirModal(`<div class="modal-titulo">Dá um nome à tua personagem</div>
+    <div class="modal-sub">O progresso antigo foi preservado. Falta apenas escolher o nome permanente.</div>
+    <label class="campo-nome"><span>Nome · máximo 16 caracteres</span><input id="migrado-nome" type="text" autocomplete="off"></label>
+    <div class="erro-campo" id="migrado-erro" hidden></div>
+    <div class="modal-acoes"><button class="btn btn-sec" id="migrado-voltar">Voltar</button><button class="btn btn-primario" id="migrado-confirmar">Confirmar nome</button></div>`);
+  $('#migrado-voltar').addEventListener('click',abrirSeletorPersonagens);
+  $('#migrado-confirmar').addEventListener('click',async()=>{
+    const input=$('#migrado-nome'), vn=await validarNomeServidor(cortarPontosCodigo(input.value,16),slot);
+    if(!vn.ok){ const e=$('#migrado-erro'); e.hidden=false; e.textContent=vn.msg; return; }
+    const res=definirNomeMigrado(slot,vn.nome);
+    if(res.ok){ fecharModal(); concluirEntradaPersonagem(); }
+  });
+}
+
+function abrirEliminarPersonagem(slot){
+  const g=listarPersonagens()[slot], cl=CLASSES[g.classe]||CLASSES.guerreiro;
+  const nomeConfirmacao=g._precisaNome?'Nome por escolher':g.nome;
+  abrirModal(`<div class="modal-titulo">Eliminar personagem</div>
+    <div class="cartao"><b>${nomeVisivelPersonagem(g)}</b><div class="portal-info">${cl.nome} · Nv.${g.nivel}</div></div>
+    <div class="erro-campo">Esta ação apaga todo o progresso desta personagem e não pode ser anulada. As skins do perfil não são apagadas.</div>
+    <label class="campo-nome"><span>Escreve exatamente <b>${nomeVisivelPersonagem(g)}</b></span><input id="eliminar-nome" type="text" autocomplete="off"></label>
+    <div class="modal-acoes"><button class="btn btn-sec" id="eliminar-voltar">Cancelar</button><button class="btn btn-perigo" id="eliminar-confirmar" disabled>Eliminar por completo</button></div>`);
+  const input=$('#eliminar-nome'), botao=$('#eliminar-confirmar');
+  input.addEventListener('input',()=>{ botao.disabled=input.value!==nomeConfirmacao; });
+  $('#eliminar-voltar').addEventListener('click',abrirSeletorPersonagens);
+  botao.addEventListener('click',()=>{
+    const r=eliminarPersonagem(slot,input.value);
+    if(r.ok){ toast('Personagem eliminada por completo.'); abrirSeletorPersonagens(); }
   });
 }
 
@@ -265,7 +406,7 @@ function modalEntrarPortal(m){
   const treino = !!(m.diaria && G.diario.feitoDiaria);
   // 1.ª visita ao rank: o Aldric contextualiza o bioma (D008 — saltável, é só ler ou não)
   const fala = (!m.diaria && !m.despertar && !(G.clears[m.rank]) && NPC.porRank[m.rank])
-    ? `<div class="npc-fala">${ic('npc',14)} «${NPC.porRank[m.rank]}»</div>` : '';
+    ? `<div class="npc-fala">${ic('npc',14)} «${falaComJogador(NPC.porRank[m.rank])}»</div>` : '';
   abrirModal(`
     <div class="modal-titulo" style="color:${m.cor}">${ic('portal',20)} Portal Rank ${m.rank}</div>
     <div class="modal-sub">${m.nome} · ${m.salas} sala${m.salas>1?'s':''} · monstros nv.${m.nivelMon}${m.diaria?(treino?' · treino sem prémios':' · ouro/XP/cristais ×3'):''}</div>
@@ -368,7 +509,7 @@ const FERREIRO_SUBS = [
 
 function htmlFerreiro(){
   const t = statsTotais();
-  let h = `<div class="npc-fala">«Aço, runas e suor. Traz-me as tuas armas, Watcher.»</div>`;
+  let h = `<div class="npc-fala">«${falaComJogador('Aço, runas e suor. Traz-me as tuas armas, Watcher.')}»</div>`;
 
   // ----- equipamento + atributos (contexto sempre visível) -----
   h += `<div class="equipado-fila">`;
@@ -503,7 +644,7 @@ function modalRunaSlot(slot){
 function htmlLoja(){
   const stock = stockLoja();
   const comprados = G.diario.comprados || [];
-  let h = `<div class="npc-fala">«Mercadoria fresca todos os dias, Watcher. Vê o que a caravana trouxe.»</div>`;
+  let h = `<div class="npc-fala">«${falaComJogador('Mercadoria fresca todos os dias, Watcher. Vê o que a caravana trouxe.')}»</div>`;
   h += sec('loja','Stock do dia');
   h += `<div class="nota" style="margin-bottom:8px">${ic('trofeu',13)} Marcas de Caça: <b>${G.marcas}</b> — largam-nas os elites dos portais.</div>`;
   for(const it of stock){
@@ -547,7 +688,7 @@ function htmlQuadro(){
   tabelaRanking().forEach((r,i)=>{
     h += `<div class="rank-linha ${r.eu?'rank-eu':''}">
       <div class="rank-pos ${i<3?'top':''}">${i+1}</div>
-      <div class="crescer" style="font-weight:${r.eu?800:400}">${r.nome}</div>
+      <div class="crescer" style="font-weight:${r.eu?800:400}">${escaparHtml(r.nome)}${r.classe?`<div class="nota">${escaparHtml(r.classe)}</div>`:''}</div>
       <div class="nota">${ic('ponto',12)} ${r.poder}</div>
     </div>`;
   });
@@ -597,7 +738,7 @@ function htmlBase(){
   h += sec('heroi','Skins do Watcher');
   for(const s of SKINS){
     if(s.classe && s.classe !== G.classe) continue;   // só as da tua classe
-    const tem = G.skins.includes(s.id), ativa = G.skinAtiva===s.id;
+    const tem = temCosmetico(s.id), ativa = G.skinAtiva===s.id;
     const sheet = 'heroi_' + (G.classe||'guerreiro') + (s.classe ? '2' : '');
     h += `<div class="cartao linha">
       <div class="avatar" style="overflow:hidden"><span style="display:inline-block;width:38px;height:38px;background:url(assets/2d/${sheet}_idle.png) 0 0/auto 38px no-repeat;image-rendering:pixelated"></span></div>
@@ -630,7 +771,7 @@ function htmlHeroi(secao='tudo'){
   let resumo = `<div class="cartao linha cartao-toque" id="h-stats">
     <div class="avatar">${ic('heroi',26)}</div>
     <div class="crescer">
-      <div class="portal-nome">${G.nome} — Nv.${G.nivel} (Rank ${rankCacador()}${G.despertar?' '+'★'.repeat(G.despertar):''})</div>
+      <div class="portal-nome">${escaparHtml(G.nome)} — Nv.${G.nivel} (Rank ${rankCacador()}${G.despertar?' '+'★'.repeat(G.despertar):''})</div>
       <div class="portal-info">${ic('arma',12)} ${Math.round(t.atq)} · ${ic('armadura',12)} ${t.def} · ${ic('hp',12)} ${t.hpMax} · ${ic('crit',12)} ${t.crit}%</div>
       ${G.pontos>0?`<div class="missao-prog missao-feita">${ic('ponto',12)} ${G.pontos} pontos por distribuir — toca aqui</div>`:''}
     </div>
@@ -652,6 +793,12 @@ function htmlHeroi(secao='tudo'){
       <div class="modal-acoes" style="margin-top:9px">${ORDEM_CLASSES.map(id=>
         `<button class="btn btn-sec" data-teste-classe="${id}" ${G.classe===id?'disabled':''}>${CLASSES[id].nome}</button>`
       ).join('')}</div>
+    </div>`;
+  } else {
+    resumo += `<div class="cartao linha">
+      <div class="crescer"><div class="portal-nome">Trocar de personagem</div>
+      <div class="portal-info">O progresso é guardado antes de voltares aos três espaços.</div></div>
+      <button class="btn btn-sec" id="h-trocar-personagem">Trocar</button>
     </div>`;
   }
 
@@ -693,15 +840,26 @@ function htmlArvore(){
   if(ramoAtual >= arv.ramos.length) ramoAtual = 0;
   const pts = pontosHabDisponiveis();
   let h = sec('p_brasas',`Árvore de Poderes — ${pts} ponto${pts!==1?'s':''}`);
-  h += `<div class="cartao nota linha"><span class="crescer">Vista compacta: comprados, próximo tier e nós já acessíveis.</span>
-    <button class="btn btn-sec" id="btn-arvore-vista">${arvoreCompleta?'Compactar':'Ver árvore completa'}</button></div>`;
-  h += `<div class="sub-tabs">` + arv.ramos.map((r,i)=>{
+  h += `<div class="cartao nota linha"><span class="crescer">${arvoreCompleta
+    ? 'Vista completa: todos os ramos, tiers e nós da classe.'
+    : 'Vista compacta: comprados, próximo tier e nós já acessíveis.'}</span>
+    <button class="btn btn-sec" id="btn-arvore-vista">${arvoreCompleta?'Ver por ramo':'Ver árvore completa'}</button></div>`;
+  const tabsRamos = `<div class="sub-tabs">` + arv.ramos.map((r,i)=>{
     const icone = r.dom ? ultimateClasse().icone : PODERES[r.poder].icone;
     const nome  = r.dom ? 'Dom' : PODERES[r.poder].nome.split(' ')[0];
     return `<button class="sub-tab ${ramoAtual===i?'ativa':''}" data-ramo="${i}">${ic(icone,18)}<span>${nome}</span></button>`;
   }).join('') + `</div>`;
-  const ramo = arv.ramos[ramoAtual];
-  h += `<div class="ferreiro-painel">${ramo.dom ? ramoDomHtml(ramo) : ramoPoderHtml(ramo)}</div>`;
+  if(arvoreCompleta){
+    h += `<div class="arvore-completa">` + arv.ramos.map(r=>{
+      const icone = r.dom ? ultimateClasse().icone : PODERES[r.poder].icone;
+      const nome = r.dom ? 'Dom' : PODERES[r.poder].nome;
+      return `<section class="ferreiro-painel"><div class="sec-titulo">${ic(icone,18)} ${nome}</div>${r.dom ? ramoDomHtml(r) : ramoPoderHtml(r)}</section>`;
+    }).join('') + `</div>`;
+  } else {
+    h += tabsRamos;
+    const ramo = arv.ramos[ramoAtual];
+    h += `<div class="ferreiro-painel">${ramo.dom ? ramoDomHtml(ramo) : ramoPoderHtml(ramo)}</div>`;
+  }
   const cr = custoRespec();
   h += `<div class="cartao linha">
     <div class="crescer nota">Recomeçar a árvore devolve todos os pontos (o ouro gasto não volta).</div>
@@ -822,13 +980,13 @@ function modalNPC(){
   const reclamavel = missoesVisiveis().find(m=>missaoCumprida(m) && !missaoReclamada(m));
   abrirModal(`
     <div class="modal-titulo">${ic('npc',22)} ${NPC.nome}</div>
-    <div class="npc-fala">«${escolher(NPC.saudacoes)}»</div>
+    <div class="npc-fala">«${falaComJogador(escolher(NPC.saudacoes))}»</div>
     ${reclamavel?`<div class="cartao"><b>${ic('missao',14)} Tens recompensas à espera no Quadro de Missões!</b></div>`:''}
     ${pendente?`<div class="cartao">
       <div class="portal-nome">${pendente.nome}</div>
       <div class="portal-info">${pendente.desc}</div>
       ${pendente.tut?`<div class="npc-fala" style="margin:8px 0 0">«${pendente.tut}»</div>`:''}
-    </div>`:`<div class="cartao vazio">«Cumpriste tudo o que a Ordem pediu. Descansa, Watcher.»</div>`}
+    </div>`:`<div class="cartao vazio">«${falaComJogador('Cumpriste tudo o que a Ordem pediu. Descansa, Watcher.')}»</div>`}
     <div class="modal-acoes">
       <button class="btn btn-sec" id="npc-quadro">Ver Quadro</button>
       <button class="btn btn-primario" id="npc-fechar">Até já</button>
@@ -960,6 +1118,9 @@ function ligarEventosPainel(tab, corpo){
     });
   }
   if(tab==='heroi'){
+    corpo.querySelector('#h-trocar-personagem')?.addEventListener('click',()=>{
+      guardar(); fecharPainel(); abrirSeletorPersonagens();
+    });
     corpo.querySelectorAll('[data-teste-classe]').forEach(b=>{
       b.addEventListener('click', ()=>{
         if(trocarClasseTeste(b.dataset.testeClasse)){
@@ -1071,7 +1232,7 @@ function fimCombateUI(r){
       ${r.catalisador?`<div class="loot-linha t-lendario">${ic(CATALISADORES[r.catalisador].icone,18)} O boss largou: <b>${CATALISADORES[r.catalisador].nome}</b>!</div>`:''}
       ${r.sombra?`<div class="loot-linha" style="border-color:var(--sombra-cor)">${sombraImg(r.sombra.rank,26)} <b>«LEVANTA-TE!»</b> — extraíste a sombra <b>${r.sombra.nome}</b>!</div>`:''}
     </div>
-    ${r.primeiroClear && NPC.aposRank[r.masmorra.rank] ? `<div class="npc-fala">${ic('npc',14)} «${NPC.aposRank[r.masmorra.rank]}»</div>` : ''}
+    ${r.primeiroClear && NPC.aposRank[r.masmorra.rank] ? `<div class="npc-fala">${ic('npc',14)} «${falaComJogador(NPC.aposRank[r.masmorra.rank])}»</div>` : ''}
     <div class="modal-acoes"><button class="btn btn-primario" id="r-ok">Continuar</button></div>`;
   } else {
     h = `<div class="recompensa-grande">
@@ -1127,7 +1288,7 @@ function modalStats(){
   };
 
   abrirModal(`
-    <div class="modal-titulo">${ic('heroi',20)} ${G.nome} — Nv.${G.nivel} (Rank ${rankCacador()})</div>
+    <div class="modal-titulo">${ic('heroi',20)} ${escaparHtml(G.nome)} — Nv.${G.nivel} (Rank ${rankCacador()})</div>
     <div class="modal-sub">${G.pontos>0?`${ic('ponto',13)} <b>${G.pontos} pontos</b> por distribuir`:'Sem pontos por distribuir'}</div>
     ${sec('forca','Básicas — 1 ponto = +1')}
     <div class="cartao">
@@ -1311,11 +1472,14 @@ function entrarNoJogo(){
   }
 }
 $('#btn-comecar').addEventListener('click', ()=>{
-  if(!G.classe){ modalEscolherClasse(entrarNoJogo); return; }
-  entrarNoJogo();
+  if(MODO_TESTE){
+    if(!G.classe){ modalEscolherClasse(entrarNoJogo); return; }
+    entrarNoJogo(); return;
+  }
+  abrirSeletorPersonagens();
 });
 
-$('#btn-apagar-save').addEventListener('click', ()=>{
+$('#btn-apagar-save')?.addEventListener('click', ()=>{
   if(confirm('Apagar TODO o progresso? Esta ação não pode ser anulada.')){
     apagarSave(); guardar();
     toast('Progresso apagado.');

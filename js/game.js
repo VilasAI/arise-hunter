@@ -6,13 +6,21 @@ const SCHEMA_VERSAO = 4;   // versão da forma do save (migrações correm por c
 /* Modo de teste: abrir o link com ?teste (ou ?test) dá energia ilimitada,
    para poder jogar em contínuo à caça de bugs. Não afeta jogadores normais. */
 const MODO_TESTE = /[?&](teste|test|debug)\b/i.test(location.search);
-const SAVE_KEY = MODO_TESTE ? 'arise-hunter-save-teste-v1' : 'arise-hunter-save-v1';
+const LEGACY_SAVE_KEY = 'arise-hunter-save-v1';
+const SAVE_KEY = MODO_TESTE ? 'arise-hunter-save-teste-v1' : LEGACY_SAVE_KEY;
+const PROFILE_KEY = 'arise-hunter-profile-v1';
+const PROFILE_SCHEMA = 1;
+const MAX_PERSONAGENS = 3;
 
 let G = null; // estado global do jogador
+let PERFIL = null;
+let SLOT_ATIVO = -1;
+let cosmeticosSemPerfil = ['padrao']; // compatibilidade dos testes/exports antigos
 
 function novoJogo(){
   return {
     schema:SCHEMA_VERSAO,
+    personagemId:'',
     nome:'Caçador', classe:null, nivel:1, xp:0, pontos:0,
     // básicas: 1 ponto = +1 · avançadas: pontos INVESTIDOS (2 = 1 unidade)
     basicas:{ for:0, vit:0, agi:0 },
@@ -30,7 +38,7 @@ function novoJogo(){
     equipadosPoder:['lamina', null, null],
     pontosHabUsados:0,
     arvore:{ nos:{}, respecs:0 },
-    skins:['padrao'], skinAtiva:'padrao',
+    skinAtiva:'padrao',
     // runas / stamina / base
     runas:{}, runasEq:[null, null],
     stamina:{ v:BAL.stamina.max, ts:Date.now() },
@@ -55,7 +63,7 @@ function novoJogoTeste(classe='guerreiro'){
   g.basicas = { for:80, vit:80, agi:80 };
   g.avancadas = { crit:20, critDano:40, sorte:20, roubo:10, pen:20, cdr:20 };
   g.clears = Object.fromEntries(MASMORRAS.map(m=>[m.rank, 1]));
-  g.skins = SKINS.map(s=>s.id); g.skinAtiva = 'padrao';
+  g.skinAtiva = 'padrao';
   g.runas = Object.fromEntries(RUNAS.map(r=>[r.id, 9]));
   g.runasEq = RUNAS.slice(0,2).map(r=>r.id);
   g.base = { forja:BAL.base.maxNivel, altar:BAL.base.maxNivel, reservatorio:BAL.base.maxNivel };
@@ -67,17 +75,99 @@ function novoJogoTeste(classe='guerreiro'){
   return G;
 }
 
+function novoPerfil(){
+  return {
+    schema:PROFILE_SCHEMA,
+    personagens:Array(MAX_PERSONAGENS).fill(null),
+    ativo:-1,
+    cosmeticos:['padrao'],
+    compras:[],
+    migracaoLegacy:null,
+    criadoEm:Date.now(),
+  };
+}
+
+function gerarIdPersonagem(){
+  return 'p_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);
+}
+
+function escaparHtml(v){
+  return String(v??'').replace(/[&<>"']/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function cortarPontosCodigo(v,max){ return [...String(v??'')].slice(0,max).join(''); }
+function nomeArmazenavel(v,def='Caçador'){
+  if(typeof v!=='string') return def;
+  const n=cortarPontosCodigo(v.trim(),16);
+  return n || def;
+}
+
+function normalizarNomeComparacao(v){
+  return String(v??'').trim().normalize('NFD').replace(/\p{M}/gu,'').toLocaleLowerCase('pt-PT').replace(/\s+/gu,' ');
+}
+
+const NOMES_IMPROPRIOS = new Set([
+  'puta','puto','caralho','merda','porra','foder','foda','fodase','cona','piroca','pila','cu',
+  'paneleiro','cabrao','corno','vadia','boiola','racista','nazista','porno',
+  'fuck','fucker','fucking','shit','bitch','cunt','asshole','dick','pussy','porn','nazi','hitler',
+]);
+const NOMES_IMPROPRIOS_COMPACTOS = ['nigger','nigga','faggot','retard','motherfucker'];
+function normalizarImproprio(v){
+  return normalizarNomeComparacao(v).normalize('NFKD')
+    .replace(/[0]/g,'o').replace(/[1!|]/g,'i').replace(/[3]/g,'e').replace(/[4@]/g,'a')
+    .replace(/[5$]/g,'s').replace(/[7]/g,'t').replace(/[8]/g,'b').replace(/[9]/g,'g');
+}
+function nomeImproprio(v){
+  const n=normalizarImproprio(v).replace(/([a-z])\1{2,}/g,'$1'), tokens=n.match(/[\p{L}\p{N}]+/gu)||[];
+  if(tokens.some(t=>NOMES_IMPROPRIOS.has(t))) return true;
+  const compacto=tokens.join('');
+  if(tokens.length>1 && NOMES_IMPROPRIOS.has(compacto)) return true;
+  return NOMES_IMPROPRIOS_COMPACTOS.some(p=>compacto.includes(p));
+}
+
+function validarNomePersonagem(v,ignorarSlot=-1){
+  if(typeof v!=='string') return {ok:false,msg:'Escreve um nome.'};
+  const nome=v.trim();
+  if(!nome || !/[^\p{Z}\s]/u.test(nome)) return {ok:false,msg:'Escreve um nome.'};
+  if([...nome].length>16) return {ok:false,msg:'O nome pode ter no máximo 16 caracteres.'};
+  if(/[\p{Cc}\p{Cf}]/u.test(nome)) return {ok:false,msg:'O nome contém caracteres invisíveis.'};
+  if(nomeImproprio(nome)) return {ok:false,msg:'Este nome não é permitido.'};
+  const chave=normalizarNomeComparacao(nome);
+  if(PERFIL?.personagens?.some((p,i)=>i!==ignorarSlot && p && normalizarNomeComparacao(p.nome)===chave))
+    return {ok:false,msg:'Já tens uma personagem com esse nome.'};
+  return {ok:true,nome};
+}
+
+function cosmeticosDoPerfil(){
+  if(MODO_TESTE) return SKINS.map(s=>s.id);
+  return PERFIL?.cosmeticos || cosmeticosSemPerfil;
+}
+function temCosmetico(id){ return cosmeticosDoPerfil().includes(id); }
+
 /* ---------- Gravação (local + exportável) ---------- */
 let avisoGuardarTs = 0;
-function guardar(){
-  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(G)); }
+function gravarLocal(chave,valor){
+  try{ localStorage.setItem(chave, JSON.stringify(valor)); return true; }
   catch(e){
     // sem quota/armazenamento: avisa (no máx. 1×/min) em vez de fingir que guardou
     if(Date.now() - avisoGuardarTs > 60000){
       avisoGuardarTs = Date.now();
       if(typeof toast === 'function') toast('⚠️ Não deu para guardar o progresso — liberta armazenamento do site.');
     }
+    return false;
   }
+}
+function guardar(){
+  if(MODO_TESTE) return gravarLocal(SAVE_KEY,G);
+  if(PERFIL){
+    if(SLOT_ATIVO>=0 && SLOT_ATIVO<MAX_PERSONAGENS && G){
+      PERFIL.personagens[SLOT_ATIVO]=G;
+      PERFIL.ativo=SLOT_ATIVO;
+    }
+    return gravarLocal(PROFILE_KEY,PERFIL);
+  }
+  // Mantém o contrato dos saves avulsos e dos testes antigos.
+  return gravarLocal(SAVE_KEY,G);
 }
 
 /* Migra saves de sistemas antigos. Corre sobre o objeto BRUTO do JSON,
@@ -148,8 +238,8 @@ function compensacaoSombra(nivel, rank){
 /* ---------- Validação profunda do save ----------
    Reconstrói o estado campo a campo sobre o modelo de novoJogo():
    tipos errados voltam ao default, referências (itens, poderes, runas,
-   skins…) têm de existir no jogo, e o texto livre perde os caracteres
-   de HTML — um código de save importado não pode injetar código na UI. */
+   skins…) têm de existir no jogo. O nome preserva os caracteres visíveis
+   escolhidos pelo jogador e é sempre escapado pela UI. */
 function ehObjeto(v){ return !!v && typeof v==='object' && !Array.isArray(v); }
 function vNum(v, def, min, max){
   if(typeof v!=='number' || !isFinite(v)) v = def;
@@ -171,7 +261,8 @@ const ID_SIMPLES = /^[a-z0-9_]{1,32}$/;
 
 function normalizarSave(o){
   const g = novoJogo();
-  g.nome      = vTexto(o.nome, g.nome, 24);
+  g.personagemId = (typeof o.personagemId==='string' && /^[a-z0-9_\-]{4,80}$/i.test(o.personagemId)) ? o.personagemId : '';
+  g.nome      = nomeArmazenavel(o.nome, g.nome);
   g.classe    = (typeof o.classe==='string' && CLASSES[o.classe]) ? o.classe : null;
   g.nivel     = vInt(o.nivel, 1, 1, 999);
   g.xp        = vNum(o.xp, 0, 0);
@@ -253,10 +344,8 @@ function normalizarSave(o){
   }
   g.arvore.respecs = vInt(ehObjeto(o.arvore) ? o.arvore.respecs : 0, 0, 0);
 
-  for(const id of (Array.isArray(o.skins) ? o.skins : [])){
-    if(typeof id==='string' && SKINS.some(s=>s.id===id) && !g.skins.includes(id)) g.skins.push(id);
-  }
-  g.skinAtiva = (typeof o.skinAtiva==='string' && g.skins.includes(o.skinAtiva)) ? o.skinAtiva : 'padrao';
+  const skin=SKINS.find(s=>s.id===o.skinAtiva);
+  g.skinAtiva = (skin && (!skin.classe || skin.classe===g.classe)) ? skin.id : 'padrao';
 
   if(ehObjeto(o.runas)) for(const r of RUNAS){
     if(o.runas[r.id] !== undefined) g.runas[r.id] = vInt(o.runas[r.id], 0, 0, 999);
@@ -280,6 +369,7 @@ function normalizarSave(o){
   if(o._migrado) g._migrado = true;
   if(o._sombrasMigradas) g._sombrasMigradas = true;
   if(o._d032) g._d032 = vInt(o._d032, 0, 0);
+  if(o._precisaNome) g._precisaNome = true;
   return g;
 }
 
@@ -290,28 +380,184 @@ function prepararSave(obj){
 }
 
 /* save ilegível: guarda uma cópia intacta em vez de o perder em silêncio */
-function quarentenarSave(raw){
-  try{ localStorage.setItem(SAVE_KEY+'-quarentena', raw); }catch(e){}
+function quarentenarSave(raw,chave=SAVE_KEY){
+  try{ localStorage.setItem(chave+'-quarentena', raw); }catch(e){}
+}
+
+function extrairCosmeticosLegados(obj){
+  const ids=['padrao'];
+  for(const id of (Array.isArray(obj?.skins)?obj.skins:[]))
+    if(SKINS.some(s=>s.id===id) && !ids.includes(id)) ids.push(id);
+  if(typeof obj?.skinAtiva==='string' && SKINS.some(s=>s.id===obj.skinAtiva) && !ids.includes(obj.skinAtiva)) ids.push(obj.skinAtiva);
+  return ids;
+}
+
+function normalizarPerfil(obj){
+  const p=novoPerfil();
+  if(!ehObjeto(obj)) return p;
+  p.criadoEm=vNum(obj.criadoEm,p.criadoEm,0);
+  p.compras=(Array.isArray(obj.compras)?obj.compras:[]).filter(x=>typeof x==='string' && x.length<=80);
+  for(const id of (Array.isArray(obj.cosmeticos)?obj.cosmeticos:[]))
+    if(SKINS.some(s=>s.id===id) && !p.cosmeticos.includes(id)) p.cosmeticos.push(id);
+  const slots=Array.isArray(obj.personagens)?obj.personagens:[];
+  for(let i=0;i<MAX_PERSONAGENS;i++){
+    const bruto=slots[i]; if(!ehObjeto(bruto)) continue;
+    try{
+      for(const id of extrairCosmeticosLegados(bruto)) if(!p.cosmeticos.includes(id)) p.cosmeticos.push(id);
+      const g=prepararSave(bruto);
+      if(!g.personagemId) g.personagemId=gerarIdPersonagem();
+      if(bruto._precisaNome) g._precisaNome=true;
+      p.personagens[i]=g;
+    }catch(e){}
+  }
+  for(const g of p.personagens){
+    if(!g) continue;
+    if(!p.cosmeticos.includes(g.skinAtiva)) g.skinAtiva='padrao';
+  }
+  p.ativo=vInt(obj.ativo,-1,-1,MAX_PERSONAGENS-1);
+  if(!p.personagens[p.ativo]) p.ativo=p.personagens.findIndex(Boolean);
+  p.migracaoLegacy=ehObjeto(obj.migracaoLegacy) ? {
+    estado:vTexto(obj.migracaoLegacy.estado,'pendente',16),
+    backupKey:vTexto(obj.migracaoLegacy.backupKey,LEGACY_SAVE_KEY+'-backup-migracao-perfil',80),
+  } : null;
+  return p;
+}
+
+function migrarLegacyParaPerfil(p){
+  let raw=null;
+  try{ raw=localStorage.getItem(LEGACY_SAVE_KEY); }catch(e){}
+  if(!raw) return false;
+  try{
+    const bruto=JSON.parse(raw), migrado=migrarSave(bruto);
+    for(const id of extrairCosmeticosLegados(migrado)) if(!p.cosmeticos.includes(id)) p.cosmeticos.push(id);
+    const g=normalizarSave(migrado);
+    if(!g.personagemId) g.personagemId=gerarIdPersonagem();
+    const original=typeof bruto.nome==='string'?bruto.nome.trim():'';
+    if(!original || original==='Caçador' || nomeImproprio(original) || /[\p{Cc}\p{Cf}]/u.test(original)) g._precisaNome=true;
+    if(!p.cosmeticos.includes(g.skinAtiva)) g.skinAtiva='padrao';
+    p.personagens[0]=g; p.ativo=0;
+    const backupKey=LEGACY_SAVE_KEY+'-backup-migracao-perfil';
+    try{ if(!localStorage.getItem(backupKey)) localStorage.setItem(backupKey,raw); }catch(e){}
+    p.migracaoLegacy={estado:'pendente',backupKey};
+    return true;
+  }catch(e){ quarentenarSave(raw,LEGACY_SAVE_KEY); return false; }
 }
 
 function carregar(){
-  let raw = null;
-  try{ raw = localStorage.getItem(SAVE_KEY); }catch(e){}
-  if(raw){
-    try{
-      G = prepararSave(JSON.parse(raw));
-      guardar();
-      return true;
-    }catch(e){ quarentenarSave(raw); }
+  if(MODO_TESTE){
+    let raw=null; try{ raw=localStorage.getItem(SAVE_KEY); }catch(e){}
+    if(raw){
+      try{ G=prepararSave(JSON.parse(raw)); guardar(); return true; }
+      catch(e){ quarentenarSave(raw); }
+    }
+    G=novoJogo(); return false;
   }
-  G = novoJogo();
-  return false;
+  let rawPerfil=null;
+  try{ rawPerfil=localStorage.getItem(PROFILE_KEY); }catch(e){}
+  if(rawPerfil){
+    try{ PERFIL=normalizarPerfil(JSON.parse(rawPerfil)); }
+    catch(e){ quarentenarSave(rawPerfil,PROFILE_KEY); PERFIL=novoPerfil(); }
+  } else {
+    PERFIL=novoPerfil();
+    migrarLegacyParaPerfil(PERFIL);
+  }
+  SLOT_ATIVO=PERFIL.ativo;
+  G=SLOT_ATIVO>=0 && PERFIL.personagens[SLOT_ATIVO] ? PERFIL.personagens[SLOT_ATIVO] : novoJogo();
+  guardar();
+  return SLOT_ATIVO>=0;
 }
-function apagarSave(){ localStorage.removeItem(SAVE_KEY); G = novoJogo(); }
-function exportarSave(){ return btoa(unescape(encodeURIComponent(JSON.stringify(G)))); }
+
+function listarPersonagens(){
+  if(MODO_TESTE) return [G,null,null];
+  return PERFIL?.personagens || Array(MAX_PERSONAGENS).fill(null);
+}
+
+function selecionarPersonagem(indice){
+  if(MODO_TESTE) return {ok:true,personagem:G};
+  const g=PERFIL?.personagens?.[indice];
+  if(!g) return {ok:false,msg:'Esta posição está vazia.'};
+  if(g._precisaNome) return {ok:false,precisaNome:true,personagem:g};
+  SLOT_ATIVO=indice; PERFIL.ativo=indice; G=g;
+  if(PERFIL.migracaoLegacy?.estado==='pendente') PERFIL.migracaoLegacy.estado='validada';
+  guardar();
+  return {ok:true,personagem:G};
+}
+
+function criarPersonagem(indice,nome,classe,skinAtiva='padrao'){
+  if(MODO_TESTE || !Number.isInteger(indice) || indice<0 || indice>=MAX_PERSONAGENS) return {ok:false,msg:'Posição inválida.'};
+  if(!PERFIL) PERFIL=novoPerfil();
+  if(PERFIL.personagens[indice]) return {ok:false,msg:'Esta posição já está ocupada.'};
+  const vn=validarNomePersonagem(nome);
+  if(!vn.ok) return vn;
+  if(!CLASSES[classe]) return {ok:false,msg:'Escolhe uma classe.'};
+  const skin=SKINS.find(s=>s.id===skinAtiva);
+  if(!skin || !temCosmetico(skin.id) || (skin.classe && skin.classe!==classe)) skinAtiva='padrao';
+  G=novoJogo(); G.personagemId=gerarIdPersonagem(); G.nome=vn.nome;
+  SLOT_ATIVO=indice; PERFIL.ativo=indice; PERFIL.personagens[indice]=G;
+  escolherClasse(classe);
+  G.skinAtiva=skinAtiva;
+  guardar();
+  return {ok:true,personagem:G};
+}
+
+function definirNomeMigrado(indice,nome){
+  const g=PERFIL?.personagens?.[indice];
+  if(!g?._precisaNome) return {ok:false,msg:'Este nome já é permanente.'};
+  const vn=validarNomePersonagem(nome,indice); if(!vn.ok) return vn;
+  g.nome=vn.nome; delete g._precisaNome;
+  SLOT_ATIVO=indice; PERFIL.ativo=indice; G=g;
+  if(PERFIL.migracaoLegacy) PERFIL.migracaoLegacy.estado='validada';
+  guardar();
+  return {ok:true,personagem:g};
+}
+
+function eliminarPersonagem(indice,confirmacao){
+  if(MODO_TESTE) return {ok:false,msg:'A conta de teste não pertence ao perfil.'};
+  const g=PERFIL?.personagens?.[indice];
+  if(!g) return {ok:false,msg:'Esta posição já está vazia.'};
+  const nomeConfirmacao=g._precisaNome?'Nome por escolher':g.nome;
+  if(confirmacao!==nomeConfirmacao) return {ok:false,msg:'Escreve o nome exatamente como aparece.'};
+  const id=g.personagemId;
+  PERFIL.personagens[indice]=null;
+  if(SLOT_ATIVO===indice){ SLOT_ATIVO=-1; PERFIL.ativo=-1; G=novoJogo(); }
+  else if(PERFIL.ativo===indice) PERFIL.ativo=-1;
+  guardar();
+  if(typeof Cloud!=='undefined' && Cloud.apagarPersonagem) Cloud.apagarPersonagem(id).catch(()=>{});
+  return {ok:true};
+}
+
+async function validarNomeServidor(nome,ignorarSlot=-1){
+  const local=validarNomePersonagem(nome,ignorarSlot); if(!local.ok) return local;
+  if(typeof Cloud!=='undefined' && Cloud.validarNome){
+    try{ const remoto=await Cloud.validarNome(local.nome); if(remoto && !remoto.ok) return remoto; }catch(e){}
+  }
+  return local;
+}
+
+function apagarSave(){
+  if(MODO_TESTE){ localStorage.removeItem(SAVE_KEY); G=novoJogo(); return; }
+  if(SLOT_ATIVO>=0 && PERFIL?.personagens?.[SLOT_ATIVO]){
+    const i=SLOT_ATIVO; PERFIL.personagens[i]=null; SLOT_ATIVO=-1; PERFIL.ativo=-1; G=novoJogo(); guardar();
+  }
+}
+
+function exportarSave(){
+  const pacote={formato:'vigilia-personagem-v1',personagem:G,cosmeticos:cosmeticosDoPerfil()};
+  return btoa(unescape(encodeURIComponent(JSON.stringify(pacote))));
+}
 function importarSave(codigo){
   try{
-    G = prepararSave(JSON.parse(decodeURIComponent(escape(atob(codigo.trim())))));
+    const bruto=JSON.parse(decodeURIComponent(escape(atob(codigo.trim()))));
+    const pacote=bruto?.formato==='vigilia-personagem-v1' ? bruto : {personagem:bruto,cosmeticos:extrairCosmeticosLegados(bruto)};
+    const importado=prepararSave(pacote.personagem);
+    if(!MODO_TESTE && PERFIL && SLOT_ATIVO>=0){
+      if(G.classe && importado.classe!==G.classe) return false;
+      importado.personagemId=G.personagemId;
+      importado.nome=G.nome;
+    }
+    G=importado;
+    if(!MODO_TESTE && PERFIL) for(const id of (Array.isArray(pacote.cosmeticos)?pacote.cosmeticos:[]))
+      if(SKINS.some(s=>s.id===id) && !PERFIL.cosmeticos.includes(id)) PERFIL.cosmeticos.push(id);
     guardar();
     return true;
   }catch(e){ return false; }
@@ -563,17 +809,19 @@ function multAltarUlt(){
 /* ---------- Skins do Watcher (D023 v2: sprites por classe) ---------- */
 function comprarSkin(id){
   const s = SKINS.find(x=>x.id===id);
-  if(!s || G.skins.includes(id)) return {ok:false, msg:'Já tens esta skin.'};
+  if(!s || temCosmetico(id)) return {ok:false, msg:'Já tens esta skin.'};
   if(s.classe && s.classe !== G.classe) return {ok:false, msg:'Essa aparência é de outra classe.'};
   if(G.cristais < s.preco) return {ok:false, msg:'Cristais insuficientes.'};
   G.cristais -= s.preco;
-  G.skins.push(id);
+  const colecao=cosmeticosDoPerfil();
+  if(!colecao.includes(id)) colecao.push(id);
   G.skinAtiva = id;
   guardar();
   return {ok:true, skin:s};
 }
 function ativarSkin(id){
-  if(!G.skins.includes(id)) return false;
+  const s=SKINS.find(x=>x.id===id);
+  if(!s || !temCosmetico(id) || (s.classe && s.classe!==G.classe)) return false;
   G.skinAtiva = id; guardar(); return true;
 }
 /* spritesheet do Watcher em combate: classe + aparência vestida (fallback: antigo) */
@@ -814,6 +1062,8 @@ function comprarItem(item){
 const Cloud = {
   async guardar(){ /* ponto de ligação: enviar exportarSave() para o backend */ return false; },
   async carregar(){ /* ponto de ligação: obter código do backend e importarSave() */ return null; },
+  async validarNome(){ /* Firebase: repetir aqui a validação antes de aceitar a criação */ return {ok:true}; },
+  async apagarPersonagem(){ /* Firebase: apagar o documento completo pelo personagemId */ return false; },
 };
 
 /* ---------- Ranking ---------- */
@@ -824,7 +1074,7 @@ function tabelaRanking(){
   const npcs = NPC_RANKING.map(([nome,fator])=>({
     nome, poder: Math.round(fator*25 + meu*fator/120), eu:false
   }));
-  npcs.push({ nome:`${G.nome} (tu)`, poder:meu, eu:true });
+  npcs.push({ nome:`${G.nome} (tu)`, classe:CLASSES[G.classe]?.nome||'', poder:meu, eu:true });
   npcs.sort((a,b)=>b.poder-a.poder);
   return npcs;
 }
