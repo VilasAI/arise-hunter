@@ -1740,7 +1740,7 @@ if(typeof SPR!=='undefined' && SPR.aoCarregar){
     if(!sucesso || !C || !C.masmorra) return;
     const tx = C.masmorra.tex || {};
     const relevantes = [tx.parede, tx.chao, tx.transicao, ...(tx.acentosParede||[]),
-      ...(tx.acentosChao||[]), 'hig_parede', 'hig_chao_pedra',
+      ...(tx.acentosChao||[]), ...(tx.motivosParede||[]), ...(tx.motivosChao||[]), 'hig_parede', 'hig_chao_pedra',
       'hig_chao_madeira', 'hig_barril', 'dungeon_tileset', ARTE_CENARIO.varianteParede,
       ARTE_CENARIO.varianteChao];
     if(['D','B'].includes(C.masmorra.rank)) relevantes.push(ARTE_CENARIO.grelha);
@@ -2040,6 +2040,39 @@ function desenharAcentosBioma(c,tam,tx){
   pintar(tx.acentosChao,'chao');
 }
 
+/* Usa o atlas original de 16 texturas como detalhe arquitetónico de cada
+   bioma, sem substituir as paredes e o chão temáticos fornecidos depois. */
+function desenharTexturasSecundarias(c,tam,tx){
+  const {W,H}=C, topo=Math.round(C.chaoTopo);
+  const pintar=(nomes,zona)=>{
+    if(!nomes?.length) return;
+    const nome=nomes[Math.floor(rndSala('motivo-'+zona)*nomes.length)];
+    if(!SPR.ok(nome)) return;
+    const img=SPR.reg[nome].img;
+    const x=W*(0.16+rndSala('motivo-'+zona,1)*0.68);
+    c.save(); c.imageSmoothingEnabled=false;
+    if(zona==='parede'){
+      const lado=tam*(0.72+rndSala('motivo-parede',2)*0.30);
+      const y=Math.max(10,topo*(0.18+rndSala('motivo-parede',3)*0.42));
+      c.fillStyle='rgba(8,6,5,.72)'; c.fillRect(x-lado/2-4,y-4,lado+8,lado+8);
+      c.globalAlpha=0.62; c.drawImage(img,x-lado/2,y,lado,lado);
+      c.globalAlpha=0.72; c.strokeStyle='rgba(190,171,132,.28)'; c.lineWidth=2;
+      c.strokeRect(x-lado/2,y,lado,lado);
+    } else {
+      const w=tam*(1.05+rndSala('motivo-chao',2)*0.45), h=w*0.42;
+      const y=Math.min(H-h*.55,topo+tam*(1.25+rndSala('motivo-chao',3)*2.10));
+      c.beginPath(); c.ellipse(x,y,w/2,h/2,0,0,Math.PI*2); c.clip();
+      c.globalAlpha=0.58; c.drawImage(img,x-w/2,y-h/2,w,h);
+      const g=c.createRadialGradient(x,y,0,x,y,w/2);
+      g.addColorStop(.55,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.55)');
+      c.fillStyle=g; c.fillRect(x-w/2,y-h/2,w,h);
+    }
+    c.restore();
+  };
+  pintar(tx.motivosParede,'parede');
+  pintar(tx.motivosChao,'chao');
+}
+
 function desenharMotivosCenario(c,tam){
   const {W}=C, topo=Math.round(C.chaoTopo), rank=C.masmorra.rank;
   const tx=C.masmorra.tex||{}, temAcentos=(tx.acentosParede?.length||tx.acentosChao?.length);
@@ -2060,6 +2093,7 @@ function desenharMotivosCenario(c,tam){
     c.globalCompositeOperation='screen'; c.globalAlpha=0.78;
     c.drawImage(img,x-w/2,y-h/2,w,h); c.restore();
   }
+  desenharTexturasSecundarias(c,tam,tx);
   desenharAcentosBioma(c,tam,tx);
 }
 
@@ -2193,8 +2227,9 @@ const MODELO2D = {
   orcmago:   { base:'en_warlock',   kind:'novo', esc:1.0  },
   draconiano:{ base:'en_templar',   kind:'novo', cor:'#3fa89a', esc:1.10 },
   golem:     { base:'en_templar',   kind:'novo', cor:'#9ecfe6', esc:1.20 },
-  cavaleiro: { base:'en_corrupted', kind:'novo', esc:1.05 },
-  sacerdote: { base:'en_necro',     kind:'novo', esc:1.0  },
+  // As duas folhas exclusivas do rank S têm a convenção oposta ao resto do pack.
+  cavaleiro: { base:'en_corrupted', kind:'novo', esc:1.05, orientacaoInvertida:true },
+  sacerdote: { base:'en_necro',     kind:'novo', esc:1.0,  orientacaoInvertida:true },
 };
 /* fallback para os sheets antigos quando os novos não carregam */
 const MODELO2D_ANTIGO = {
@@ -2262,7 +2297,7 @@ function desenharJogador(){
     const escalaPrancha = ESCALA_HEROI_SPRITE[bh] || 1;
     const altHeroi = novo ? ALTURAS_SPRITE.basePx*ALTURAS_SPRITE.heroi*escalaPrancha : 210;
     // o pack novo foi exportado a olhar para a esquerda; inverte a convenção antiga
-    SPR.frameH(ctx, nome, idx, SPR.n(nome), altHeroi*s, espelharSpriteHeroi(novo,j.dirAtq||1), null,
+    SPR.frameH(ctx, nome, idx, SPR.n(nome), altHeroi*s, espelharSpriteHeroi(novo,j.dirAtq||1,bh), null,
                novo?ALTURAS_SPRITE.ancoraY:0.74);
     ctx.restore();
   } else {
@@ -2283,7 +2318,17 @@ function desenharJogador(){
   }
 }
 
-function espelharSpriteHeroi(novo, dir){ return novo ? dir>0 : dir<0; }
+function espelharSpriteHeroi(novo, dir, base=''){
+  if(!novo) return dir<0;
+  // O Mago (nas duas aparências) tem orientação nativa oposta ao resto do pack.
+  const olhaDireita = base==='heroi_mago' || base==='heroi_mago2';
+  return olhaDireita ? dir<0 : dir>0;
+}
+
+function espelharSpriteInimigo(modelo, jogadorAEsquerda){
+  // Mantém a convenção já certa dos outros portais e corrige só as folhas do S.
+  return modelo?.orientacaoInvertida ? !jogadorAEsquerda : jogadorAEsquerda;
+}
 
 function desenharAliado(a){
   const s=escalaProf(a.y)*0.8;
@@ -2349,7 +2394,7 @@ function desenharInimigo(e){
     if(m2.alpha) ctx.globalAlpha=m2.alpha;
     if(e.flash>0) ctx.filter='brightness(2.4)';
     else if(e.congelado>0) ctx.filter='saturate(0.4) brightness(1.35) hue-rotate(150deg)';
-    SPR.frameH(ctx, nome, idx, nf, alt, C.jogador.x < e.x, e.furia ? '#d05c4e' : m2.cor,
+    SPR.frameH(ctx, nome, idx, nf, alt, espelharSpriteInimigo(m2,C.jogador.x < e.x), e.furia ? '#d05c4e' : m2.cor,
                m2.kind==='novo'?ALTURAS_SPRITE.ancoraY:m2.kind==='big'?0.74:0.86);
     ctx.filter='none'; ctx.globalAlpha=1;
     ctx.restore();

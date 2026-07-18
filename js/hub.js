@@ -30,7 +30,9 @@ let fumos = [];              // partículas de fumo
 
 const ASSETS_HUB_NOVOS = new Set(['hub_portal','hub_ferreiro','hub_mercador','hub_base','hub_quadro',
   'hub_aldrico','hub_ponte','hub_arvore_1','hub_arvore_2','hub_arvore_morta',
-  'hub_relva','hub_caminho','hub_praca','hub_agua']);
+  'hub_relva','hub_caminho','hub_praca','hub_agua','hub_muro','hub_cerca','hub_lampiao',
+  'hub_braseiro','hub_braseiro_fogo','hub_bandeira','hub_caixa','hub_barril','hub_sacos',
+  'hub_lenha','hub_armas','hub_espantalho','hub_erva','hub_flores','hub_flores_roxas','hub_pedras']);
 SPR.aoCarregar((nome,sucesso)=>{
   if(!sucesso || !ASSETS_HUB_NOVOS.has(nome)) return;
   mapaDim='';
@@ -269,7 +271,10 @@ function prerenderMapa(){
     [.30,.30],[.40,.24],[.63,.22],[.72,.27],[.90,.30],[.94,.50],
     [.07,.58],[.10,.34],[.30,.86],[.42,.90],[.60,.90],[.70,.86],
     [.93,.66],[.34,.52],[.68,.46],[.26,.64],
-  ];
+  ].filter(([ax,ay])=>!LOCAIS.some(l=>{
+    const dx=(ax-l.x)/0.15, dy=(ay-l.y)/0.17;
+    return dx*dx+dy*dy<1;
+  }));
   for(const [ax,ay] of arvores){
     const base=ajustarBaseIlha(ax*W,ay*H,0.88);
     const opcoes=['hub_arvore_1','hub_arvore_2'].filter(n=>SPR.ok(n));
@@ -277,7 +282,7 @@ function prerenderMapa(){
       const nome=rndM()<0.12&&SPR.ok('hub_arvore_morta')?'hub_arvore_morta':opcoes[Math.floor(rndM()*opcoes.length)];
       const o=SPR.reg[nome], h=(nome==='hub_arvore_1'?86:76)*s*(0.88+rndM()*0.28), w=h*(o.w/o.h);
       crisp.push({ img:o.img, x:base.x-w/2, y:base.y-h*0.88, w, h,
-                   baseX:base.x,baseY:base.y,sombra:[w*.27,h*.075,w*.04],solo:'relva' });
+                   baseX:base.x,baseY:base.y,sombra:[w*.27,h*.075,w*.04] });
     } else if(SPR.ok('cf_tree')){
       const o=SPR.reg.cf_tree, h=70*s*(0.85+rndM()*0.4), w=h*(o.w/o.h);
       crisp.push({ img:o.img, x:base.x-w/2, y:base.y-h*0.88, w, h,
@@ -291,7 +296,23 @@ function prerenderMapa(){
     crisp.push({img:o.img,x:W*0.035,y:H*0.70-h*0.45,w,h});
   } else desenharDoca(c, W*0.045, H*0.70, s);
 
-  /* --- edifícios e adereços --- */
+  /* --- adereços fornecidos pelo dono (sempre ordenados pela base) --- */
+  const decoracoes = [
+    ['hub_muro',.47,.18,27], ['hub_cerca',.73,.23,30],
+    ['hub_lampiao',.39,.38,48], ['hub_braseiro',.43,.29,43], ['hub_braseiro_fogo',.57,.29,46],
+    ['hub_bandeira',.31,.24,68], ['hub_caixa',.73,.45,25], ['hub_barril',.77,.46,27],
+    ['hub_sacos',.70,.44,25], ['hub_lenha',.25,.48,28], ['hub_armas',.27,.43,38],
+    ['hub_espantalho',.89,.62,52], ['hub_erva',.38,.70,22], ['hub_flores',.47,.78,23],
+    ['hub_flores_roxas',.67,.72,23], ['hub_pedras',.57,.86,24],
+  ];
+  for(const [nome,ax,ay,altura] of decoracoes){
+    if(!SPR.ok(nome)) continue;
+    const base=ajustarBaseIlha(ax*W,ay*H,0.89), o=SPR.reg[nome], h=altura*s, w=h*(o.w/o.h);
+    crisp.push({img:o.img,x:base.x-w/2,y:base.y-h*.92,w,h,baseX:base.x,baseY:base.y,
+                sombra:[Math.max(3,w*.22),Math.max(1.5,h*.045),0]});
+  }
+
+  /* --- edifícios --- */
   chamines = [];
   for(const l of [...LOCAIS].sort((a,b)=>a.y-b.y)){
     desenharLocalCache(c, l, s, rndM, crisp);
@@ -456,7 +477,7 @@ function desenharLocalCache(c, l, s, rndM, crisp){
     const alturaBase=l.id==='portais'?118:l.id==='base'?115:l.id==='quadro'?72:108;
     const h=alturaBase*s, w=h*(o.w/o.h), baseY=y+10*s;
     crisp.push({img:o.img,x:x-w/2,y:baseY-h,w,h,baseX:x,baseY,
-                sombra:[srx*s,sry*s,sdx*s],solo:l.id==='portais'?'pedra':'terra'});
+                sombra:[srx*s,sry*s,sdx*s]});
     if(l.id==='ferreiro') chamines.push([x-w*0.24,baseY-h+8*s]);
     c.restore();
     return;

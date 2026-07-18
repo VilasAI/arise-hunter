@@ -391,6 +391,22 @@ $spritesVila = [ordered]@{
   hub_arvore_1     = @{ r = @(5,700,335,325);    max = 380 }
   hub_arvore_2     = @{ r = @(270,690,250,330);  max = 360 }
   hub_arvore_morta = @{ r = @(435,690,215,300);  max = 340 }
+  hub_muro          = @{ r = @(560,700,190,105);  max = 240 }
+  hub_cerca         = @{ r = @(555,800,190,105);  max = 240 }
+  hub_lampiao       = @{ r = @(970,690,105,205);  max = 240 }
+  hub_braseiro      = @{ r = @(1070,700,105,195); max = 220 }
+  hub_braseiro_fogo = @{ r = @(1160,690,120,205); max = 240 }
+  hub_bandeira      = @{ r = @(1290,670,155,325); max = 360 }
+  hub_caixa         = @{ r = @(555,890,95,105);   max = 150 }
+  hub_barril        = @{ r = @(690,890,90,110);   max = 150 }
+  hub_sacos         = @{ r = @(765,890,90,110);   max = 150 }
+  hub_lenha         = @{ r = @(835,880,165,125);  max = 210 }
+  hub_armas         = @{ r = @(985,870,190,150);  max = 240 }
+  hub_espantalho    = @{ r = @(1160,850,150,180); max = 230 }
+  hub_erva          = @{ r = @(555,985,80,95);    max = 120 }
+  hub_flores        = @{ r = @(630,1000,75,86);   max = 110 }
+  hub_flores_roxas  = @{ r = @(795,1000,80,86);   max = 110 }
+  hub_pedras        = @{ r = @(880,1000,105,86);  max = 120 }
 }
 foreach ($nome in $spritesVila.Keys) {
   $v = $spritesVila[$nome]; $r = $v.r

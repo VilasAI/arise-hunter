@@ -153,9 +153,11 @@ const SPR = (function(){
     if(r!=='e') for(let i=1;i<=4;i++) carregar(`bio_${r}_acento_${i}`,`bio_${r}_acento_${i}.png`);
   }
 
-  // Pedravelha v2: edifícios únicos, Aldric, terreno e vegetação sombria.
+  // Pedravelha v2: edifícios únicos, Aldric, terreno, vegetação e adereços.
   for(const nome of ['portal','ferreiro','mercador','base','quadro','aldrico','ponte',
-    'arvore_1','arvore_2','arvore_morta','relva','caminho','praca','agua']){
+    'arvore_1','arvore_2','arvore_morta','relva','caminho','praca','agua',
+    'muro','cerca','lampiao','braseiro','braseiro_fogo','bandeira','caixa','barril',
+    'sacos','lenha','armas','espantalho','erva','flores','flores_roxas','pedras']){
     carregar('hub_'+nome,'hub_'+nome+'.png');
   }
 

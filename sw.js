@@ -1,7 +1,7 @@
 /* Service worker — Vigília
    Código (HTML/CSS/JS): network-first → atualizações aplicam-se logo.
    Assets (spritesheets, ícones): cache-first → offline rápido. */
-const CACHE = 'vigilia-v34';
+const CACHE = 'vigilia-v35';
 const PREFIXO = 'vigilia-';   // só limpamos as NOSSAS caches antigas
 const NUCLEO = [
   './', './index.html', './css/style.css',
@@ -22,7 +22,9 @@ for(const r of ['e','d','c','b','a','s']){
   if(r!=='e') for(let i=1;i<=4;i++) NUCLEO.push(`./assets/2d/bio_${r}_acento_${i}.png`);
 }
 for(const nome of ['portal','ferreiro','mercador','base','quadro','aldrico','ponte',
-  'arvore_1','arvore_2','arvore_morta','relva','caminho','praca','agua']){
+  'arvore_1','arvore_2','arvore_morta','relva','caminho','praca','agua',
+  'muro','cerca','lampiao','braseiro','braseiro_fogo','bandeira','caixa','barril',
+  'sacos','lenha','armas','espantalho','erva','flores','flores_roxas','pedras']){
   NUCLEO.push(`./assets/2d/hub_${nome}.png`);
 }
 
